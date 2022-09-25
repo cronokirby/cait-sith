@@ -78,7 +78,7 @@ to use the same output, which is bad.
 
 # Graph
 
-Here's a figure describing the dependencies between the different phases.
+Here's a figure describing the dependencies between the different phases:
 
 <img src="./images/dependencies.svg" onload="SVGInject(this)">
 

@@ -15,8 +15,18 @@
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
 <style>
-   svg {
+   @media (prefers-color-scheme: dark) {
+      html[data-color-mode="auto"] svg {
+         color: #ffffff;
+      }
+   }
+
+   html[data-color-mode="dark"] svg {
       color: #ffffff;
+   }
+
+   svg {
+      color: purple;
    }
 
    text {
