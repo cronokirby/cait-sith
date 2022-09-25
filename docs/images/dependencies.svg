@@ -66,7 +66,7 @@
        preserveAspectRatio="xMidYMid">
       <path
          transform="scale(0.5)"
-         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         style="fill:currentColor;fill-rule:evenodd;stroke:currentColor;stroke-width:1pt"
          d="M 5.77,0 -2.88,5 V -5 Z"
          id="path6352" />
     </marker>
@@ -85,7 +85,7 @@
        preserveAspectRatio="xMidYMid">
       <path
          transform="scale(0.5)"
-         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         style="fill:currentColor;fill-rule:evenodd;stroke:currentColor;stroke-width:1pt"
          d="M 5.77,0 -2.88,5 V -5 Z"
          id="path135" />
     </marker>
@@ -104,7 +104,7 @@
        preserveAspectRatio="xMidYMid">
       <path
          transform="scale(0.5)"
-         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         style="fill:currentColor;fill-rule:evenodd;stroke:currentColor;stroke-width:1pt"
          d="M 5.77,0 -2.88,5 V -5 Z"
          id="path4742" />
     </marker>
