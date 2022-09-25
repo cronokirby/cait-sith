@@ -24,7 +24,7 @@ $$
 2. Each $P_i$ sets $\text{Confirm}_i \gets H(\text{Com}_1, \ldots, \text{Com}_N)$.
 3. $T.\text{Add}(\text{Confirm}_i)$
 4. $\star$ Each $P_i$ sends $\text{Confirm}_i$ to every other party.
-5. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{F}_i ; a_0^i, \ldots, a_{t-1}^i))$
+5. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{F}_i; a^i\_0, \ldots, a^i\_{t-1}))$
 6. $\star$ Each $P_i$ sends $(\textbf{F}_i, \pi_i)$ to every other party.
 7. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $x_i^j := \sum_i a_i \cdot j^i$ to each other party $P_j$, and saves $x_i^i$ for itself.
 
