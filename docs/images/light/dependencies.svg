@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="182.12842mm"
+   height="58.915123mm"
+   viewBox="0 0 182.12842 58.915123"
+   version="1.1"
+   id="svg5"
+   inkscape:export-filename="./bitmap.svg"
+   inkscape:export-xdpi="83.677223"
+   inkscape:export-ydpi="83.677223"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+<style>
+   svg {
+      color: black;
+   }
+
+   text {
+      fill: currentColor;
+   }
+</style>
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     showguides="true"
+     inkscape:zoom="1.5340488"
+     inkscape:cx="435.44898"
+     inkscape:cy="478.14645"
+     inkscape:window-width="1920"
+     inkscape:window-height="1011"
+     inkscape:window-x="1920"
+     inkscape:window-y="32"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1">
+    <sodipodi:guide
+       position="72.716797,47.037755"
+       orientation="0,-1"
+       id="guide3075"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="47.190665,1.8495939"
+       orientation="0,-1"
+       id="guide3079"
+       inkscape:locked="false" />
+  </sodipodi:namedview>
+  <defs
+     id="defs2">
+    <marker
+       style="overflow:visible"
+       id="marker6354"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="TriangleStart"
+       markerWidth="5.3244081"
+       markerHeight="6.155385"
+       viewBox="0 0 5.3244081 6.1553851"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:currentColor;fill-rule:evenodd;stroke:currentColor;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path6352" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="TriangleStart"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="TriangleStart"
+       markerWidth="5.3244081"
+       markerHeight="6.155385"
+       viewBox="0 0 5.3244081 6.1553851"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:currentColor;fill-rule:evenodd;stroke:currentColor;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path135" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker4744"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="TriangleStart"
+       markerWidth="5.3244081"
+       markerHeight="6.155385"
+       viewBox="0 0 5.3244081 6.1553851"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:currentColor;fill-rule:evenodd;stroke:currentColor;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path4742" />
+    </marker>
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-12.485293,-71.944921)">
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111px;line-height:1.25;font-family:'IBM Plex Mono';-inkscape-font-specification:'IBM Plex Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;stroke-width:0.241586"
+       x="42.680672"
+       y="83.681572"
+       id="text1375"
+       transform="scale(1.0272962,0.97342907)"><tspan
+         sodipodi:role="line"
+         id="tspan1373"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111px;font-family:'IBM Plex Mono';-inkscape-font-specification:'IBM Plex Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;stroke-width:0.241586"
+         x="42.680672"
+         y="83.681572">Key-Gen</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111px;line-height:1.25;font-family:'IBM Plex Mono';-inkscape-font-specification:'IBM Plex Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;fill:#ff0000;fill-opacity:1;stroke-width:0.264583"
+       x="124.42914"
+       y="126.49767"
+       id="text2269"><tspan
+         sodipodi:role="line"
+         id="tspan2267"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111px;font-family:'IBM Plex Mono';-inkscape-font-specification:'IBM Plex Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;fill:#ff0000;fill-opacity:1;stroke-width:0.264583"
+         x="124.42914"
+         y="126.49767">Triples</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111px;line-height:1.25;font-family:'IBM Plex Mono';-inkscape-font-specification:'IBM Plex Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;stroke-width:0.247253"
+       x="46.81905"
+       y="127.95141"
+       id="text2323"
+       transform="scale(1.0048264,0.99519681)"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111px;font-family:'IBM Plex Mono';-inkscape-font-specification:'IBM Plex Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;stroke-width:0.247253"
+         x="46.81905"
+         y="127.95141"
+         id="tspan2325">Triples Setup</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111px;line-height:1.25;font-family:'IBM Plex Mono';-inkscape-font-specification:'IBM Plex Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;fill:#ff0000;fill-opacity:1;stroke-width:0.264583"
+       x="125.68153"
+       y="81.207253"
+       id="text3057"><tspan
+         sodipodi:role="line"
+         id="tspan3055"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111px;font-family:'IBM Plex Mono';-inkscape-font-specification:'IBM Plex Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;fill:#ff0000;fill-opacity:1;stroke-width:0.264583"
+         x="125.68153"
+         y="81.207253">Presign</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111px;line-height:1.25;font-family:'IBM Plex Mono';-inkscape-font-specification:'IBM Plex Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;fill:#ff0000;fill-opacity:1;stroke-width:0.264583"
+       x="182.53421"
+       y="81.276436"
+       id="text3061"><tspan
+         sodipodi:role="line"
+         id="tspan3059"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111px;font-family:'IBM Plex Mono';-inkscape-font-specification:'IBM Plex Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;fill:#ff0000;fill-opacity:1;stroke-width:0.264583"
+         x="182.53421"
+         y="81.276436">Sign</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111px;line-height:1.25;font-family:'IBM Plex Mono';-inkscape-font-specification:'IBM Plex Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;stroke-width:0.264583"
+       x="182.54076"
+       y="127.2875"
+       id="text3065"><tspan
+         sodipodi:role="line"
+         id="tspan3063"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111px;font-family:'IBM Plex Mono';-inkscape-font-specification:'IBM Plex Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;text-anchor:middle;stroke-width:0.264583"
+         x="182.54076"
+         y="127.2875">m</tspan></text>
+    <rect
+       style="fill:none;fill-opacity:1;stroke:currentColor;stroke-width:0.75;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:0.960374;paint-order:stroke fill markers"
+       id="rect3135"
+       width="69.493324"
+       height="11.606452"
+       x="12.860292"
+       y="118.8786" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:currentColor;stroke-width:0.750001;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:0.960374;paint-order:stroke fill markers"
+       id="rect3141"
+       width="10.04277"
+       height="8.3519392"
+       x="177.42221"
+       y="120.76073" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:currentColor;stroke-width:0.750001;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:0.960374;paint-order:stroke fill markers"
+       id="rect3873"
+       width="38.863972"
+       height="10.234067"
+       x="24.608479"
+       y="73.858093" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#ff0000;stroke-width:0.750001;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:0.960374;paint-order:stroke fill markers"
+       id="rect4031"
+       width="39.190773"
+       height="10.802629"
+       x="106.27194"
+       y="72.986511" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#ff0000;stroke-width:0.750001;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:0.960374;paint-order:stroke fill markers"
+       id="rect4033"
+       width="38.297577"
+       height="11.880927"
+       x="105.29163"
+       y="118.05953" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#ff0000;stroke-width:0.750001;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:0.960374;paint-order:stroke fill markers"
+       id="rect4035"
+       width="24.137455"
+       height="12.508303"
+       x="170.10126"
+       y="72.319923" />
+    <path
+       style="fill:none;fill-opacity:1;stroke:currentColor;stroke-width:0.735839;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:0.960374;marker-end:url(#marker4744);paint-order:stroke fill markers"
+       d="M 82.289588,124.77354 102.54923,124.5876"
+       id="path4714" />
+    <path
+       style="fill:none;fill-opacity:1;stroke:currentColor;stroke-width:0.744306;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:0.960374;marker-end:url(#TriangleStart);paint-order:stroke fill markers"
+       d="m 181.99382,120.36277 0.0891,-32.836366"
+       id="path4788" />
+    <path
+       style="fill:none;fill-opacity:1;stroke:currentColor;stroke-width:0.737433;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:0.960374;marker-end:url(#marker6354);paint-order:stroke fill markers"
+       d="M 63.73721,78.992507 103.13452,78.4433"
+       id="path6350" />
+    <path
+       style="fill:none;fill-opacity:1;stroke:currentColor;stroke-width:0.742777;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:0.960374;marker-end:url(#marker6354);paint-order:stroke fill markers"
+       d="m 123.87669,117.36858 -0.0951,-31.258177"
+       id="path7954" />
+    <path
+       style="fill:none;fill-opacity:1;stroke:currentColor;stroke-width:0.715692;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:0.960374;marker-end:url(#marker6354);paint-order:stroke fill markers"
+       d="m 146.30254,78.062007 h 21.32107"
+       id="path8000"
+       inkscape:export-filename="path8000.svg"
+       inkscape:export-xdpi="83.677223"
+       inkscape:export-ydpi="83.677223" />
+  </g>
+</svg>
