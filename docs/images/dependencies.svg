@@ -14,8 +14,20 @@
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
-  <style
-     id="style10098">#text9814, #path8000, #path7954, #path6350, #path4788, #path4714, #rect4035, #rect4033, #rect4031, #rect3873, #rect3141, #rect3135, #text3067, #text3065, #text3061, #text3057, #text2323, #text2269, #text2105, #text1375 {  }
+<style>
+   @media (prefers-color-scheme: dark) {
+      html[data-color-mode="auto"] svg {
+         color: #ffffff;
+      }
+   }
+
+   html[data-color-mode="dark"] svg {
+      color: #ffffff;
+   }
+
+   text {
+      fill: currentColor;
+   }
 </style>
   <sodipodi:namedview
      id="namedview7"
