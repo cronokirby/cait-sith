@@ -29,6 +29,7 @@ Furthermore, each phase can have a different threshold describing
 how large the party set for the next phase needs to be.
 
 Concretely, we have the following situation:
+
 $$
 \begin{matrix}
 &\scriptsize{\text{Key-Gen}}
@@ -46,6 +47,7 @@ Each phase has a different set of parties, with each subsequent phase
 having a subset of the parties present in the previous one.
 The size of each party set, $N_i$, can also vary.
 The thresholds can also change, subject to the following conditions:
+
 $$
 \begin{aligned}
 &N_0 \geq t\cr
