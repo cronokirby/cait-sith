@@ -33,7 +33,7 @@ $$
 1. Each $P_i$ waits to receive $\text{Confirm}_j$ for each other $P_j$.
 2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Confirm}_j = \text{Confirm}_i$, aborting otherwise.
 3. Each $P_i$ waits to receive $(\textbf{F}_j, \pi_j)$ from each other $P_j$.
-4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ H(\textbf{F}_j) = \text{Com}_j \land \text{Verify}(T, \text{Mau}(\varphi, \textbf{F}_i))$.
+4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ H(\textbf{F}_j) = \text{Com}_j \land \text{Verify}(T, \pi_j, \text{Mau}(\varphi, \textbf{F}_j))$.
 5. Each $P_i$ waits to receive $x_j^i$ from each other $P_j$.
 6. $\blacktriangle$ Each $P_i$ asserts that $\forall j \in [N]\ x_j^i \cdot G = \textbf{F}_j^i$.
 7. $\blacksquare$ Each $P_i$ saves $x_i := \sum_j x^i_j$, $X_j := \sum_i \textbf{F}_i^j$,
