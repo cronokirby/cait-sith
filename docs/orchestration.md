@@ -80,6 +80,10 @@ to use the same output, which is bad.
 
 Here's a figure describing the dependencies between the different phases:
 
-<img src="./images/dependencies.svg" onload="SVGInject(this)">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./images/dark/dependencies.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./images/light/dependencies.svg">
+  <img src="./images/light/dependencies.svg">
+</picture>
 
 The red boxes mean that the output of that phase can only be used once.
