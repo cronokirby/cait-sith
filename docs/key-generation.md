@@ -35,9 +35,10 @@ $$
 3. Each $P_i$ waits to receive $(\textbf{F}_j, \pi_j)$ from each other $P_j$.
 4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ H(\textbf{F}_j) = \text{Com}_j \land \text{Verify}(T, \pi_j, \text{Mau}(\varphi, \textbf{F}_j))$.
 5. Each $P_i$ waits to receive $x_j^i$ from each other $P_j$.
-6. $\blacktriangle$ Each $P_i$ asserts that $\forall j \in [N]\ x_j^i \cdot G = \textbf{F}_j^i$.
-7. $\blacksquare$ Each $P_i$ saves $x_i := \sum_j x^i_j$, $X_j := \sum_i \textbf{F}_i^j$,
+6. Each $P_i$ sets $x_i := \sum_j x^i_j$, $X_j := \sum_i \textbf{F}_i^j$,
 and $X := \sum_j \lambda(\mathcal{P})_j \cdot X_j$.
+7. $\blacktriangle$ Each $P_i$ asserts that $x_i \cdot G = X_i$.
+8. Each $P_i$ saves $x_i$, $[X_j \ |\ j \in [N]]$, and $X$.
 
 **Output**
 
