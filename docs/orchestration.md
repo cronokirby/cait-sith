@@ -79,3 +79,5 @@ to use the same output, which is bad.
 # Graph
 
 Here's a figure describing the dependencies between the different phases.
+
+![](./images/dependencies.svg)
