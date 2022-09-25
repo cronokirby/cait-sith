@@ -15,13 +15,7 @@
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
 <style>
-   @media (prefers-color-scheme: dark) {
-      html[data-color-mode="auto"] svg {
-         color: #ffffff;
-      }
-   }
-
-   html[data-color-mode="dark"] svg {
+   svg {
       color: #ffffff;
    }
 
