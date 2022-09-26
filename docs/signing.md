@@ -214,5 +214,19 @@ to sign a message $m$.
 
 **Round 1:**
 
-1. Each $P_i$ linearizes their share of $\sigma$, setting $\sigma_i \gets \lambda(\mathcal{P}_2)_i \cdot \sigma_i$.
-2. Each $P_i$ sets $s_i \gets \text{Hash}(M)$
+1. Each $P_i$ linearizes their share of $k$, setting $k_i \gets \lambda(\mathcal{P}_2)_i \cdot k_i$.
+2. Each $P_i$ linearizes their share of $\sigma$, setting $\sigma_i \gets \lambda(\mathcal{P}_2)_i \cdot \sigma_i$.
+3. Each $P_i$ sets $s_i \gets \text{Hash}(M) \cdot k_i + \sigma_i$.
+4. $\star$ Each $P_i$ sends $s_i$ to every other party.
+
+**Round 2:**
+
+1. Each $P_i$ waits to receive $s_j$ from every other party.
+2. Each $P_i$ sets $s \gets \sum_{j \in [N]} s_j$.
+3. $\blacktriangle$ Each $P_i$ *asserts* that $(K, s)$ is a valid ECDSA signature for $m$.
+4. Each $P_i$ outputs $(K, s)$.
+
+**Output**
+
+The pair $(K, s)$ is the signature.
+
