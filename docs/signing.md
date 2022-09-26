@@ -82,7 +82,7 @@ $$
 (a_i^\sigma, b_i^\sigma, c_i^\sigma) \gets \lambda(\mathcal{P}_0)_i \cdot (a_i^\sigma, b_i^\sigma, c_i^\sigma)
 $$
 
-4. Each party $P_i$ generates $k_i, d_i \xleftarrow{\$} \mathbb{F}_q$.
+4. Each party $P_i$ generates $k\_i, d\_i \xleftarrow{\\$} \mathbb{F}_q$.
 5. Each party $P_i$ sets $(K_i, D_i) \gets \psi(k_i, d_i)$ where:
 
 $$
@@ -102,14 +102,16 @@ $$
 5. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\psi, (K_i, D_i); k_i, d_i))$.
 6. $\star$ Each $P_i$ sends $(K_i, D_i, \pi_i)$ to every other party.
 7. Each $P_i$ sets:
+
 $$
 \begin{aligned}
-\text{ka}_i &\gets k_i + a_i^0\cr
-\text{db}_i &\gets d_i + b_i^0\cr
-\text{xa}_i &\gets x_i + a_i^0\cr
-\text{kb}_i &\gets k_i + b_i^0\cr
+\text{ka}\_i &\gets k_i + a\_i^0\cr
+\text{db}\_i &\gets d_i + b\_i^0\cr
+\text{xa}\_i &\gets x_i + a\_i^0\cr
+\text{kb}\_i &\gets k_i + b\_i^0\cr
 \end{aligned}
 $$
+
 8. $\star$ Each $P_i$ sends $(\text{ka}_i, \text{db}_i, \text{xa}_i, \text{kb}_i)$ to every other party.
 
 **Round 3:**
@@ -146,15 +148,15 @@ $$
 
 $$
 \begin{aligned}
-\text{kd}_i &\gets \text{ka} \cdot d_i - \text{db} \cdot a_i^0 + c_i^0\cr
-\alpha_0 &\gets \text{xa} \cdot k_i - \text{kb} \cdot a_i^1 + c_i^1\cr
+\text{kd}\_i &\gets \text{ka} \cdot d\_i - \text{db} \cdot a\_i^0 + c\_i^0\cr
+\alpha_0 &\gets \text{xa} \cdot k\_i - \text{kb} \cdot a\_i^1 + c\_i^1\cr
 \end{aligned}
 $$
 
 9. $\star$ Each $P_i$ sends $\text{kd}_i$ to every other party.
 
-10. Each $P_i$ generates $\alpha_1, \ldots, \alpha_{t_1 - 1} \xleftarrow{\$} \mathbb{F}_q$.
-11. Each $P_i$ sets $\textbf{F}_i \gets \varphi(\text{kx}^i_0, \ldots, \text{kx}^i_{t_1 - 1})$, where:
+10. Each $P_i$ generates $\alpha_1, \ldots, \alpha_{t_1 - 1} \xleftarrow{\\$} \mathbb{F}_q$.
+11. Each $P_i$ sets $\textbf{F}\_i \gets \varphi(\text{kx}^i\_0, \ldots, \text{kx}^i\_{t_1 - 1})$, where:
 
 $$
 \varphi(\alpha_0, \ldots, \alpha_{t_1 - 1}) := \left[\left(\sum_i \alpha_i \cdot j^i \right) \cdot G\ |\ j \in [0\ldots N]\right]
@@ -175,7 +177,7 @@ $$
 6. Each $P_i$ sets $\textbf{F} \gets \sum_{j \in [N]} \textbf{F}_j$.
 7. Each $P_i$ *asserts* that $\textbf{F}^0 = \text{xa} \cdot K - \text{kb} \cdot A^1 + C^1$.
 8. Each $P_i$ waits to receive $\text{kx}_j^i$ from each other $P_j$.
-9. Each $P_i$ sets $\text{kx}_i \gets \sum_{j \in [N]} \text{kx}_j^i$
+9. Each $P_i$ sets $\text{kx}\_i \gets \sum\_{j \in [N]} \text{kx}\_j^i$
 10. Each $P_i$ *asserts* that $\text{kx}_i \cdot G = \textbf{F}^i$.
 11. Each $P_i$ modifies $K$, setting $K \gets \frac{1}{\text{kd}} \cdot K$, and then saves $K$.
 12. Each $P_i$ sets $\sigma_i \gets h(K) \cdot \text{kx}_i$.
