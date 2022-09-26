@@ -79,7 +79,7 @@ of a pre-signature.
 3. Each party $P_i$ linearizes their triple shares, setting:
 
 $$
-(a_i^\sigma, b_i^\sigma, c_i^\sigma) \gets \lambda(\mathcal{P}_0)_i \cdot (a_i^\sigma, b_i^\sigma, c_i^\sigma)
+(a_i^\sigma, b_i^\sigma, c_i^\sigma) \gets \lambda(\mathcal{P}_1)_i \cdot (a_i^\sigma, b_i^\sigma, c_i^\sigma)
 $$
 
 4. Each party $P_i$ generates $k\_i, d\_i \xleftarrow{\\$} \mathbb{F}_q$.
