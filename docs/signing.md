@@ -114,7 +114,7 @@ $$
 
 8. $\star$ Each $P_i$ sends $(\text{ka}_i, \text{db}_i, \text{xa}_i, \text{kb}_i)$ to every other party.
 
-9. Each $P_i$ generates $f_1, \ldots, f_{t_1 - 1} \xleftarrow{\$} \mathbb{F}_q$.
+9. Each $P_i$ generates $f\_1, \ldots, f_{t\_1 - 1} \xleftarrow{\\$} \mathbb{F}\_q$.
 10. Each $P_i$ sets $f_0 \gets k_i$, and $\textbf{F}_i \gets \varphi(f_0, \ldots, f_{t_1 - 1})$ where:
 
 $$
@@ -123,7 +123,7 @@ $$
 
 (with the convention $0^0 = 1$).
 
-11. Each $P_i$ generates a proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{F}_i; f_0, \ldots, f_{t_1 - 1}))$
+11. Each $P_i$ generates a proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{F}_i; f\_0, \ldots, f\_{t\_1 - 1}))$
 12. $\star$ Each $P_i$ sends $(\textbf{F}_i, \pi_i)$ to every other party.
 13. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $\text{k}_i^j := \sum_i f_i \cdot j^i$ to each other party $P_j$, and saves $\text{k}_i^i$ for itself.
 
@@ -215,4 +215,4 @@ to sign a message $m$.
 **Round 1:**
 
 1. Each $P_i$ linearizes their share of $\sigma$, setting $\sigma_i \gets \lambda(\mathcal{P}_2)_i \cdot \sigma_i$.
-2. Each $P_i$ sets $s_i \gets \text{Hash}(M)
+2. Each $P_i$ sets $s_i \gets \text{Hash}(M)$
