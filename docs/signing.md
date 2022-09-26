@@ -175,12 +175,12 @@ $$
 
 **Round 4:**
 
-1. Each $P_i$ waits to receive $\text{kd}_j$ from each other $P_j$.
+1. $\bullet$ Each $P_i$ waits to receive $\text{kd}_j$ from each other $P_j$.
 2. Each $P_i$ sets $\text{kd} \gets \sum_{j \in [N]} \text{kd}_j$.
 3. $\blacktriangle$ Each $P_i$ checks that $\text{kd} \cdot G = \text{ka} \cdot D - \text{db} \cdot A^0 + C^0$.
-4. Each $P_i$ waits to receive $(\textbf{G}_j, \pi_j)$ from each other $P_j$.
+4. $\bullet$ Each $P_i$ waits to receive $(\textbf{G}_j, \pi_j)$ from each other $P_j$.
 5. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Verify}(T, \pi_j, \text{Mau}(\varphi, \textbf{G}_j))$.
-6. Each $P_i$ waits to receive $\text{kx}_j^i$ from each other $P_j$.
+6. $\bullet$ Each $P_i$ waits to receive $\text{kx}_j^i$ from each other $P_j$.
 7. Each $P_i$ sets $\text{kx}_ i \gets \sum_ {P_ j \in \mathcal{P}_ 1} \text{kx}^i_ j$ and $\textbf{G}^0 \gets \sum_{P_j \in \mathcal{P}_1} \textbf{G}_j^0$.
 8. $\blacktriangle$ Each $P_i$ *asserts* that $\text{kx}_ i \cdot G = \sum_{P_j \in \mathcal{P}_1} \textbf{G}_j^i$.
 9. Each $P_i$ *asserts* that $\sum_{P_j \in \mathcal{P}_1} \textbf{G}^0_j = \text{xa} \cdot K - \text{kb} \cdot A^1 + C^1$.
@@ -210,7 +210,7 @@ to sign a message $m$.
 
 **Round 2:**
 
-1. Each $P_i$ waits to receive $s_j$ from every other party.
+1. $\bullet$ Each $P_i$ waits to receive $s_j$ from every other party.
 2. Each $P_i$ sets $s \gets \sum_{j \in [N]} s_j$.
 3. $\blacktriangle$ Each $P_i$ *asserts* that $(K, s)$ is a valid ECDSA signature for $m$.
 4. Each $P_i$ outputs $(K, s)$.
