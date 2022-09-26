@@ -25,7 +25,7 @@ $$
 2. Each $P_i$ sets $\text{Confirm}_i \gets H(\text{Com}_1, \ldots, \text{Com}_N)$.
 3. $T.\text{Add}(\text{Confirm}_i)$
 4. $\star$ Each $P_i$ sends $\text{Confirm}_i$ to every other party.
-5. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{F}_i; f))$
+5. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T.\text{Cloned}(i), \text{Mau}(\varphi, \textbf{F}_i; f))$
 6. $\star$ Each $P_i$ sends $(\textbf{F}_i, \pi_i)$ to every other party.
 7. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $x_i^j := f(j)$ to each other party $P_j$, and saves $x_i^i$ for itself.
 
@@ -34,7 +34,7 @@ $$
 1. $\bullet$ Each $P_i$ waits to receive $\text{Confirm}_j$ from each other $P_j$.
 2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Confirm}_j = \text{Confirm}_i$, aborting otherwise.
 3. $\bullet$ Each $P_i$ waits to receive $(\textbf{F}_j, \pi_j)$ from each other $P_j$.
-4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ H(\textbf{F}_j) = \text{Com}_j \land \text{Verify}(T, \pi_j, \text{Mau}(\varphi, \textbf{F}_j))$.
+4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ H(\textbf{F}_j) = \text{Com}_j \land \text{Verify}(T.\text{Cloned}(j), \pi_j, \text{Mau}(\varphi, \textbf{F}_j))$.
 5. $\bullet$ Each $P_i$ waits to receive $x_j^i$ from each other $P_j$.
 6. Each $P_i$ sets $x_i \gets \sum_j x^i_j$ and $X \gets \sum_j \textbf{F}_j^0$.
 7. $\blacktriangle$ Each $P_i$ asserts that $x_i \cdot G = \sum_j \textbf{F}_j^i$.

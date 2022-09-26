@@ -100,7 +100,7 @@ $$
 2. Each $P_i$ sets $\text{Confirm}_i \gets H(\text{Com}_1, \ldots, \text{Com}_N)$.
 3. $T.\text{Add}(\text{Confirm}_i)$
 4. $\star$ Each $P_i$ sends $\text{Confirm}_i$ to every other party.
-5. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\psi, (\textbf{F}_i, D_i); f, d_i))$, where:
+5. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T.\text{Cloned}(i), \text{Mau}(\psi, (\textbf{F}_i, D_i); f, d_i))$, where:
 
 $$
 \psi(f, d_i) := (\varphi(f), d_i \cdot G)
@@ -126,7 +126,7 @@ $$
 1. $\bullet$ Each $P_i$ waits to receive $\text{Confirm}_j$ from each other $P_j$.
 2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_1.\ \text{Confirm}_j = \text{Confirm}_i$, aborting otherwise.
 3. $\bullet$ Each $P_i$ waits to receive $(\textbf{F}_j, D_j, \pi_j)$ from each other $P_j$.
-4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_ j \in \mathcal{P}_ 1.\ H(\textbf{F}_ j, D_ j) = \text{Com}_ j \land \text{Verify}(T, \pi_ j, \text{Mau}(\psi, (\textbf{F}_ j, D_ j)))$.
+4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_ j \in \mathcal{P}_ 1.\ H(\textbf{F}_ j, D_ j) = \text{Com}_ j \land \text{Verify}(T.\text{Cloned}(j), \pi_ j, \text{Mau}(\psi, (\textbf{F}_ j, D_ j)))$.
 5. $\bullet$ Each $P_i$ waits to receive $k_j^i$ from each other party $P_j$.
 6. Each $P_i$ sets $k_ i \gets \sum_{P_ j \in \mathcal{P}_ 1} k^i_ j$ and $K \gets \sum_ {P_ j \in \mathcal{P}_ 1} \textbf{F}_ j^0$.
 7. $\blacktriangle$ Each $P_i$ *asserts* that $k_i \cdot G = \sum_{P_j \in \mathcal{P}_1} \textbf{F}_j^i$.
@@ -169,7 +169,7 @@ $$
 14. Each $P_i$ generates $g_1, \ldots, g_ {t_1 - 1} \xleftarrow{\\\$} \mathbb{F}_q$, which, along with $g_0$, define a polynomial $g$.
 15. Each $P_i$ sets $\textbf{G}_i \gets \varphi(g)$.
 
-16. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{G}_i; g))$.
+16. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T.\text{Cloned}(i), \text{Mau}(\varphi, \textbf{G}_i; g))$.
 17. $\star$ Each $P_i$ sends $(\textbf{G}_i, \pi_i)$ to every other party.
 18. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $\text{kx}_i^j := g(j)$ to each other party $P_j$, and saves $\text{kx}_i^i$ for itself.
 
@@ -179,7 +179,7 @@ $$
 2. Each $P_i$ sets $\text{kd} \gets \sum_{j \in [N]} \text{kd}_j$.
 3. $\blacktriangle$ Each $P_i$ checks that $\text{kd} \cdot G = \text{ka} \cdot D - \text{db} \cdot A^0 + C^0$.
 4. $\bullet$ Each $P_i$ waits to receive $(\textbf{G}_j, \pi_j)$ from each other $P_j$.
-5. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Verify}(T, \pi_j, \text{Mau}(\varphi, \textbf{G}_j))$.
+5. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Verify}(T.\text{Cloned}(j), \pi_j, \text{Mau}(\varphi, \textbf{G}_j))$.
 6. $\bullet$ Each $P_i$ waits to receive $\text{kx}_j^i$ from each other $P_j$.
 7. Each $P_i$ sets $\text{kx}_ i \gets \sum_ {P_ j \in \mathcal{P}_ 1} \text{kx}^i_ j$ and $\textbf{G}^0 \gets \sum_{P_j \in \mathcal{P}_1} \textbf{G}_j^0$.
 8. $\blacktriangle$ Each $P_i$ *asserts* that $\text{kx}_ i \cdot G = \sum_{P_j \in \mathcal{P}_1} \textbf{G}_j^i$.
