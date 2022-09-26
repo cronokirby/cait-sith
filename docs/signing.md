@@ -152,7 +152,7 @@ $$
 8. $\star$ Each $P_i$ sends $\text{kd}_i$ to every other party.
 
 9. Each $P_i$ generates $\alpha_1, \ldots, \alpha_{t_1 - 1} \xleftarrow{\$} \mathbb{F}_q$.
-10. Each $P_i$ sets $\bold{F}_i \gets \varphi(\text{kx}^i_0, \ldots, \text{kx}^i_{t_1 - 1})$, where:
+10. Each $P_i$ sets $\textbf{F}_i \gets \varphi(\text{kx}^i_0, \ldots, \text{kx}^i_{t_1 - 1})$, where:
 
 $$
 \varphi(\alpha_0, \ldots, \alpha_{t_1 - 1}) := \left[\left(\sum_i \alpha_i \cdot j^i \right) \cdot G\ |\ j \in [0\ldots N]\right]
@@ -160,7 +160,7 @@ $$
 
 (with the convention $0^0 = 1$).
 11. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{F}_i; \text{kx}^i\_0, \ldots, \text{kx}^i\_{t_1-1}))$.
-12. $\star$ Each $P_i$ sends $(\bold{F}_i, \pi_i)$ to every other party.
+12. $\star$ Each $P_i$ sends $(\textbf{F}_i, \pi_i)$ to every other party.
 13. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $\text{kx}_i^j := \sum_i \alpha_i \cdot j^i$ to each other party $P_j$, and saves $\text{kx}_i^i$ for itself.
 
 **Round 4:**
