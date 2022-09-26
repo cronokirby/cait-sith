@@ -126,7 +126,7 @@ $$
 1. $\bullet$ Each $P_i$ waits to receive $\text{Confirm}_j$ from each other $P_j$.
 2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_1.\ \text{Confirm}_j = \text{Confirm}_i$, aborting otherwise.
 3. $\bullet$ Each $P_i$ waits to receive $(\textbf{F}_j, D_j, \pi_j)$ from each other $P_j$.
-4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_1.\ H(\textbf{F}_ j, D_ j) = \text{Com}_ j \land \text{Verify}(T, \pi_ j, \text{Mau}(\psi, (\textbf{F}_ j, D_ j)))$.
+4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_ j \in \mathcal{P}_ 1.\ H(\textbf{F}_ j, D_ j) = \text{Com}_ j \land \text{Verify}(T, \pi_ j, \text{Mau}(\psi, (\textbf{F}_ j, D_ j)))$.
 5. $\bullet$ Each $P_i$ waits to receive $k_j^i$ from each other party $P_j$.
 6. Each $P_i$ sets $k_ i \gets \sum_{P_ j \in \mathcal{P}_ 1} k^i_ j$ and $K \gets \sum_ {P_ j \in \mathcal{P}_ 1} \textbf{F}_ j^0$.
 7. $\blacktriangle$ Each $P_i$ *asserts* that $k_i \cdot G = \sum_{P_j \in \mathcal{P}_1} \textbf{F}_j^i$.
