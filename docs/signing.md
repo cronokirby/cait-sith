@@ -66,7 +66,7 @@ The parties also hold the public key $X = x \cdot G$.
 
 In the prior phase, a set of parties $\mathcal{P}_0$ of size $N_0$
 came together to generate a $t_0 \geq t$ threshold sharing of triples $a^0$, $b^0$, $c^0 = a^0 b^0$
-and $a^1$, $b^1$, $c^1 = a^1 b^1$ , along with values $A^\sigma = a^\sigma \cdot G$, $ B^\sigma = b^\sigma \cdot G$ and $C^\sigma = c^\sigma \cdot G$.
+and $a^1$, $b^1$, $c^1 = a^1 b^1$ , along with values $A^\sigma = a^\sigma \cdot G$, $B^\sigma = b^\sigma \cdot G$ and $C^\sigma = c^\sigma \cdot G$.
 
 In the current phase, a set of parties $\mathcal{P}_1 \subseteq \mathcal{P}_0$
 of size $N_1 \geq t_0$ wish to generate a threshold $t_1 \geq t$ sharing
