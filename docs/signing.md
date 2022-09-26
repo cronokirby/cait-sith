@@ -181,7 +181,7 @@ $$
 4. Each $P_i$ waits to receive $(\textbf{G}_j, \pi_j)$ from each other $P_j$.
 5. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Verify}(T, \pi_j, \text{Mau}(\varphi, \textbf{G}_j))$.
 6. Each $P_i$ waits to receive $\text{kx}_j^i$ from each other $P_j$.
-7. Each $P_i$ sets $\text{kx}_ i \gets \sum_{P_j \in \mathcal{P}_1} \text{kx}^i_ j$ and $\textbf{G}^0 \gets \sum_{P_j \in \mathcal{P}_1} \textbf{G}_j^0$.
+7. Each $P_i$ sets $\text{kx}_ i \gets \sum_ {P_ j \in \mathcal{P}_ 1} \text{kx}^i_ j$ and $\textbf{G}^0 \gets \sum_{P_j \in \mathcal{P}_1} \textbf{G}_j^0$.
 8. $\blacktriangle$ Each $P_i$ *asserts* that $\text{kx}_ i \cdot G = \sum_{P_j \in \mathcal{P}_1} \textbf{G}_j^i$.
 9. Each $P_i$ *asserts* that $\sum_{P_j \in \mathcal{P}_1} \textbf{G}^0_j = \text{xa} \cdot K - \text{kb} \cdot A^1 + C^1$.
 10. Each $P_i$ modifies $K$, setting $K \gets \frac{1}{\text{kd}} \cdot K$, and then saves $K$.
