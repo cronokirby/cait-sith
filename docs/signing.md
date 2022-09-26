@@ -115,7 +115,7 @@ $$
 8. $\star$ Each $P_i$ sends $(\text{ka}_i, \text{db}_i, \text{xa}_i, \text{kb}_i)$ to every other party.
 
 9. Each $P_i$ generates $f\_1, \ldots, f_{t\_1 - 1} \xleftarrow{\\$} \mathbb{F}\_q$.
-10. Each $P_i$ sets $f_0 \gets k_i$, and $\textbf{F}_i \gets \varphi(f_0, \ldots, f_{t_1 - 1})$ where:
+10. Each $P_i$ sets $f_0 \gets k_i$, and $\textbf{F}\_i \gets \varphi(f\_0, \ldots, f\_{t\_1 - 1})$ where:
 
 $$
 \varphi(f_0, \ldots, f_{t_1 - 1}) := \left[\left(\sum_i f_i \cdot j^i \right) \cdot G\ |\ j \in [0\ldots N]\right]
