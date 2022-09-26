@@ -82,10 +82,10 @@ $$
 $$
 
 3. Each party $P_i$ generates $k_i, d_i \xleftarrow{\$} \mathbb{F}_q$.
-4. Each party $P_i$ sets $(K_i, D_i) \gets \varphi(k_i, d_i)$ where:
+4. Each party $P_i$ sets $(K_i, D_i) \gets \psi(k_i, d_i)$ where:
 
 $$
-\varphi(k_i, d_i) := (k_i \cdot G, d_i \cdot G)
+\psi(k_i, d_i) := (k_i \cdot G, d_i \cdot G)
 $$
 
 
@@ -98,7 +98,7 @@ $$
 2. Each $P_i$ sets $\text{Confirm}_i \gets H(\text{Com}_1, \ldots, \text{Com}_N)$.
 3. $T.\text{Add}(\text{Confirm}_i)$
 4. $\star$ Each $P_i$ sends $\text{Confirm}_i$ to every other party.
-5. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, (K_i, D_i); k_i, d_i))$.
+5. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\psi, (K_i, D_i); k_i, d_i))$.
 6. $\star$ Each $P_i$ sends $(K_i, D_i, \pi_i)$ to every other party.
 7. Each $P_i$ sets:
 $$
@@ -166,4 +166,20 @@ $$
 **Round 4:**
 
 1. Each $P_i$ waits to receive $\text{kd}_j$ from each other $P_j$.
+2. Each $P_i$ sets $\text{kd} \gets \sum_{j \in [N]} \text{kd}_j$.
+3. $\blacktriangle$ Each $P_i$ checks that $\text{kd} \cdot G = \text{ka} \cdot D - \text{db} \cdot A^0 + C^0$.
+4. Each $P_i$ waits to receive $(\textbf{F}_j, \pi_j)$ from each other $P_j$.
+5. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Verify}(T, \pi_j, \text{Mau}(\varphi, \textbf{F}_j))$.
+6. Each $P_i$ sets $\textbf{F} \gets \sum_{j \in [N]} \textbf{F}_j$.
+7. Each $P_i$ *asserts* that $\textbf{F}^0 = \text{xa} \cdot K - \text{kb} \cdot A^1 + C^1$.
+8. Each $P_i$ waits to receive $\text{kx}_j^i$ from each other $P_j$.
+9. Each $P_i$ sets $\text{kx}_i \gets \sum_{j \in [N]} \text{kx}_j^i$
+10. Each $P_i$ *asserts* that $\text{kx}_i \cdot G = \textbf{F}^i$.
+11. Each $P_i$ modifies $K$, setting $K \gets \frac{1}{\text{kd}} \cdot K$, and then saves $K$.
+12. Each $P_i$ sets $\sigma_i \gets h(K) \cdot \text{kx}_i$.
+
+**Output**
+
+The presignature consists of $(K, \sigma)$ with $\sigma$ being
+threshold shared as $\sigma_1, \ldots, \sigma_{N_1}$.
 
