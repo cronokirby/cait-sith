@@ -131,8 +131,8 @@ $$
 6. Each $P_i$ sets $k_ i \gets \sum_{P_ j \in \mathcal{P}_ 1} k^i_ j$ and $K \gets \sum_ {P_ j \in \mathcal{P}_ 1} \textbf{F}_ j^0$.
 7. $\blacktriangle$ Each $P_i$ *asserts* that $k_i \cdot G = \sum_{P_j \in \mathcal{P}_1} \textbf{F}_j^i$.
 8. Each $P_i$ saves $k_i$ and $K$.
-5. $\bullet$ Each $P_i$ waits to receive $(\text{ka}_j, \text{db}_j, \text{xa}_j, \text{kb}_j)$ from each other $P_j$.
-6. Each $P_i$ sets:
+9. $\bullet$ Each $P_i$ waits to receive $(\text{ka}_j, \text{db}_j, \text{xa}_j, \text{kb}_j)$ from each other $P_j$.
+10. Each $P_i$ sets:
 
 $$
 \begin{aligned}
@@ -144,7 +144,7 @@ D &\gets \sum_ {P_ j \in \mathcal{P}_ 1} D_ j\cr
 \end{aligned}
 $$
 
-7. $\blacktriangle$ Each $P_i$ asserts that:
+11. $\blacktriangle$ Each $P_i$ asserts that:
 
 $$
 \begin{aligned}
@@ -155,7 +155,7 @@ $$
 \end{aligned}
 $$
 
-8. Each $P_i$ sets:
+12. Each $P_i$ sets:
 
 $$
 \begin{aligned}
@@ -164,14 +164,14 @@ g_ 0 &\gets \text{xa} \cdot f(0) - \text{kb} \cdot a^1_ i + c^1_ i\cr
 \end{aligned}
 $$
 
-9. $\star$ Each $P_i$ sends $\text{kd}_i$ to every other party.
+13. $\star$ Each $P_i$ sends $\text{kd}_i$ to every other party.
 
-10. Each $P_i$ generates $g_1, \ldots, g_ {t_1 - 1} \xleftarrow{\\\$} \mathbb{F}_q$, which, along with $g_0$, define a polynomial $g$.
-11. Each $P_i$ sets $\textbf{G}_i \gets \varphi(g)$.
+14. Each $P_i$ generates $g_1, \ldots, g_ {t_1 - 1} \xleftarrow{\\\$} \mathbb{F}_q$, which, along with $g_0$, define a polynomial $g$.
+15. Each $P_i$ sets $\textbf{G}_i \gets \varphi(g)$.
 
-12. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{G}_i; g))$.
-13. $\star$ Each $P_i$ sends $(\textbf{G}_i, \pi_i)$ to every other party.
-14. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $\text{kx}_i^j := g(j)$ to each other party $P_j$, and saves $\text{kx}_i^i$ for itself.
+16. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{G}_i; g))$.
+17. $\star$ Each $P_i$ sends $(\textbf{G}_i, \pi_i)$ to every other party.
+18. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $\text{kx}_i^j := g(j)$ to each other party $P_j$, and saves $\text{kx}_i^i$ for itself.
 
 **Round 4:**
 
