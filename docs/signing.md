@@ -10,6 +10,7 @@ for signatures.
 Let $h : \mathbb{G} \to \mathbb{F}_q$ denote a different "hash function" used for converting points to scalars.
 Commonly, this is done by "simply" taking the x coordinate of the affine
 representation of a point.
+Let $H : \{0, 1\}^* \to \{0, 1\}^{2\lambda}$ be a generic hash function.
 
 # 2 ECDSA Recap
 
@@ -56,3 +57,113 @@ $$
 &\ \texttt{asssert } \hat{K} = K\cr
 \end{align}
 $$
+
+# 3 Presigning
+
+In the setup phase, the parties generated a $t$ threshold sharing
+of the private key $x$, with the share of $\mathcal{P}_i$ being $x_i$.
+The parties also hold the public key $X = x \cdot G$.
+
+In the prior phase, a set of parties $\mathcal{P}_0$ of size $N_0$
+came together to generate a $t_0 \geq t$ threshold sharing of triples $a^0$, $b^0$, $c^0 = a^0 b^0$
+and $a^1$, $b^1$, $c^1 = a^1 b^1$ , along with values $A^\sigma = a^\sigma \cdot G$, $ B^\sigma = b^\sigma \cdot G$ and $C^\sigma = c^\sigma \cdot G$.
+
+In the current phase, a set of parties $\mathcal{P}_1 \subseteq \mathcal{P}_0$
+of size $N_1 \geq t_0$ wish to generate a threshold $t_1 \geq t$ sharing
+of a pre-signature.
+
+**Round 1:**
+
+1. Each party $P_i$ linearizes their share of $x$, setting $x_i \gets \lambda(\mathcal{P}_0)_i \cdot x_i$.
+2. Each party $P_i$ linearizes their triple shares, setting:
+
+$$
+(a_i^\sigma, b_i^\sigma, c_i^\sigma) \gets \lambda(\mathcal{P}_0)_i \cdot (a_i^\sigma, b_i^\sigma, c_i^\sigma)
+$$
+
+3. Each party $P_i$ generates $k_i, d_i \xleftarrow{\$} \mathbb{F}_q$.
+4. Each party $P_i$ sets $(K_i, D_i) \gets \varphi(k_i, d_i)$ where:
+
+$$
+\varphi(k_i, d_i) := (k_i \cdot G, d_i \cdot G)
+$$
+
+
+5. Each party $P_i$ sets $\text{Com}_i \gets H(K_i, D_I)$.
+6. $\star$ Each party $P_i$ sends $\text{Com}_i$ to every other party.
+
+**Round 2:**
+
+1. Each $P_i$ waits to receive $\text{Com}_j$ from each other $P_j$.
+2. Each $P_i$ sets $\text{Confirm}_i \gets H(\text{Com}_1, \ldots, \text{Com}_N)$.
+3. $T.\text{Add}(\text{Confirm}_i)$
+4. $\star$ Each $P_i$ sends $\text{Confirm}_i$ to every other party.
+5. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, (K_i, D_i); k_i, d_i))$.
+6. $\star$ Each $P_i$ sends $(K_i, D_i, \pi_i)$ to every other party.
+7. Each $P_i$ sets:
+$$
+\begin{aligned}
+\text{ka}_i &\gets k_i + a_i^0\cr
+\text{db}_i &\gets d_i + b_i^0\cr
+\text{xa}_i &\gets x_i + a_i^0\cr
+\text{kb}_i &\gets k_i + b_i^0\cr
+\end{aligned}
+$$
+8. $\star$ Each $P_i$ sends $(\text{ka}_i, \text{db}_i, \text{xa}_i, \text{kb}_i)$ to every other party.
+
+**Round 3:**
+
+1. Each $P_i$ waits to receive $\text{Confirm}_j$ from each other $P_j$.
+2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Confirm}_j = \text{Confirm}_i$, aborting otherwise.
+3. Each $P_i$ waits to receive $(K_j, D_j, \pi_j)$ from each other $P_j$.
+4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ H(K_i, D_i) = \text{Com}_j \land \text{Verify}(T, \pi_j, \text{Mau}(\varphi, (K_i, D_i)))$.
+5. Each $P_i$ sets:
+
+$$
+\begin{aligned}
+K &\gets \sum_{i \in [N]} K_i \quad& D &\gets \sum_{i \in [N]} D_i\cr
+\text{ka} &\gets \sum_{i \in [N]} \text{ka}_i \quad&
+\text{db} &\gets \sum_{i \in [N]} \text{db}_i\cr
+\text{xa} &\gets \sum_{i \in [N]} \text{xa}_i\quad&
+\text{kb} &\gets \sum_{i \in [N]} \text{kb}_i\cr
+\end{aligned}
+$$
+
+6. $\blacktriangle$ Each $P_i$ asserts that:
+
+$$
+\begin{aligned}
+\text{ka} \cdot G &= K + A^0\cr
+\text{db} \cdot G &= D + B^0\cr
+\text{xa} \cdot G &= X + A^1\cr
+\text{kb} \cdot G &= K + B^1\cr
+\end{aligned}
+$$
+
+7. Each $P_i$ sets:
+
+$$
+\begin{aligned}
+\text{kd}_i &\gets \text{ka} \cdot d_i - \text{db} \cdot a_i^0 + c_i^0\cr
+\alpha_0 &\gets \text{xa} \cdot k_i - \text{kb} \cdot a_i^1 + c_i^1\cr
+\end{aligned}
+$$
+
+8. $\star$ Each $P_i$ sends $\text{kd}_i$ to every other party.
+
+9. Each $P_i$ generates $\alpha_1, \ldots, \alpha_{t_1 - 1} \xleftarrow{\$} \mathbb{F}_q$.
+10. Each $P_i$ sets $\bold{F}_i \gets \varphi(\text{kx}^i_0, \ldots, \text{kx}^i_{t_1 - 1})$, where:
+
+$$
+\varphi(\alpha_0, \ldots, \alpha_{t_1 - 1}) := \left[\left(\sum_i \alpha_i \cdot j^i \right) \cdot G\ |\ j \in [0\ldots N]\right]
+$$
+
+(with the convention $0^0 = 1$).
+11. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{F}_i; \text{kx}^i\_0, \ldots, \text{kx}^i\_{t_1-1}))$.
+12. $\star$ Each $P_i$ sends $(\bold{F}_i, \pi_i)$ to every other party.
+13. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $\text{kx}_i^j := \sum_i \alpha_i \cdot j^i$ to each other party $P_j$, and saves $\text{kx}_i^i$ for itself.
+
+**Round 4:**
+
+1. Each $P_i$ waits to receive $\text{kd}_j$ from each other $P_j$.
+
