@@ -9,7 +9,7 @@ the following protocol:
 
 1. $T.\text{Add}(\mathcal{P}, t)$
 2. Each $P_i$ generates $a_0, \ldots, a_{t - 1} \xleftarrow{R} \mathbb{F}_q$.
-3. Each $P_i$ sets $\textbf{F}_i \gets \varphi(a_0, \ldots, a_ {t-1})$ where:
+3. Each $P_i$ sets $\textbf{F}_ i \gets \varphi(a_ 0, \ldots, a_ {t-1})$ where:
 
 $$
 \varphi(a_0, \ldots, a_{t - 1}) := \left[\left(\sum_i a_i \cdot j^i\right) \cdot G \ |\ j \in [N] \right]
