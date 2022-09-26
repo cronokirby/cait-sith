@@ -107,8 +107,8 @@ $$
 \begin{aligned}
 \text{ka}\_i &\gets k_i + a\_i^0\cr
 \text{db}\_i &\gets d_i + b\_i^0\cr
-\text{xa}\_i &\gets x_i + a\_i^0\cr
-\text{kb}\_i &\gets k_i + b\_i^0\cr
+\text{xa}\_i &\gets x_i + a\_i^1\cr
+\text{kb}\_i &\gets k_i + b\_i^1\cr
 \end{aligned}
 $$
 
