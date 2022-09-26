@@ -37,7 +37,7 @@ $$
 4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ H(\textbf{F}_j) = \text{Com}_j \land \text{Verify}(T, \pi_j, \text{Mau}(\varphi, \textbf{F}_j))$.
 5. $\bullet$ Each $P_i$ waits to receive $x_j^i$ from each other $P_j$.
 6. Each $P_i$ sets $x_i := \sum_j x^i_j$ and $X := \sum_j \textbf{F}_j^0$.
-7. $\blacktriangle$ Each $P_i$ asserts that $x_i \cdot G = \sum_j \bold{F}_j^i$.
+7. $\blacktriangle$ Each $P_i$ asserts that $x_i \cdot G = \sum_j \textbf{F}_j^i$.
 8. Each $P_i$ outputs $x_i$ and $X$.
 
 **Output**
