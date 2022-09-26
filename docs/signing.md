@@ -128,7 +128,7 @@ $$
 3. $\bullet$ Each $P_i$ waits to receive $(\textbf{F}_j, D_j, \pi_j)$ from each other $P_j$.
 4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_1.\ H(\textbf{F}_ j, D_ j) = \text{Com}_ j \land \text{Verify}(T, \pi_ j, \text{Mau}(\psi, (\textbf{F}_ j, D_ j)))$.
 5. $\bullet$ Each $P_i$ waits to receive $k_j^i$ from each other party $P_j$.
-6. Each $P_i$ sets $k_i \gets \sum_{P_j \in \mathcal{P}_1} k_j^i$ and $K \gets \sum_{P_j \in \mathcal{P}_1} \textbf{F}_j^0$.
+6. Each $P_i$ sets $k_ i \gets \sum_{P_ j \in \mathcal{P}_ 1} k^i_ j$ and $K \gets \sum_ {P_ j \in \mathcal{P}_ 1} \textbf{F}_ j^0$.
 7. $\blacktriangle$ Each $P_i$ *asserts* that $k_i \cdot G = \sum_{P_j \in \mathcal{P}_1} \textbf{F}_j^i$.
 8. Each $P_i$ saves $k_i$ and $K$.
 5. $\bullet$ Each $P_i$ waits to receive $(\text{ka}_j, \text{db}_j, \text{xa}_j, \text{kb}_j)$ from each other $P_j$.
@@ -136,7 +136,7 @@ $$
 
 $$
 \begin{aligned}
-D &\gets \sum_{P_j \in \mathcal{P}_1} D_j\cr
+D &\gets \sum_ {P_ j \in \mathcal{P}_ 1} D_ j\cr
 \text{ka} &\gets \sum_ {P_ j \in \mathcal{P}_ 1} \text{ka}_ j \quad&
 \text{db} &\gets \sum_ {P_ j \in \mathcal{P}_ 1} \text{db}_ j\cr
 \text{xa} &\gets \sum_ {P_ j \in \mathcal{P}_ 1} \text{xa}_ j\quad&
