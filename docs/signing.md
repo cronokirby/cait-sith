@@ -168,7 +168,7 @@ $$
 
 9. $\star$ Each $P_i$ sends $\text{kd}_i$ to every other party.
 
-10. Each $P_i$ generates $g_1, \ldots, g_ {t_1 - 1} \xleftarrow{\$} \mathbb{F}_q$.
+10. Each $P_i$ generates $g_1, \ldots, g_ {t_1 - 1} \xleftarrow{\\\$} \mathbb{F}_q$.
 11. Each $P_i$ sets $\textbf{G}_i \gets \varphi(g_0, \ldots, g_n)$, where:
 
 12. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{G}_i; \text{kx}^i\_0, \ldots, \text{kx}^i\_{t_1-1}))$.
