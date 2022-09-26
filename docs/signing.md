@@ -74,7 +74,8 @@ of a pre-signature.
 
 **Round 1:**
 
-1. $T.\text{Add}(\mathcal{P}_0, t_0, \mathcal{P}_1, t_1, A^0, B^0, C^0, A^1, B^1, C^1)$
+1. Each $P_i$ checks that $\mathcal{P}_1 \subseteq \mathcal{P}_0$, and $t_1 \geq t$.
+1. $T.\text{Add}(t, \mathcal{P}_0, t_0, \mathcal{P}_1, t_1, A^0, B^0, C^0, A^1, B^1, C^1)$
 2. Each party $P_i$ linearizes their share of $x$, setting $x_i \gets \lambda(\mathcal{P}_1)_i \cdot x_i$.
 3. Each party $P_i$ linearizes their triple shares, setting:
 
@@ -82,67 +83,64 @@ $$
 (a_i^\sigma, b_i^\sigma, c_i^\sigma) \gets \lambda(\mathcal{P}_1)_i \cdot (a_i^\sigma, b_i^\sigma, c_i^\sigma)
 $$
 
-4. Each party $P_i$ generates $k\_i, d\_i \xleftarrow{\\$} \mathbb{F}_q$.
-5. Each party $P_i$ sets $(K_i, D_i) \gets \psi(k_i, d_i)$ where:
+3. Each $P_i$ generates $f_0, \ldots, f_{t - 1} \xleftarrow{\\\$} \mathbb{F}_q$, defining a polynomial $f$.
+4. Each $P_i$ sets $\textbf{F}_ i \gets \varphi(f)$ where:
 
 $$
-\psi(k_i, d_i) := (k_i \cdot G, d_i \cdot G)
+\varphi(f) := [f(0) \cdot G]\ ||\ \left[f(j) \cdot G \ |\ P_j \in \mathcal{P}_1 \right]
 $$
 
-
-5. Each party $P_i$ sets $\text{Com}_i \gets H(K_i, D_I)$.
-6. $\star$ Each party $P_i$ sends $\text{Com}_i$ to every other party.
+5. Each $P_i$ generates $d_i \xleftarrow{\\\$} \mathbb{F}_q$, and sets $D_i \gets d_i \cdot G$.
+6. Each party $P_i$ sets $\text{Com}_i \gets H(\textbf{F}_i, D_i)$.
+7. $\star$ Each party $P_i$ sends $\text{Com}_i$ to every other party.
 
 **Round 2:**
 
-1. Each $P_i$ waits to receive $\text{Com}_j$ from each other $P_j$.
+1. $\bullet$ Each $P_i$ waits to receive $\text{Com}_j$ from each other $P_j$.
 2. Each $P_i$ sets $\text{Confirm}_i \gets H(\text{Com}_1, \ldots, \text{Com}_N)$.
 3. $T.\text{Add}(\text{Confirm}_i)$
 4. $\star$ Each $P_i$ sends $\text{Confirm}_i$ to every other party.
-5. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\psi, (K_i, D_i); k_i, d_i))$.
-6. $\star$ Each $P_i$ sends $(K_i, D_i, \pi_i)$ to every other party.
-7. Each $P_i$ sets:
+5. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\psi, (\textbf{F}_i, D_i); f, d_i))$, where:
+
+$$
+\psi(f, d_i) := (\varphi(f), d_i \cdot G)
+$$
+
+6. $\star$ Each $P_i$ sends $(\textbf{F}_i, D_i, \pi_i)$ to every other party.
+7. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $\text{k}_i^j := f(j)$ to each other party $P_j$, and saves $\text{k}_i^i$ for itself.
+8. Each $P_i$ sets:
 
 $$
 \begin{aligned}
-\text{ka}\_i &\gets k_i + a\_i^0\cr
-\text{db}\_i &\gets d_i + b\_i^0\cr
-\text{xa}\_i &\gets x_i + a\_i^1\cr
-\text{kb}\_i &\gets k_i + b\_i^1\cr
+\text{ka}_ i &\gets f(0) + a^0_ i\cr
+\text{db}_ i &\gets d_i + b^0_ i\cr
+\text{xa}_ i &\gets x_i + a^1_ i\cr
+\text{kb}_ i &\gets f(0) + b^1_ i\cr
 \end{aligned}
 $$
 
-8. $\star$ Each $P_i$ sends $(\text{ka}_i, \text{db}_i, \text{xa}_i, \text{kb}_i)$ to every other party.
-
-9. Each $P_i$ generates $f\_1, \ldots, f_{t\_1 - 1} \xleftarrow{\\$} \mathbb{F}\_q$.
-10. Each $P_i$ sets $f_0 \gets k_i$, and $\textbf{F}\_i \gets \varphi(f\_0, \ldots, f\_{t\_1 - 1})$ where:
-
-$$
-\varphi(f_0, \ldots, f_{t_1 - 1}) := \left[\left(\sum_i f_i \cdot j^i \right) \cdot G\ |\ j \in [0\ldots N]\right]
-$$
-
-(with the convention $0^0 = 1$).
-
-11. Each $P_i$ generates a proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{F}_i; f\_0, \ldots, f\_{t\_1 - 1}))$
-12. $\star$ Each $P_i$ sends $(\textbf{F}_i, \pi_i)$ to every other party.
-13. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $\text{k}_i^j := \sum_i f_i \cdot j^i$ to each other party $P_j$, and saves $\text{k}_i^i$ for itself.
+9. $\star$ Each $P_i$ sends $(\text{ka}_i, \text{db}_i, \text{xa}_i, \text{kb}_i)$ to every other party.
 
 **Round 3:**
 
-1. Each $P_i$ waits to receive $\text{Confirm}_j$ from each other $P_j$.
-2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Confirm}_j = \text{Confirm}_i$, aborting otherwise.
-3. Each $P_i$ waits to receive $(K_j, D_j, \pi_j)$ from each other $P_j$.
-4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ H(K_i, D_i) = \text{Com}_j \land \text{Verify}(T, \pi_j, \text{Mau}(\varphi, (K_i, D_i)))$.
-5. Each $P_i$ waits to receive $(\text{ka}_j, \text{db}_j, \text{xa}_j, \text{kb}_j)$ from each other $P_j$.
+1. $\bullet$ Each $P_i$ waits to receive $\text{Confirm}_j$ from each other $P_j$.
+2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_1.\ \text{Confirm}_j = \text{Confirm}_i$, aborting otherwise.
+3. $\bullet$ Each $P_i$ waits to receive $(\textbf{F}_j, D_j, \pi_j)$ from each other $P_j$.
+4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_1.\ H(\textbf{F}_ j, D_ j) = \text{Com}_ j \land \text{Verify}(T, \pi_ j, \text{Mau}(\psi, (\textbf{F}_ j, D_ j)))$.
+5. $\bullet$ Each $P_i$ waits to receive $k_j^i$ from each other party $P_j$.
+6. Each $P_i$ sets $k_i \gets \sum_{P_j \in \mathcal{P}_1} k_j^i$ and $K \gets \sum_{P_j \in \mathcal{P}_1} \textbf{F}_j^0$.
+7. $\blacktriangle$ Each $P_i$ *asserts* that $k_i \cdot G = \sum_{P_j \in \mathcal{P}_1} \textbf{F}_j^i$.
+8. Each $P_i$ saves $k_i$ and $K$.
+5. $\bullet$ Each $P_i$ waits to receive $(\text{ka}_j, \text{db}_j, \text{xa}_j, \text{kb}_j)$ from each other $P_j$.
 6. Each $P_i$ sets:
 
 $$
 \begin{aligned}
-K &\gets \sum_{i \in [N]} K_i \quad& D &\gets \sum_{i \in [N]} D_i\cr
-\text{ka} &\gets \sum_{i \in [N]} \text{ka}_i \quad&
-\text{db} &\gets \sum_{i \in [N]} \text{db}_i\cr
-\text{xa} &\gets \sum_{i \in [N]} \text{xa}_i\quad&
-\text{kb} &\gets \sum_{i \in [N]} \text{kb}_i\cr
+D &\gets \sum_{P_j \in \mathcal{P}_1} D_j\cr
+\text{ka} &\gets \sum_{P_j \in \mathcal{P}_1} \text{ka}_j \quad&
+\text{db} &\gets \sum_{P_j \in \mathcal{P}_1} \text{db}_j\cr
+\text{xa} &\gets \sum_{P_j \in \mathcal{P}_1} \text{xa}_j\quad&
+\text{kb} &\gets \sum_{P_j \in \mathcal{P}_1} \text{kb}_j\cr
 \end{aligned}
 $$
 
@@ -161,27 +159,19 @@ $$
 
 $$
 \begin{aligned}
-\text{kd}\_i &\gets \text{ka} \cdot d\_i - \text{db} \cdot a\_i^0 + c\_i^0\cr
-g_0 &\gets \text{xa} \cdot k\_i - \text{kb} \cdot a\_i^1 + c\_i^1\cr
+\text{kd}_ i &\gets \text{ka} \cdot d_ i - \text{db} \cdot a^0_ i + c^0_ i\cr
+g_ 0 &\gets \text{xa} \cdot f(0) - \text{kb} \cdot a^1_ i + c^1_ i\cr
 \end{aligned}
 $$
 
 9. $\star$ Each $P_i$ sends $\text{kd}_i$ to every other party.
 
-10. Each $P_i$ generates $g_1, \ldots, g_ {t_1 - 1} \xleftarrow{\\\$} \mathbb{F}_q$.
-11. Each $P_i$ sets $\textbf{G}_i \gets \varphi(g_0, \ldots, g_n)$, where:
+10. Each $P_i$ generates $g_1, \ldots, g_ {t_1 - 1} \xleftarrow{\\\$} \mathbb{F}_q$, which, along with $g_0$, define a polynomial $g$.
+11. Each $P_i$ sets $\textbf{G}_i \gets \varphi(g)$.
 
-12. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{G}_i; \text{kx}^i\_0, \ldots, \text{kx}^i\_{t_1-1}))$.
+12. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T, \text{Mau}(\varphi, \textbf{G}_i; g))$.
 13. $\star$ Each $P_i$ sends $(\textbf{G}_i, \pi_i)$ to every other party.
-14. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $\text{kx}_i^j := \sum_i \alpha_i \cdot j^i$ to each other party $P_j$, and saves $\text{kx}_i^i$ for itself.
-15. Each $P_i$ waits to receive $(\textbf{F}_j, \pi_j)$ from each other $P_j$.
-16. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Verify}(T, \pi_j, \text{Mau}(\varphi, \textbf{F}_j))$.
-17. Each $P_i$ sets $\textbf{F} \gets \sum_{j \in [N]} \textbf{F}_j$.
-18. $\blacktriangle$ Each $P_i$ *asserts* that $\textbf{F}^0 = K$.
-19. Each $P_i$ waits to receive $k_j^i$ from each other $P_j$.
-20. Each $P_i$ sets $k\_i \gets \sum\_{j \in [N]} k\_j^i$
-21. Each $P_i$ *asserts* that $\text{k}_i \cdot G = \textbf{F}^i$.
-22. Each $P_i$ saves $k_i$.
+14. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $\text{kx}_i^j := g(j)$ to each other party $P_j$, and saves $\text{kx}_i^i$ for itself.
 
 **Round 4:**
 
@@ -190,13 +180,12 @@ $$
 3. $\blacktriangle$ Each $P_i$ checks that $\text{kd} \cdot G = \text{ka} \cdot D - \text{db} \cdot A^0 + C^0$.
 4. Each $P_i$ waits to receive $(\textbf{G}_j, \pi_j)$ from each other $P_j$.
 5. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Verify}(T, \pi_j, \text{Mau}(\varphi, \textbf{G}_j))$.
-6. Each $P_i$ sets $\textbf{G} \gets \sum_{j \in [N]} \textbf{G}_j$.
-7. Each $P_i$ *asserts* that $\textbf{G}^0 = \text{xa} \cdot K - \text{kb} \cdot A^1 + C^1$.
-8. Each $P_i$ waits to receive $\text{kx}_j^i$ from each other $P_j$.
-9. Each $P_i$ sets $\text{kx}\_i \gets \sum\_{j \in [N]} \text{kx}\_j^i$
-10. Each $P_i$ *asserts* that $\text{kx}_i \cdot G = \textbf{G}^i$.
-11. Each $P_i$ modifies $K$, setting $K \gets \frac{1}{\text{kd}} \cdot K$, and then saves $K$.
-12. Each $P_i$ sets $\sigma_i \gets h(K) \cdot \text{kx}_i$, then saves $\sigma_i$.
+6. Each $P_i$ waits to receive $\text{kx}_j^i$ from each other $P_j$.
+7. Each $P_i$ sets $\text{kx}_i \gets \sum_{P_j \in \mathcal{P}_1} \text{kx}_j^i$ and $\textbf{G}^0 \gets \sum_{P_j \in \mathcal{P}_1} \textbf{G}_j^0$.
+8. $\blacktriangle$ Each $P_i$ *asserts* that $\text{kx}_i \cdot G = \sum_{P_j \in \mathcal{P}_1} \textbf{G}_j^i$.
+9. Each $P_i$ *asserts* that $\sum_{P_j \in \mathcal{P}_1} \textbf{G}^0_j = \text{xa} \cdot K - \text{kb} \cdot A^1 + C^1$.
+10. Each $P_i$ modifies $K$, setting $K \gets \frac{1}{\text{kd}} \cdot K$, and then saves $K$.
+11. Each $P_i$ sets $\sigma_i \gets h(K) \cdot \text{kx}_i$, then saves $\sigma_i$.
 
 **Output**
 

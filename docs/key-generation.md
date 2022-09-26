@@ -9,7 +9,7 @@ the following protocol:
 
 1. $\blacktriangle$ Each $P_i$ *asserts* that $|\mathcal{P}| \geq t$.
 2. $T.\text{Add}(\mathcal{P}, t)$
-3. Each $P_i$ generates $f_0, \ldots, f_{t - 1} \xleftarrow{R} \mathbb{F}_q$, defining a polynomial $f$.
+3. Each $P_i$ generates $f_0, \ldots, f_{t - 1} \xleftarrow{\\\$} \mathbb{F}_q$, defining a polynomial $f$.
 4. Each $P_i$ sets $\textbf{F}_ i \gets \varphi(f)$ where:
 
 $$
@@ -36,7 +36,7 @@ $$
 3. $\bullet$ Each $P_i$ waits to receive $(\textbf{F}_j, \pi_j)$ from each other $P_j$.
 4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ H(\textbf{F}_j) = \text{Com}_j \land \text{Verify}(T, \pi_j, \text{Mau}(\varphi, \textbf{F}_j))$.
 5. $\bullet$ Each $P_i$ waits to receive $x_j^i$ from each other $P_j$.
-6. Each $P_i$ sets $x_i := \sum_j x^i_j$ and $X := \sum_j \textbf{F}_j^0$.
+6. Each $P_i$ sets $x_i \gets \sum_j x^i_j$ and $X \gets \sum_j \textbf{F}_j^0$.
 7. $\blacktriangle$ Each $P_i$ asserts that $x_i \cdot G = \sum_j \textbf{F}_j^i$.
 8. Each $P_i$ outputs $x_i$ and $X$.
 
