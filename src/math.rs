@@ -61,6 +61,15 @@ impl Polynomial {
         out.scale_mut(scale);
         out
     }
+
+    /// Evaluate this polynomial at a specific point.
+    pub fn evaluate(&self, x: &Scalar) -> Scalar {
+        let mut out = Scalar::ZERO;
+        for c in self.coefficients.iter().rev() {
+            out = out * x + c;
+        }
+        out
+    }
 }
 
 impl Index<usize> for Polynomial {
@@ -108,5 +117,14 @@ mod test {
         assert_eq!(s * &f, h);
         f *= s;
         assert_eq!(f, h);
+    }
+
+    #[test]
+    fn test_evaluation() {
+        let f = Polynomial {
+            coefficients: vec![Scalar::from(1u32), Scalar::from(2u32)],
+        };
+        assert_eq!(f.evaluate(&Scalar::from(1u32)), Scalar::from(3u32));
+        assert_eq!(f.evaluate(&Scalar::from(2u32)), Scalar::from(5u32));
     }
 }
