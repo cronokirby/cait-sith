@@ -70,6 +70,12 @@ impl Polynomial {
         }
         out
     }
+
+    /// Evaluate this polynomial at several points.
+    pub fn evaluate_many(&self, xs: &[Scalar]) -> EvaluationTable {
+        let evaluations = xs.iter().map(|x| self.evaluate(x)).collect();
+        EvaluationTable { evaluations }
+    }
 }
 
 impl Index<usize> for Polynomial {
@@ -84,6 +90,12 @@ impl_op_ex!(+ |f: &Polynomial, g: &Polynomial| -> Polynomial { f.add(g) });
 impl_op_ex!(+= |f: &mut Polynomial, g: &Polynomial| { f.add_mut(g) });
 impl_op_ex_commutative!(*|f: &Polynomial, s: &Scalar| -> Polynomial { f.scale(s) });
 impl_op_ex!(*= |f: &mut Polynomial, s: &Scalar| { f.scale_mut(s) });
+
+/// Represents the evaluation of a polynomial at certain points.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EvaluationTable {
+    pub evaluations: Vec<Scalar>,
+}
 
 #[cfg(test)]
 mod test {
