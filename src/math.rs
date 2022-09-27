@@ -1,7 +1,7 @@
 use auto_ops::{impl_op_ex, impl_op_ex_commutative};
 use std::ops::Index;
 
-use k256::Scalar;
+use k256::{AffinePoint, ProjectivePoint, Scalar};
 use rand_core::CryptoRngCore;
 
 /// Represents a polynomial with coefficients in the scalar field of the curve.
@@ -95,6 +95,26 @@ impl_op_ex!(*= |f: &mut Polynomial, s: &Scalar| { f.scale_mut(s) });
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvaluationTable {
     pub evaluations: Vec<Scalar>,
+}
+
+impl EvaluationTable {
+    pub fn commit(&self) -> EvaluationCommitment {
+        let evaluations = self
+            .evaluations
+            .iter()
+            .map(|x| AffinePoint::GENERATOR * x)
+            .collect();
+        EvaluationCommitment { evaluations }
+    }
+}
+
+/// Represents a commitment to the evaluations of a polynomial at certain points.
+///
+/// This is basically an evaluation table, except that each evaluation is multiplied
+/// by the generator of the group.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EvaluationCommitment {
+    pub evaluations: Vec<ProjectivePoint>,
 }
 
 #[cfg(test)]
