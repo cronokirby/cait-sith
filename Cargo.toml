@@ -9,3 +9,4 @@ license = "MIT"
 [dependencies]
 k256 = { version = "0.11.6", features = ["keccak256", "ecdsa", "serde"] }
 magikitten = { git = "https://github.com/cronokirby/magikitten", rev = "3060128e7889db9af337cad979b4be4b6ef7a428" }
+rand_core = "0.6.4"
