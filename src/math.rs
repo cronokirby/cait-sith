@@ -1,8 +1,10 @@
+use ::serde::Serializer;
 use auto_ops::{impl_op_ex, impl_op_ex_commutative};
 use std::ops::Index;
 
-use k256::{AffinePoint, ProjectivePoint, Scalar};
+use k256::{AffinePoint, CompressedPoint, ProjectivePoint, Scalar};
 use rand_core::CryptoRngCore;
+use serde::Serialize;
 
 /// Represents a polynomial with coefficients in the scalar field of the curve.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,9 +119,17 @@ impl EvaluationTable {
 ///
 /// This is basically an evaluation table, except that each evaluation is multiplied
 /// by the generator of the group.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize)]
 pub struct EvaluationCommitment {
+    #[serde(serialize_with = "serialize_projective_points")]
     pub evaluations: Vec<ProjectivePoint>,
+}
+
+fn serialize_projective_points<S: Serializer>(
+    data: &[ProjectivePoint],
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.collect_seq(data.iter().map(|x| x.to_affine()))
 }
 
 #[cfg(test)]
