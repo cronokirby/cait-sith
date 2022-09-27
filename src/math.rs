@@ -1,3 +1,5 @@
+use std::ops::Index;
+
 use k256::Scalar;
 use rand_core::CryptoRngCore;
 
@@ -15,5 +17,13 @@ impl Polynomial {
             .map(|_| Scalar::generate_biased(&mut *rng))
             .collect();
         Polynomial { coefficients }
+    }
+}
+
+impl Index<usize> for Polynomial {
+    type Output = Scalar;
+
+    fn index(&self, i: usize) -> &Self::Output {
+        &self.coefficients[i]
     }
 }
