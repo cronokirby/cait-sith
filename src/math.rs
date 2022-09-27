@@ -1,10 +1,11 @@
+use auto_ops::impl_op_ex;
 use std::ops::Index;
 
 use k256::Scalar;
 use rand_core::CryptoRngCore;
 
 /// Represents a polynomial with coefficients in the scalar field of the curve.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Polynomial {
     /// The coefficients of our polynomial, from 0..size-1.
     coefficients: Vec<Scalar>,
@@ -31,6 +32,23 @@ impl Polynomial {
         }
         Self { coefficients }
     }
+
+    /// Modify this polynomial by adding another polynomial.
+    pub fn add_mut(&mut self, other: &Self) {
+        let new_len = self.coefficients.len().max(other.coefficients.len());
+        self.coefficients.resize(new_len, Scalar::ZERO);
+        self.coefficients
+            .iter_mut()
+            .zip(other.coefficients.iter())
+            .for_each(|(a, b)| *a += b);
+    }
+
+    /// Return the addition of this polynomial with another.
+    pub fn add(&self, other: &Self) -> Self {
+        let mut out = self.clone();
+        out.add_mut(other);
+        out
+    }
 }
 
 impl Index<usize> for Polynomial {
@@ -38,5 +56,29 @@ impl Index<usize> for Polynomial {
 
     fn index(&self, i: usize) -> &Self::Output {
         &self.coefficients[i]
+    }
+}
+
+impl_op_ex!(+ |f: &Polynomial, g: &Polynomial| -> Polynomial { f.add(g) });
+impl_op_ex!(+= |f: &mut Polynomial, g: &Polynomial| { f.add_mut(g) });
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_addition() {
+        let mut f = Polynomial {
+            coefficients: vec![Scalar::from(1u32), Scalar::from(2u32)],
+        };
+        let g = Polynomial {
+            coefficients: vec![Scalar::from(1u32), Scalar::from(2u32), Scalar::from(3u32)],
+        };
+        let h = Polynomial {
+            coefficients: vec![Scalar::from(2u32), Scalar::from(4u32), Scalar::from(3u32)],
+        };
+        assert_eq!(&f + &g, h);
+        f += &g;
+        assert_eq!(f, h);
     }
 }
