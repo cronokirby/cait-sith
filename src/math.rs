@@ -132,6 +132,37 @@ fn serialize_projective_points<S: Serializer>(
     serializer.collect_seq(data.iter().map(|x| x.to_affine()))
 }
 
+impl EvaluationCommitment {
+    pub fn sub(&self, other: &Self) -> EvaluationCommitment {
+        assert_eq!(
+            self.evaluations.len(),
+            other.evaluations.len(),
+            "you can only subtract evaluation commitments with the same length."
+        );
+
+        let evaluations = self
+            .evaluations
+            .iter()
+            .zip(other.evaluations.iter())
+            .map(|(a, b)| a - b)
+            .collect();
+        Self { evaluations }
+    }
+
+    pub fn scale(&self, e: &Scalar) -> EvaluationCommitment {
+        let evaluations = self.evaluations.iter().map(|a| a * e).collect();
+        Self { evaluations }
+    }
+}
+
+impl_op_ex!(
+    -|a: &EvaluationCommitment, b: &EvaluationCommitment| -> EvaluationCommitment { a.sub(b) }
+);
+
+impl_op_ex_commutative!(
+    *|a: &EvaluationCommitment, b: &Scalar| -> EvaluationCommitment { a.scale(b) }
+);
+
 #[cfg(test)]
 mod test {
     use super::*;
