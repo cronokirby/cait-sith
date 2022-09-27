@@ -76,6 +76,11 @@ impl Polynomial {
         let evaluations = xs.iter().map(|x| self.evaluate(x)).collect();
         EvaluationTable { evaluations }
     }
+
+    /// Return the length of this polynomial.
+    pub fn len(&self) -> usize {
+        self.coefficients.len()
+    }
 }
 
 impl Index<usize> for Polynomial {
