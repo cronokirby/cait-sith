@@ -7,3 +7,4 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
+magikitten = { git = "https://github.com/cronokirby/magikitten", rev = "3060128e7889db9af337cad979b4be4b6ef7a428" }
