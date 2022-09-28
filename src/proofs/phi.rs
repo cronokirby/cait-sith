@@ -1,4 +1,4 @@
-use k256::{Scalar, Secp256k1};
+use k256::Scalar;
 use magikitten::Transcript;
 use rand_core::CryptoRngCore;
 use serde::Serialize;
@@ -6,33 +6,54 @@ use serde::Serialize;
 use crate::math::{EvaluationCommitment, Polynomial};
 use crate::serde::encode;
 
+/// The label we use for hashing the statement.
 const STATEMENT_LABEL: &[u8] = b"phi proof statement";
+/// The label we use for hashing the commitment (first prover message).
 const COMMITMENT_LABEL: &[u8] = b"phi proof commitment";
+/// The label we use for generating the challenge.
 const CHALLENGE_LABEL: &[u8] = b"phi proof challenge";
 
+/// The public statement for this proof.
+///
+/// This statement claims knowledge a polynomial of a given size that produces
+/// the public commitment when evaluated at several points, and then moved
+/// onto the group.
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct Statement<'a> {
-    size: usize,
-    domain: &'a [Scalar],
-    public: &'a EvaluationCommitment,
+    /// The size of the claimed polynomial.
+    pub size: usize,
+    /// The domain of points to evaluate the polynomial.
+    pub domain: &'a [Scalar],
+    /// The result of evaluating that polynomial and then multiplying by the generator of the group.
+    pub public: &'a EvaluationCommitment,
 }
 
 impl<'a> Statement<'a> {
+    /// Calculate the homomorphism we want to prove things about.
     fn phi(&self, f: &Polynomial) -> EvaluationCommitment {
         f.evaluate_many(self.domain).commit()
     }
 }
 
+/// The private witness for this proof.
+///
+/// This witness holds the polynomial the statement is referring to.
 #[derive(Clone, Copy)]
 pub struct Witness<'a> {
-    f: &'a Polynomial,
+    pub f: &'a Polynomial,
 }
 
+/// Represents a proof of the statement.
+#[derive(Debug, Clone)]
 pub struct Proof {
     e: Scalar,
     s: Polynomial,
 }
 
+/// Prove that a witness satisfies a given statement.
+///
+/// We need some randomness for the proof, and also a transcript, which is
+/// used for the Fiat-Shamir transform.
 pub fn prove<'a>(
     rng: &mut impl CryptoRngCore,
     transcript: &mut Transcript,
@@ -54,6 +75,9 @@ pub fn prove<'a>(
     Proof { e, s }
 }
 
+/// Verify that a proof attesting to the validity of some statement.
+///
+/// We use a transcript in order to verify the Fiat-Shamir transformation.
 #[must_use]
 pub fn verify<'a>(transcript: &mut Transcript, statement: Statement<'a>, proof: &Proof) -> bool {
     if proof.s.len() != statement.size {
