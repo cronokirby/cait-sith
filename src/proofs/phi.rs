@@ -1,4 +1,4 @@
-use k256::Scalar;
+use k256::{Scalar, Secp256k1};
 use magikitten::Transcript;
 use rand_core::CryptoRngCore;
 use serde::Serialize;
