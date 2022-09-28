@@ -10,7 +10,7 @@ const STATEMENT_LABEL: &[u8] = b"phi proof statement";
 const COMMITMENT_LABEL: &[u8] = b"phi proof commitment";
 const CHALLENGE_LABEL: &[u8] = b"phi proof challenge";
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct Statement<'a> {
     size: usize,
     domain: &'a [Scalar],
@@ -23,6 +23,7 @@ impl<'a> Statement<'a> {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Witness<'a> {
     f: &'a Polynomial,
 }
@@ -69,4 +70,39 @@ pub fn verify<'a>(transcript: &mut Transcript, statement: Statement<'a>, proof: 
     let e = Scalar::generate_biased(&mut transcript.challenge(CHALLENGE_LABEL));
 
     e == proof.e
+}
+
+#[cfg(test)]
+mod test {
+    use rand_core::OsRng;
+
+    use super::*;
+
+    #[test]
+    fn test_valid_proof_verifies() {
+        let size = 2;
+        let f = Polynomial::random(&mut OsRng, size);
+        let domain = vec![Scalar::from(1u32), Scalar::from(2u32), Scalar::from(3u32)];
+        let big_f = f.evaluate_many(&domain).commit();
+
+        let statement = Statement {
+            size,
+            domain: &domain,
+            public: &big_f,
+        };
+        let witness = Witness { f: &f };
+
+        let transcript = Transcript::new(b"protocol");
+
+        let proof = prove(
+            &mut OsRng,
+            &mut transcript.forked(b"party", &[1]),
+            statement,
+            witness,
+        );
+
+        let ok = verify(&mut transcript.forked(b"party", &[1]), statement, &proof);
+
+        assert!(ok);
+    }
 }
