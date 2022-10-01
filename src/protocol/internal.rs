@@ -1,17 +1,17 @@
 use std::{
     cell::RefCell,
     future::Future,
-    mem,
     pin::Pin,
+    ptr,
     rc::Rc,
-    task::{Context, Poll},
+    task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
 };
 
 use ::serde::Serialize;
 
 use crate::serde::encode_with_tag;
 
-use super::{MessageData, Participant};
+use super::{Action, MessageData, Participant, Protocol, ProtocolError};
 
 /// Represents a queue of messages.
 ///
@@ -199,5 +199,63 @@ impl Clone for Communication {
             queue: self.queue.clone(),
             mailbox: self.mailbox.clone(),
         }
+    }
+}
+
+fn dummy_raw_waker() -> RawWaker {
+    fn no_op(_: *const ()) {}
+    fn clone(_: *const ()) -> RawWaker {
+        dummy_raw_waker()
+    }
+
+    let vtable = &RawWakerVTable::new(clone, no_op, no_op, no_op);
+    RawWaker::new(ptr::null(), vtable)
+}
+
+fn dummy_waker() -> Waker {
+    unsafe { Waker::from_raw(dummy_raw_waker()) }
+}
+
+struct Executor<F> {
+    comms: Communication,
+    fut: Pin<Box<F>>,
+}
+
+impl<O, F: Future<Output = Result<O, ProtocolError>>> Executor<F> {
+    fn new(comms: Communication, fut: F) -> Self {
+        Self {
+            comms,
+            fut: Box::pin(fut),
+        }
+    }
+
+    fn run(&mut self) -> Result<Action<O>, ProtocolError> {
+        let waker = dummy_waker();
+        let mut ctx = Context::from_waker(&waker);
+        match self.fut.as_mut().poll(&mut ctx) {
+            Poll::Ready(out) => out.map(Action::Return),
+            Poll::Pending => match self.comms.outgoing() {
+                None => Ok(Action::Wait),
+                Some(Message::Many(m)) => Ok(Action::SendMany(m)),
+                Some(Message::Private(to, m)) => Ok(Action::SendPrivate(to, m)),
+            },
+        }
+    }
+}
+
+impl<O, F: Future<Output = Result<O, ProtocolError>>> Protocol for Executor<F> {
+    type Output = O;
+
+    fn start(&mut self) -> Result<Action<Self::Output>, ProtocolError> {
+        self.run()
+    }
+
+    fn advance(
+        &mut self,
+        from: Participant,
+        data: MessageData,
+    ) -> Result<Action<Self::Output>, ProtocolError> {
+        self.comms.push_message(from, data);
+        self.run()
     }
 }

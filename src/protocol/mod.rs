@@ -85,11 +85,14 @@ pub trait Protocol {
     type Output;
 
     /// Start the execution of the protocol, returning the action of this participant.
-    fn start() -> Result<Action<Self::Output>, ProtocolError>;
+    fn start(&mut self) -> Result<Action<Self::Output>, ProtocolError>;
 
     /// Advance this protocol with a message from some participant.
-    fn advance(from: Participant, data: MessageData)
-        -> Result<Action<Self::Output>, ProtocolError>;
+    fn advance(
+        &mut self,
+        from: Participant,
+        data: MessageData,
+    ) -> Result<Action<Self::Output>, ProtocolError>;
 }
 
 pub(crate) mod internal;
