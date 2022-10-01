@@ -1,5 +1,6 @@
+use ::serde::Deserialize;
 use k256::ProjectivePoint;
-use serde::{Serialize, Serializer};
+use serde::{de::DeserializeOwned, Serialize, Serializer};
 
 /// Encode an arbitrary serializable value into a vec.
 pub fn encode<T: Serialize>(val: &T) -> Vec<u8> {
@@ -29,4 +30,9 @@ pub fn serialize_projective_point<S: Serializer>(
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
     data.to_affine().serialize(serializer)
+}
+
+/// Deceode an arbitrary value from a slice of bytes.
+pub fn decode<T: DeserializeOwned>(input: &[u8]) -> Result<T, rmp_serde::decode::Error> {
+    rmp_serde::decode::from_slice(input)
 }

@@ -18,9 +18,9 @@ impl fmt::Display for ProtocolError {
 
 impl error::Error for ProtocolError {}
 
-impl Into<ProtocolError> for Box<dyn error::Error> {
-    fn into(self) -> ProtocolError {
-        ProtocolError::Other(self)
+impl From<Box<dyn error::Error>> for ProtocolError {
+    fn from(e: Box<dyn error::Error>) -> Self {
+        Self::Other(e)
     }
 }
 

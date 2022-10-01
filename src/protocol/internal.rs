@@ -1,5 +1,6 @@
 use std::{
     cell::RefCell,
+    error,
     future::Future,
     pin::Pin,
     ptr,
@@ -8,8 +9,9 @@ use std::{
 };
 
 use ::serde::Serialize;
+use serde::de::DeserializeOwned;
 
-use crate::serde::encode_with_tag;
+use crate::serde::{decode, encode_with_tag};
 
 use super::{Action, MessageData, Participant, Protocol, ProtocolError};
 
@@ -188,8 +190,14 @@ impl Communication {
         self.send_raw(Message::Private(to, message_data)).await;
     }
 
-    pub async fn recv(&self, round: u8) -> (Participant, MessageData) {
-        MessageQueueWait::new(self.queue.clone(), usize::from(round)).await
+    pub async fn recv<T: DeserializeOwned>(
+        &self,
+        round: u8,
+    ) -> Result<(Participant, T), ProtocolError> {
+        let (from, data) = MessageQueueWait::new(self.queue.clone(), usize::from(round)).await;
+        // We know data will be at least one byte long
+        let decoded: Result<T, Box<dyn error::Error>> = decode(&data[1..]).map_err(|e| e.into());
+        Ok((from, decoded?))
     }
 }
 
