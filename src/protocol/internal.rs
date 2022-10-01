@@ -166,6 +166,14 @@ impl Communication {
         }
     }
 
+    fn push_message(&self, from: Participant, message: MessageData) {
+        self.queue.borrow_mut().push(from, message);
+    }
+
+    fn outgoing(&self) -> Option<Message> {
+        self.mailbox.borrow_mut().recv()
+    }
+
     async fn send_raw(&self, data: Message) {
         MailboxWait::new(self.mailbox.clone(), data).await;
     }
