@@ -1,6 +1,7 @@
 use std::{
     cell::RefCell,
     future::Future,
+    mem,
     pin::Pin,
     rc::Rc,
     task::{Context, Poll},
@@ -85,5 +86,56 @@ impl Future for MessageQueueWait {
             Some(out) => Poll::Ready(out),
             None => Poll::Pending,
         }
+    }
+}
+
+/// Used to represent the different kinds of messages a participant can send.
+///
+/// This is basically used to communicate between the future and the executor.
+#[derive(Debug, Clone)]
+pub enum Message {
+    Many(MessageData),
+    Private(Participant, MessageData),
+}
+
+/// A mailbox is a single item queue, used to handle message outputs.
+///
+/// The idea is that the future can write a message here, and then the executor
+/// can pull it out.
+pub struct Mailbox(Option<Message>);
+
+impl Mailbox {
+    /// Receive any message queued in here.
+    fn recv(&mut self) -> Option<Message> {
+        self.0.take()
+    }
+}
+
+/// A future used to wait until a mailbox is emptied.
+struct MailboxWait {
+    mailbox: Rc<RefCell<Mailbox>>,
+    /// This will always be some, but we need to be able to take it
+    message: Option<Message>,
+}
+
+impl MailboxWait {
+    fn new(mailbox: Rc<RefCell<Mailbox>>, message: Message) -> Self {
+        Self {
+            mailbox,
+            message: Some(message),
+        }
+    }
+}
+
+impl Future for MailboxWait {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if self.mailbox.borrow().0.is_some() {
+            return Poll::Pending;
+        }
+        let message = self.message.take();
+        self.mailbox.borrow_mut().0 = message;
+        Poll::Ready(())
     }
 }
