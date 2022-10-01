@@ -7,6 +7,10 @@ use std::{
     task::{Context, Poll},
 };
 
+use ::serde::Serialize;
+
+use crate::serde::encode_with_tag;
+
 use super::{MessageData, Participant};
 
 /// Represents a queue of messages.
@@ -14,7 +18,7 @@ use super::{MessageData, Participant};
 /// This is used to receive incoming messages as they arrive, and automatically
 /// sort them into bins based on
 #[derive(Debug, Clone)]
-pub struct MessageQueue {
+struct MessageQueue {
     /// We have one stack of messages for each round / wait point.
     stacks: Vec<Vec<(Participant, MessageData)>>,
 }
@@ -28,14 +32,14 @@ impl MessageQueue {
     /// We also take in a hint for the number of parties participating in the protocol.
     /// This just allows us to pre-allocate buffers of the right size, and is just
     /// a performance optimization.
-    pub fn new(waitpoints: usize, parties_hint: usize) -> Self {
+    fn new(waitpoints: usize, parties_hint: usize) -> Self {
         Self {
             stacks: vec![Vec::with_capacity(parties_hint.saturating_sub(1)); waitpoints],
         }
     }
 
     /// The number of waitpoints in this queue.
-    pub fn waitpoints(&self) -> usize {
+    fn waitpoints(&self) -> usize {
         self.stacks.len()
     }
 
@@ -43,7 +47,7 @@ impl MessageQueue {
     ///
     /// This will read the first byte of the message to determine what round it
     /// belongs to.
-    pub fn push(&mut self, from: Participant, message: MessageData) {
+    fn push(&mut self, from: Participant, message: MessageData) {
         if message.is_empty() {
             return;
         }
@@ -59,7 +63,7 @@ impl MessageQueue {
     /// Pop a message from a specific round.
     ///
     /// This round **must** be less than the number of waitpoints of this queue.
-    pub fn pop(&mut self, round: usize) -> Option<(Participant, MessageData)> {
+    fn pop(&mut self, round: usize) -> Option<(Participant, MessageData)> {
         assert!(round < self.stacks.len());
 
         self.stacks[round].pop()
@@ -102,9 +106,14 @@ pub enum Message {
 ///
 /// The idea is that the future can write a message here, and then the executor
 /// can pull it out.
+#[derive(Debug)]
 pub struct Mailbox(Option<Message>);
 
 impl Mailbox {
+    fn new() -> Self {
+        Self(None)
+    }
+
     /// Receive any message queued in here.
     fn recv(&mut self) -> Option<Message> {
         self.0.take()
@@ -137,5 +146,50 @@ impl Future for MailboxWait {
         let message = self.message.take();
         self.mailbox.borrow_mut().0 = message;
         Poll::Ready(())
+    }
+}
+
+#[derive(Debug)]
+pub struct Communication {
+    queue: Rc<RefCell<MessageQueue>>,
+    mailbox: Rc<RefCell<Mailbox>>,
+}
+
+impl Communication {
+    pub fn new(waitpoints: usize, parties_hint: usize) -> Self {
+        let queue = MessageQueue::new(waitpoints, parties_hint);
+        let mailbox = Mailbox::new();
+
+        Self {
+            queue: Rc::new(RefCell::new(queue)),
+            mailbox: Rc::new(RefCell::new(mailbox)),
+        }
+    }
+
+    async fn send_raw(&self, data: Message) {
+        MailboxWait::new(self.mailbox.clone(), data).await;
+    }
+
+    pub async fn send_many<T: Serialize>(&self, round: u8, data: &T) {
+        let message_data = encode_with_tag(round, data);
+        self.send_raw(Message::Many(message_data)).await;
+    }
+
+    pub async fn send_private<T: Serialize>(&self, round: u8, to: Participant, data: &T) {
+        let message_data = encode_with_tag(round, data);
+        self.send_raw(Message::Private(to, message_data)).await;
+    }
+
+    pub async fn recv(&self, round: u8) -> (Participant, MessageData) {
+        MessageQueueWait::new(self.queue.clone(), usize::from(round)).await
+    }
+}
+
+impl Clone for Communication {
+    fn clone(&self) -> Self {
+        Self {
+            queue: self.queue.clone(),
+            mailbox: self.mailbox.clone(),
+        }
     }
 }

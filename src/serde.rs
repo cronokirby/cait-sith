@@ -2,8 +2,17 @@ use k256::ProjectivePoint;
 use serde::{Serialize, Serializer};
 
 /// Encode an arbitrary serializable value into a vec.
-pub fn encode<T: Serialize + ?Sized>(val: &T) -> Vec<u8> {
+pub fn encode<T: Serialize>(val: &T) -> Vec<u8> {
     rmp_serde::encode::to_vec(val).expect("failed to encode value")
+}
+
+/// Encode an arbitrary serializable with a byte tag.
+pub fn encode_with_tag<T: Serialize>(tag: u8, val: &T) -> Vec<u8> {
+    // Matches rmp_serde's internal default.
+    let mut out = Vec::with_capacity(128);
+    out.push(tag);
+    rmp_serde::encode::write(&mut out, val).expect("failed to encode value");
+    out
 }
 
 /// Serialize a list of projective points.
