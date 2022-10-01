@@ -24,6 +24,26 @@ impl From<Box<dyn error::Error>> for ProtocolError {
     }
 }
 
+/// Represents an error which can happen when *initializing* a protocol.
+///
+/// These are related to bad parameters for the protocol, and things like that.
+///
+/// These are usually more recoverable than other protocol errors.
+#[derive(Debug)]
+pub enum InitializationError {
+    BadParameters(String),
+}
+
+impl fmt::Display for InitializationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InitializationError::BadParameters(s) => write!(f, "bad parameters: {}", s),
+        }
+    }
+}
+
+impl error::Error for InitializationError {}
+
 /// Represents a participant in the protocol.
 ///
 /// Each participant should be uniquely identified by some number, which this
