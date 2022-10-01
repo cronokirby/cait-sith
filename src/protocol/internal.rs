@@ -151,6 +151,12 @@ impl Future for MailboxWait {
     }
 }
 
+/// Represents the communications between the executor and the participant.
+///
+/// This allows the participant to read messages from the queue, possibly
+/// waiting until a message for the round they're interested in arrives.
+/// The participant can also push outgoing messages into a mailbox, allowing
+/// the executor to pick them up.
 #[derive(Debug)]
 pub struct Communication {
     queue: Rc<RefCell<MessageQueue>>,
@@ -158,6 +164,15 @@ pub struct Communication {
 }
 
 impl Communication {
+    /// Create new communications, given a number of waitpoints, and parties.
+    ///
+    /// The latter is just a hint for performance.
+    ///
+    /// The former is more meaningful, as it indicates which messages will be ignored.
+    /// Messages have a tag encoded into them, indicating the round they're sent
+    /// for. If a message gets sent to a round beyond the number of expected waitpoints,
+    /// that message is dropped. Thus, it's important for the number of waitpoints
+    /// to be correct.
     pub fn new(waitpoints: usize, parties_hint: usize) -> Self {
         let queue = MessageQueue::new(waitpoints, parties_hint);
         let mailbox = Mailbox::new();
@@ -180,16 +195,19 @@ impl Communication {
         MailboxWait::new(self.mailbox.clone(), data).await;
     }
 
+    /// (Indicate that you want to) send a message to everybody else.
     pub async fn send_many<T: Serialize>(&self, round: u8, data: &T) {
         let message_data = encode_with_tag(round, data);
         self.send_raw(Message::Many(message_data)).await;
     }
 
+    /// (Indicate that you want to) send a message privately to everybody else.
     pub async fn send_private<T: Serialize>(&self, round: u8, to: Participant, data: &T) {
         let message_data = encode_with_tag(round, data);
         self.send_raw(Message::Private(to, message_data)).await;
     }
 
+    /// Receive a message for a specific round.
     pub async fn recv<T: DeserializeOwned>(
         &self,
         round: u8,
@@ -220,17 +238,24 @@ fn dummy_raw_waker() -> RawWaker {
     RawWaker::new(ptr::null(), vtable)
 }
 
+/// Just a waker which does nothing, which is fine for our dummy future, which doesn't use the waker.
 fn dummy_waker() -> Waker {
     unsafe { Waker::from_raw(dummy_raw_waker()) }
 }
 
-struct Executor<F> {
+/// An executor which implements our protocol trait.
+///
+/// You pass it a copy of the communications infrastructure, and then a future,
+/// which will also use that same infrastructure. The executor then implements
+/// the methods for advancing the protocol, which will end up polling the future
+/// and reacting accordingly, based on what's happening on the communications infrastructure.
+pub struct Executor<F> {
     comms: Communication,
     fut: Pin<Box<F>>,
 }
 
 impl<O, F: Future<Output = Result<O, ProtocolError>>> Executor<F> {
-    fn new(comms: Communication, fut: F) -> Self {
+    pub fn new(comms: Communication, fut: F) -> Self {
         Self {
             comms,
             fut: Box::pin(fut),
