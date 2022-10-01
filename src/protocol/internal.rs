@@ -1,3 +1,11 @@
+use std::{
+    cell::RefCell,
+    future::Future,
+    pin::Pin,
+    rc::Rc,
+    task::{Context, Poll},
+};
+
 use super::{MessageData, Participant};
 
 /// Represents a queue of messages.
@@ -54,5 +62,28 @@ impl MessageQueue {
         assert!(round < self.stacks.len());
 
         self.stacks[round].pop()
+    }
+}
+
+/// A future which tries to read a message from a specific round.
+struct MessageQueueWait {
+    queue: Rc<RefCell<MessageQueue>>,
+    round: usize,
+}
+
+impl MessageQueueWait {
+    fn new(queue: Rc<RefCell<MessageQueue>>, round: usize) -> Self {
+        Self { queue, round }
+    }
+}
+
+impl Future for MessageQueueWait {
+    type Output = (Participant, MessageData);
+
+    fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match self.queue.borrow_mut().pop(self.round) {
+            Some(out) => Poll::Ready(out),
+            None => Poll::Pending,
+        }
     }
 }
