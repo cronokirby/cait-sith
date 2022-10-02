@@ -52,7 +52,7 @@ impl error::Error for InitializationError {}
 /// struct holds. In our case, we use a `u32`, which is enough for billions of
 /// participants. That said, you won't actually be able to make the protocols
 /// work with billions of users.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct Participant(u32);
 
 impl Into<Participant> for u32 {
@@ -110,7 +110,7 @@ pub trait Protocol {
     ///
     /// The idea is that the protocol should be poked until it returns an error,
     /// or it returns an action with a return value, or it returns a wait action.
-    /// 
+    ///
     /// Upon returning a wait action, that protocol will not advance any further
     /// until a new message arrives.
     fn poke(&mut self) -> Result<Action<Self::Output>, ProtocolError>;
