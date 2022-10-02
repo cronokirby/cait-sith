@@ -57,6 +57,10 @@ impl ParticipantList {
         })
     }
 
+    pub fn len(&self) -> usize {
+        self.participants.len()
+    }
+
     /// Return the index of a given participant.
     ///
     /// Basically, the order they appear in a sorted list

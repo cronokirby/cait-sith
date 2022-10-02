@@ -1,10 +1,16 @@
-use ::serde::Deserialize;
+use std::io::Write;
+
 use k256::ProjectivePoint;
 use serde::{de::DeserializeOwned, Serialize, Serializer};
 
 /// Encode an arbitrary serializable value into a vec.
 pub fn encode<T: Serialize>(val: &T) -> Vec<u8> {
     rmp_serde::encode::to_vec(val).expect("failed to encode value")
+}
+
+/// Encode an arbitrary serializable value into a writer.
+pub fn encode_writer<T: Serialize, W: Write>(w: &mut W, val: &T) {
+    rmp_serde::encode::write(w, val).expect("failed to encode value");
 }
 
 /// Encode an arbitrary serializable with a byte tag.

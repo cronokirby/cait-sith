@@ -10,6 +10,7 @@ license = "MIT"
 auto_ops = "0.3.0"
 k256 = { version = "0.11.6", features = ["sha256", "ecdsa", "serde"] }
 magikitten = { git = "https://github.com/cronokirby/magikitten", rev = "3060128e7889db9af337cad979b4be4b6ef7a428" }
+ck-meow = "0.1.0"
 rand_core = "0.6.4"
 rmp-serde = "1.1.1"
 serde = { version = "1.0", features = ["derive"] }

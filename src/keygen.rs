@@ -3,6 +3,7 @@ use magikitten::Transcript;
 use rand_core::CryptoRngCore;
 
 use crate::math::Polynomial;
+use crate::participants::ParticipantList;
 use crate::protocol::internal::{Communication, Executor};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
 use crate::serde::encode;
@@ -15,7 +16,7 @@ pub struct KeygenOutput {
 async fn do_keygen(
     rng: &mut impl CryptoRngCore,
     comms: Communication,
-    participants: Vec<Participant>,
+    participants: ParticipantList,
     threshold: usize,
 ) -> Result<KeygenOutput, ProtocolError> {
     let mut transcript = Transcript::new(b"cait-sith v0.1.0 keygen");
@@ -31,12 +32,13 @@ async fn do_keygen(
     // Spec 1.3
     let f = Polynomial::random(rng, threshold);
 
+    // Spec 1.4
     todo!()
 }
 
 pub fn keygen<'a>(
     rng: &'a mut impl CryptoRngCore,
-    participants: &'a [Participant],
+    participants: &[Participant],
     threshold: usize,
 ) -> Result<impl Protocol<Output = KeygenOutput> + 'a, InitializationError> {
     if participants.len() < 2 {
@@ -52,8 +54,9 @@ pub fn keygen<'a>(
         ));
     }
 
-    let mut participants = participants.to_owned();
-    participants.sort();
+    let participants = ParticipantList::new(participants).ok_or_else(|| {
+        InitializationError::BadParameters("participant list cannot contain duplicates".to_string())
+    })?;
 
     let comms = Communication::new(4, participants.len());
     let fut = do_keygen(rng, comms.clone(), participants, threshold);
