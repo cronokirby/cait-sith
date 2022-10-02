@@ -1,6 +1,8 @@
 use core::fmt;
 use std::error;
 
+use ::serde::Serialize;
+
 /// Represents an error which can happen when running a protocol.
 #[derive(Debug)]
 pub enum ProtocolError {
@@ -50,7 +52,7 @@ impl error::Error for InitializationError {}
 /// struct holds. In our case, we use a `u32`, which is enough for billions of
 /// participants. That said, you won't actually be able to make the protocols
 /// work with billions of users.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct Participant(u32);
 
 impl Into<Participant> for u32 {
