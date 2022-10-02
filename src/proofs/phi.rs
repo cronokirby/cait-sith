@@ -1,7 +1,7 @@
 use k256::Scalar;
 use magikitten::Transcript;
 use rand_core::CryptoRngCore;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::math::{EvaluationCommitment, Polynomial};
 use crate::serde::encode;
@@ -44,7 +44,7 @@ pub struct Witness<'a> {
 }
 
 /// Represents a proof of the statement.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Proof {
     e: Scalar,
     s: Polynomial,

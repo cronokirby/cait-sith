@@ -4,17 +4,12 @@
 //! or getting the field values corresponding to each participant, etc.
 //! This module tries to provide useful data structures for doing that.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Index};
 
 use k256::Scalar;
 use serde::Serialize;
 
 use crate::protocol::Participant;
-
-/// Get the scalar associated with a participant.
-fn participant_scalar(p: Participant) -> Scalar {
-    Scalar::from(u32::from(p) as u64 + 1)
-}
 
 /// Represents a sorted list of participants.
 ///
@@ -47,7 +42,7 @@ impl ParticipantList {
         let mut domain = Vec::with_capacity(participants.len() + 1);
         domain.push(Scalar::ZERO);
         for &p in participants {
-            domain.push(participant_scalar(p));
+            domain.push(p.scalar());
         }
 
         Some(Self {
@@ -59,6 +54,19 @@ impl ParticipantList {
 
     pub fn len(&self) -> usize {
         self.participants.len()
+    }
+
+    /// Check if this list has a given participant.
+    pub fn contains(&self, participant: Participant) -> bool {
+        self.indices.contains_key(&participant)
+    }
+
+    /// Iterate over the other participants
+    pub fn others(&self, me: Participant) -> impl Iterator<Item = Participant> + '_ {
+        self.participants
+            .iter()
+            .filter(move |x| **x != me)
+            .map(|x| *x)
     }
 
     /// Return the index of a given participant.
@@ -79,12 +87,12 @@ impl ParticipantList {
 
     /// Get the lagrange coefficient for a participant, relative to this list.
     pub fn lagrange(&self, p: Participant) -> Scalar {
-        let p_scalar = participant_scalar(p);
-        let p_i = self.index(p);
+        let p_scalar = p.scalar();
+        let p_i = self.index(p) + 1;
 
         let mut acc = Scalar::ONE;
         for (i, &s) in self.domain.iter().enumerate() {
-            if i == p_i {
+            if i == p_i || i == 0 {
                 continue;
             }
             acc *= p_scalar - s;
@@ -154,5 +162,13 @@ impl<'a, T> ParticipantMap<'a, T> {
         assert!(self.data[i].is_none());
 
         self.data[i] = Some(data);
+    }
+}
+
+impl<'a, T> Index<Participant> for ParticipantMap<'a, T> {
+    type Output = T;
+
+    fn index(&self, index: Participant) -> &Self::Output {
+        self.data[self.participants.index(index)].as_ref().unwrap()
     }
 }

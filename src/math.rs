@@ -1,14 +1,14 @@
-use auto_ops::{impl_op_ex, impl_op_ex_commutative};
 use std::ops::Index;
 
+use auto_ops::{impl_op_ex, impl_op_ex_commutative};
 use k256::{AffinePoint, ProjectivePoint, Scalar};
 use rand_core::CryptoRngCore;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-use crate::serde::serialize_projective_points;
+use crate::serde::{deserialize_projective_points, serialize_projective_points};
 
 /// Represents a polynomial with coefficients in the scalar field of the curve.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Polynomial {
     /// The coefficients of our polynomial, from 0..size-1.
     coefficients: Vec<Scalar>,
@@ -120,9 +120,12 @@ impl EvaluationTable {
 ///
 /// This is basically an evaluation table, except that each evaluation is multiplied
 /// by the generator of the group.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluationCommitment {
-    #[serde(serialize_with = "serialize_projective_points")]
+    #[serde(
+        serialize_with = "serialize_projective_points",
+        deserialize_with = "deserialize_projective_points"
+    )]
     pub evaluations: Vec<ProjectivePoint>,
 }
 
@@ -143,6 +146,18 @@ impl EvaluationCommitment {
         Self { evaluations }
     }
 
+    pub fn add_mut(&mut self, other: &Self) {
+        assert_eq!(
+            self.evaluations.len(),
+            other.evaluations.len(),
+            "you can only subtract evaluation commitments with the same length."
+        );
+
+        for (a, b) in self.evaluations.iter_mut().zip(other.evaluations.iter()) {
+            *a += b;
+        }
+    }
+
     pub fn scale(&self, e: &Scalar) -> EvaluationCommitment {
         let evaluations = self.evaluations.iter().map(|a| a * e).collect();
         Self { evaluations }
@@ -152,6 +167,7 @@ impl EvaluationCommitment {
 impl_op_ex!(
     -|a: &EvaluationCommitment, b: &EvaluationCommitment| -> EvaluationCommitment { a.sub(b) }
 );
+impl_op_ex!(+= |a: &mut EvaluationCommitment, b: &EvaluationCommitment| { a.add_mut(b) } );
 
 impl_op_ex_commutative!(
     *|a: &EvaluationCommitment, b: &Scalar| -> EvaluationCommitment { a.scale(b) }

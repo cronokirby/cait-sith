@@ -1,7 +1,7 @@
 use std::io::Write;
 
-use k256::ProjectivePoint;
-use serde::{de::DeserializeOwned, Serialize, Serializer};
+use k256::{AffinePoint, ProjectivePoint};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 
 /// Encode an arbitrary serializable value into a vec.
 pub fn encode<T: Serialize>(val: &T) -> Vec<u8> {
@@ -28,6 +28,20 @@ pub fn serialize_projective_points<S: Serializer>(
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
     serializer.collect_seq(data.iter().map(|x| x.to_affine()))
+}
+
+/// Deserialize projective points.
+pub fn deserialize_projective_points<'de, D>(
+    deserializer: D,
+) -> Result<Vec<ProjectivePoint>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let points: Vec<AffinePoint> = Deserialize::deserialize(deserializer)?;
+    Ok(points
+        .into_iter()
+        .map(|x| ProjectivePoint::from(x))
+        .collect())
 }
 
 /// Serialize a single projective point.

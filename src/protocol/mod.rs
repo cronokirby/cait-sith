@@ -2,10 +2,13 @@ use core::fmt;
 use std::error;
 
 use ::serde::Serialize;
+use k256::Scalar;
 
 /// Represents an error which can happen when running a protocol.
 #[derive(Debug)]
 pub enum ProtocolError {
+    /// Some assertion in the protocol failed.
+    AssertionFailed(String),
     /// Some generic error happened.
     Other(Box<dyn error::Error>),
 }
@@ -14,6 +17,7 @@ impl fmt::Display for ProtocolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ProtocolError::Other(e) => write!(f, "{}", e),
+            ProtocolError::AssertionFailed(e) => write!(f, "assertion failed {}", e),
         }
     }
 }
@@ -54,6 +58,18 @@ impl error::Error for InitializationError {}
 /// work with billions of users.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct Participant(u32);
+
+impl Participant {
+    /// Return this participant as little endian bytes.
+    pub fn bytes(&self) -> [u8; 4] {
+        self.0.to_le_bytes()
+    }
+
+    /// Return the scalar associated with this participant.
+    pub fn scalar(&self) -> Scalar {
+        Scalar::from(self.0 as u64 + 1)
+    }
+}
 
 impl From<Participant> for u32 {
     fn from(p: Participant) -> Self {

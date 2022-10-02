@@ -25,6 +25,12 @@ impl<'a> Write for MeowWriter<'a> {
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Commitment([u8; COMMIT_LEN]);
 
+impl AsRef<[u8]> for Commitment {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 /// Commit to an arbitrary serializable value.
 pub fn commit<T: Serialize>(val: &T) -> Commitment {
     let mut meow = Meow::new(COMMIT_LABEL);
