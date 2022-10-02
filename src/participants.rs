@@ -6,9 +6,15 @@
 
 use std::collections::HashMap;
 
+use k256::Scalar;
 use serde::Serialize;
 
 use crate::protocol::Participant;
+
+/// Get the scalar associated with a participant.
+fn participant_scalar(p: Participant) -> Scalar {
+    Scalar::from(u32::from(p) as u64 + 1)
+}
 
 /// Represents a sorted list of participants.
 ///
@@ -20,6 +26,8 @@ pub struct ParticipantList {
     /// This maps each participant to their index in the vector above.
     #[serde(skip_serializing)]
     indices: HashMap<Participant, usize>,
+    #[serde(skip_serializing)]
+    domain: Vec<Scalar>,
 }
 
 impl ParticipantList {
@@ -30,10 +38,29 @@ impl ParticipantList {
 
         let indices = out.iter().enumerate().map(|(p, x)| (*x, p)).collect();
 
+        let mut domain = Vec::with_capacity(participants.len() + 1);
+        domain.push(Scalar::ZERO);
+        for &p in participants {
+            domain.push(participant_scalar(p));
+        }
+
         Self {
             participants: out,
             indices,
+            domain,
         }
+    }
+
+    /// Return the index of a given participant.
+    ///
+    /// Basically, the order they appear in a sorted list
+    pub fn index(&self, participant: Participant) -> usize {
+        self.indices[&participant]
+    }
+
+    /// Create the evaluation domain
+    pub fn domain(&self) -> &[Scalar] {
+        &self.domain
     }
 }
 

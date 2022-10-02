@@ -55,15 +55,15 @@ impl error::Error for InitializationError {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct Participant(u32);
 
-impl Into<Participant> for u32 {
-    fn into(self) -> Participant {
-        Participant(self)
+impl From<Participant> for u32 {
+    fn from(p: Participant) -> Self {
+        p.0
     }
 }
 
-impl Into<u32> for Participant {
-    fn into(self) -> u32 {
-        self.0
+impl From<u32> for Participant {
+    fn from(x: u32) -> Self {
+        Participant(x)
     }
 }
 
