@@ -106,15 +106,17 @@ pub enum Action<T> {
 pub trait Protocol {
     type Output;
 
-    /// Start the execution of the protocol, returning the action of this participant.
-    fn start(&mut self) -> Result<Action<Self::Output>, ProtocolError>;
+    /// Poke the protocol, receiving a new action.
+    ///
+    /// The idea is that the protocol should be poked until it returns an error,
+    /// or it returns an action with a return value, or it returns a wait action.
+    /// 
+    /// Upon returning a wait action, that protocol will not advance any further
+    /// until a new message arrives.
+    fn poke(&mut self) -> Result<Action<Self::Output>, ProtocolError>;
 
-    /// Advance this protocol with a message from some participant.
-    fn advance(
-        &mut self,
-        from: Participant,
-        data: MessageData,
-    ) -> Result<Action<Self::Output>, ProtocolError>;
+    /// Inform the protocol of a new message.
+    fn message(&mut self, from: Participant, data: MessageData);
 }
 
 pub(crate) mod internal;

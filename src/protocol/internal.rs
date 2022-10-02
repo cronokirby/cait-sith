@@ -279,16 +279,11 @@ impl<O, F: Future<Output = Result<O, ProtocolError>>> Executor<F> {
 impl<O, F: Future<Output = Result<O, ProtocolError>>> Protocol for Executor<F> {
     type Output = O;
 
-    fn start(&mut self) -> Result<Action<Self::Output>, ProtocolError> {
+    fn poke(&mut self) -> Result<Action<Self::Output>, ProtocolError> {
         self.run()
     }
 
-    fn advance(
-        &mut self,
-        from: Participant,
-        data: MessageData,
-    ) -> Result<Action<Self::Output>, ProtocolError> {
+    fn message(&mut self, from: Participant, data: MessageData) {
         self.comms.push_message(from, data);
-        self.run()
     }
 }
