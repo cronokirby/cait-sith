@@ -32,11 +32,17 @@ pub struct ParticipantList {
 
 impl ParticipantList {
     /// Create a participant list from a slice of participants.
-    pub fn new(participants: &[Participant]) -> Self {
+    ///
+    /// This will return None if the participants have duplicates.
+    pub fn new(participants: &[Participant]) -> Option<Self> {
         let mut out = participants.to_owned();
         out.sort();
 
-        let indices = out.iter().enumerate().map(|(p, x)| (*x, p)).collect();
+        let indices: HashMap<_, _> = out.iter().enumerate().map(|(p, x)| (*x, p)).collect();
+
+        if indices.len() < out.len() {
+            return None;
+        }
 
         let mut domain = Vec::with_capacity(participants.len() + 1);
         domain.push(Scalar::ZERO);
@@ -44,11 +50,11 @@ impl ParticipantList {
             domain.push(participant_scalar(p));
         }
 
-        Self {
+        Some(Self {
             participants: out,
             indices,
             domain,
-        }
+        })
     }
 
     /// Return the index of a given participant.
@@ -58,9 +64,29 @@ impl ParticipantList {
         self.indices[&participant]
     }
 
-    /// Create the evaluation domain
+    /// Get the evaluation domain.
+    ///
+    /// This will include the scalar for each participant, preceded by 0.
+    ///
+    /// This will not be calculated every time, but cached.
     pub fn domain(&self) -> &[Scalar] {
         &self.domain
+    }
+
+    /// Get the lagrange coefficient for a participant, relative to this list.
+    pub fn lagrange(&self, p: Participant) -> Scalar {
+        let p_scalar = participant_scalar(p);
+        let p_i = self.index(p);
+
+        let mut acc = Scalar::ONE;
+        for (i, &s) in self.domain.iter().enumerate() {
+            if i == p_i {
+                continue;
+            }
+            acc *= p_scalar - s;
+        }
+
+        p_scalar * acc.invert().unwrap()
     }
 }
 
