@@ -84,7 +84,7 @@ async fn do_keygen(
     );
 
     // Spec 2.6
-    comms.send_many(2, &(&big_f, my_phi_proof));
+    comms.send_many(2, &(&big_f, my_phi_proof)).await;
 
     // Spec 2.7
     for p in participants.others(me) {
