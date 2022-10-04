@@ -12,9 +12,10 @@ use crate::protocol::internal::{Communication, Executor};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
 use crate::serde::encode;
 
+#[derive(Debug, Clone)]
 pub struct KeygenOutput {
-    private_share: Scalar,
-    public_key: AffinePoint,
+    pub private_share: Scalar,
+    pub public_key: AffinePoint,
 }
 
 async fn do_keygen(

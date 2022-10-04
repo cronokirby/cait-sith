@@ -65,8 +65,7 @@ impl ParticipantList {
     pub fn others(&self, me: Participant) -> impl Iterator<Item = Participant> + '_ {
         self.participants
             .iter()
-            .filter(move |x| **x != me)
-            .map(|x| *x)
+            .filter(move |x| **x != me).copied()
     }
 
     /// Return the index of a given participant.

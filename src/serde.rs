@@ -38,10 +38,7 @@ where
     D: Deserializer<'de>,
 {
     let points: Vec<AffinePoint> = Deserialize::deserialize(deserializer)?;
-    Ok(points
-        .into_iter()
-        .map(|x| ProjectivePoint::from(x))
-        .collect())
+    Ok(points.into_iter().map(ProjectivePoint::from).collect())
 }
 
 /// Serialize a single projective point.
