@@ -149,7 +149,7 @@ impl<'a, T> ParticipantMap<'a, T> {
 
     /// Place the data for a participant in this map.
     ///
-    /// This will assert that not data for that participant already exists,
+    /// This will not assert that data for that participant already exists,
     /// so upstream consumers should check this condition somehow.
     pub fn put(&mut self, participant: Participant, data: T) {
         let i = self.participants.indices.get(&participant);
