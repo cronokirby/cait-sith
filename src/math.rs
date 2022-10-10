@@ -149,6 +149,9 @@ impl GroupPolynomial {
     }
 }
 
+impl_op_ex!(+ |f: &GroupPolynomial, g: &GroupPolynomial| -> GroupPolynomial { f.add(g) });
+impl_op_ex!(+= |f: &mut GroupPolynomial, g: &GroupPolynomial| { f.add_mut(g) });
+
 /// Represents the evaluation of a polynomial at certain points.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvaluationTable {
