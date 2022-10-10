@@ -131,6 +131,22 @@ impl GroupPolynomial {
             .collect();
         Self { coefficients }
     }
+
+    /// Evaluate this polynomial at 0.
+    ///
+    /// This is more efficient than evaluating at an arbitrary point.
+    pub fn evaluate_zero(&self) -> ProjectivePoint {
+        self.coefficients.get(0).cloned().unwrap_or_default()
+    }
+
+    /// Evaluate this polynomial at a specific value.
+    pub fn evalute(&self, x: &Scalar) -> ProjectivePoint {
+        let mut out = ProjectivePoint::IDENTITY;
+        for c in self.coefficients.iter().rev() {
+            out = out * x + c;
+        }
+        out
+    }
 }
 
 /// Represents the evaluation of a polynomial at certain points.
