@@ -40,11 +40,6 @@ impl MessageQueue {
         }
     }
 
-    /// The number of waitpoints in this queue.
-    fn waitpoints(&self) -> usize {
-        self.stacks.len()
-    }
-
     /// Push a new message into the queue.
     ///
     /// This will read the first byte of the message to determine what round it

@@ -7,7 +7,7 @@ use rand_core::CryptoRngCore;
 use crate::crypto::{commit, Commitment};
 use crate::math::{GroupPolynomial, Polynomial};
 use crate::participants::{ParticipantList, ParticipantMap};
-use crate::proofs::{dlog, phi};
+use crate::proofs::dlog;
 use crate::protocol::internal::{Communication, Executor};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
 use crate::serde::encode;
