@@ -1,7 +1,7 @@
 use std::ops::Index;
 
 use auto_ops::{impl_op_ex, impl_op_ex_commutative};
-use k256::{AffinePoint, ProjectivePoint, Scalar};
+use k256::{elliptic_curve::Group, AffinePoint, ProjectivePoint, Scalar};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 
@@ -105,6 +105,33 @@ impl_op_ex!(+ |f: &Polynomial, g: &Polynomial| -> Polynomial { f.add(g) });
 impl_op_ex!(+= |f: &mut Polynomial, g: &Polynomial| { f.add_mut(g) });
 impl_op_ex_commutative!(*|f: &Polynomial, s: &Scalar| -> Polynomial { f.scale(s) });
 impl_op_ex!(*= |f: &mut Polynomial, s: &Scalar| { f.scale_mut(s) });
+
+/// A polynomial with group coefficients.
+#[derive(Debug, Clone)]
+pub struct GroupPolynomial {
+    coefficients: Vec<ProjectivePoint>,
+}
+
+impl GroupPolynomial {
+    /// Modify this polynomial by adding another one.
+    pub fn add_mut(&mut self, other: &Self) {
+        self.coefficients
+            .iter_mut()
+            .zip(other.coefficients.iter())
+            .for_each(|(a, b)| *a += b)
+    }
+
+    /// The result of adding this polynomial with another.
+    pub fn add(&self, other: &Self) -> Self {
+        let coefficients = self
+            .coefficients
+            .iter()
+            .zip(other.coefficients.iter())
+            .map(|(a, b)| a + b)
+            .collect();
+        Self { coefficients }
+    }
+}
 
 /// Represents the evaluation of a polynomial at certain points.
 #[derive(Debug, Clone, PartialEq, Eq)]
