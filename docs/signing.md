@@ -83,7 +83,7 @@ $$
 (a_i^\sigma, b_i^\sigma, c_i^\sigma) \gets \lambda(\mathcal{P}_1)_i \cdot (a_i^\sigma, b_i^\sigma, c_i^\sigma)
 $$
 
-3. Each $P_i$ samples $f \xleftarrow{\\\$} \mathbb{F}_q[X]_{\leq t - 1}$.
+3. Each $P_i$ samples $f \xleftarrow{\\\$} \mathbb{F}_ q[X]_ {\leq t - 1}$.
 4. Each $P_i$ sets $F_ i \gets f \cdot G$.
 5. Each $P_i$ generates $d_i \xleftarrow{\\\$} \mathbb{F}_q$, and sets $D_i \gets d_i \cdot G$.
 6. Each party $P_i$ sets $\text{Com}_i \gets H(F_i, D_i)$.
