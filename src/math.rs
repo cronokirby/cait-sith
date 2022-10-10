@@ -65,6 +65,13 @@ impl Polynomial {
         out
     }
 
+    /// Evaluate this polynomial at 0.
+    ///
+    /// This is much more efficient than evaluating at other points.
+    pub fn evaluate_zero(&self) -> Scalar {
+        self.coefficients.get(0).cloned().unwrap_or_default()
+    }
+
     /// Evaluate this polynomial at a specific point.
     pub fn evaluate(&self, x: &Scalar) -> Scalar {
         let mut out = Scalar::ZERO;
