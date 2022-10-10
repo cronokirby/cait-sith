@@ -125,6 +125,7 @@ $$
 4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_ 1$:
 $$
 \begin{align}
+&\text{deg}(F_ j) = t - 1\cr
 &H(F_ j, D_ j) = \text{Com}_ j\cr
 &\text{Verify}(T.\text{Cloned}(\texttt{dlog0}, j), \pi_ j, \text{Mau}(- \cdot G, F_j(0)))\cr
 &\text{Verify}(T.\text{Cloned}(\texttt{dlog1}, j), \pi_ j, \text{Mau}(- \cdot G, D_j))
@@ -182,7 +183,7 @@ $$
 2. Each $P_i$ sets $\text{kd} \gets \sum_{j \in [N]} \text{kd}_j$.
 3. $\blacktriangle$ Each $P_i$ checks that $\text{kd} \cdot G = \text{ka} \cdot D - \text{db} \cdot A^0 + C^0$.
 4. $\bullet$ Each $P_i$ waits to receive $(L_j, \pi_j)$ from each other $P_j$.
-5. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Verify}(T.\text{Cloned}(\texttt{dlog2}, j), \pi_j, \text{Mau}(- \cdot G, L_j(0)))$.
+5. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{deg}(L_j) = t - 1 \land \text{Verify}(T.\text{Cloned}(\texttt{dlog2}, j), \pi_j, \text{Mau}(- \cdot G, L_j(0)))$.
 6. $\bullet$ Each $P_i$ waits to receive $\text{kx}_j^i$ from each other $P_j$.
 7. Each $P_i$ sets $\text{kx}_ i \gets \sum_ {P_ j \in \mathcal{P}_ 1} \text{kx}^i_ j$ and $L \gets \sum_{P_j \in \mathcal{P}_1} L_j$.
 8. $\blacktriangle$ Each $P_i$ *asserts* that $\text{kx}_ i \cdot G = L(i)$.

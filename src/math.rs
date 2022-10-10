@@ -107,8 +107,12 @@ impl_op_ex_commutative!(*|f: &Polynomial, s: &Scalar| -> Polynomial { f.scale(s)
 impl_op_ex!(*= |f: &mut Polynomial, s: &Scalar| { f.scale_mut(s) });
 
 /// A polynomial with group coefficients.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupPolynomial {
+    #[serde(
+        serialize_with = "serialize_projective_points",
+        deserialize_with = "deserialize_projective_points"
+    )]
     coefficients: Vec<ProjectivePoint>,
 }
 
