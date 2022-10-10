@@ -1,7 +1,7 @@
 use std::ops::Index;
 
 use auto_ops::{impl_op_ex, impl_op_ex_commutative};
-use k256::{elliptic_curve::Group, AffinePoint, ProjectivePoint, Scalar};
+use k256::{AffinePoint, ProjectivePoint, Scalar};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 
@@ -87,6 +87,16 @@ impl Polynomial {
         EvaluationTable { evaluations }
     }
 
+    /// Commit to this polynomial by acting on the generator
+    pub fn commit(&self) -> GroupPolynomial {
+        let coefficients = self
+            .coefficients
+            .iter()
+            .map(|x| ProjectivePoint::GENERATOR * x)
+            .collect();
+        GroupPolynomial { coefficients }
+    }
+
     /// Return the length of this polynomial.
     pub fn len(&self) -> usize {
         self.coefficients.len()
@@ -150,6 +160,11 @@ impl GroupPolynomial {
             out = out * x + c;
         }
         out
+    }
+
+    /// Return the length of this polynomial.
+    pub fn len(&self) -> usize {
+        self.coefficients.len()
     }
 }
 

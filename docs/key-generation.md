@@ -29,7 +29,7 @@ the following protocol:
 1. $\bullet$ Each $P_i$ waits to receive $\text{Confirm}_j$ from each other $P_j$.
 2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Confirm}_j = \text{Confirm}_i$, aborting otherwise.
 3. $\bullet$ Each $P_i$ waits to receive $(F_j, \pi_j)$ from each other $P_j$.
-4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{deg}(F_ j) = t -1 \land H(F_j) = \text{Com}_j \land \text{Verify}(T.\text{Cloned}(\texttt{dlog 0}, j), \pi_j, \text{Mau}({- \cdot G}, F_j(0)))$.
+4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{deg}(F_ j) = t -1 \land H(F_j) = \text{Com}_j \land \text{Verify}(T.\text{Cloned}(\texttt{dlog0}, j), \pi_j, \text{Mau}({- \cdot G}, F_j(0)))$.
 5. $\bullet$ Each $P_i$ waits to receive $x_j^i$ from each other $P_j$.
 6. Each $P_i$ sets $x_i \gets \sum_j x^i_j$ and $X \gets \sum_j F_j(0)$.
 7. $\blacktriangle$ Each $P_i$ asserts that $x_i \cdot G = (\sum_j F_j)(i)$.

@@ -5,9 +5,9 @@ use magikitten::Transcript;
 use rand_core::CryptoRngCore;
 
 use crate::crypto::{commit, Commitment};
-use crate::math::Polynomial;
+use crate::math::{GroupPolynomial, Polynomial};
 use crate::participants::{ParticipantList, ParticipantMap};
-use crate::proofs::phi;
+use crate::proofs::{dlog, phi};
 use crate::protocol::internal::{Communication, Executor};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
 use crate::serde::encode;
@@ -40,8 +40,7 @@ async fn do_keygen(
     let f = Polynomial::random(rng, threshold);
 
     // Spec 1.4
-    let f_evals = f.evaluate_many(participants.domain());
-    let mut big_f = f_evals.commit();
+    let mut big_f = f.commit();
 
     // Spec 1.5
     let my_commitment = commit(&big_f);
@@ -70,15 +69,15 @@ async fn do_keygen(
     comms.send_many(1, &my_confirmation).await;
 
     // Spec 2.5
-    let statement = phi::Statement {
-        size: threshold,
-        domain: participants.domain(),
-        public: &big_f,
+    let statement = dlog::Statement {
+        public: &big_f.evaluate_zero(),
     };
-    let witness = phi::Witness { f: &f };
-    let my_phi_proof = phi::prove(
+    let witness = dlog::Witness {
+        x: &f.evaluate_zero(),
+    };
+    let my_phi_proof = dlog::prove(
         rng,
-        &mut transcript.forked(b"phi proof for", &me.bytes()),
+        &mut transcript.forked(b"dlog0", &me.bytes()),
         statement,
         witness,
     );
@@ -89,10 +88,10 @@ async fn do_keygen(
     // Spec 2.7
     for p in participants.others(me) {
         // Need to add 1, since first evaluation is at 0.
-        let x_i_j = f_evals.evaluations[participants.index(p) + 1];
+        let x_i_j = f.evaluate(&p.scalar());
         comms.send_private(3, p, &x_i_j).await;
     }
-    let mut x_i = f_evals.evaluations[participants.index(me) + 1];
+    let mut x_i = f.evaluate(&me.scalar());
 
     // Spec 3.1 + 3.2
     let mut confirmations_seen = HashSet::with_capacity(n);
@@ -112,7 +111,8 @@ async fn do_keygen(
     let mut big_fs_seen = confirmations_seen;
     big_fs_seen.insert(me);
     while big_fs_seen.len() < n {
-        let (from, (their_big_f, their_phi_proof)) = comms.recv(2).await?;
+        let (from, (their_big_f, their_phi_proof)): (_, (GroupPolynomial, _)) =
+            comms.recv(2).await?;
         if big_fs_seen.contains(&from) {
             continue;
         }
@@ -123,12 +123,10 @@ async fn do_keygen(
                 "commitment from {from:?} did not match revealed F"
             )));
         }
-        let statement = phi::Statement {
-            size: threshold,
-            domain: participants.domain(),
-            public: &their_big_f,
+        let statement = dlog::Statement {
+            public: &their_big_f.evaluate_zero(),
         };
-        if !phi::verify(
+        if !dlog::verify(
             &mut transcript.forked(b"phi proof for", &from.bytes()),
             statement,
             &their_phi_proof,
@@ -153,7 +151,7 @@ async fn do_keygen(
     }
 
     // Spec 3.7
-    if big_f.evaluations[participants.index(me) + 1] != ProjectivePoint::GENERATOR * x_i {
+    if big_f.evalute(&me.scalar()) != ProjectivePoint::GENERATOR * x_i {
         return Err(ProtocolError::AssertionFailed(
             "received bad private share".to_string(),
         ));
@@ -162,7 +160,7 @@ async fn do_keygen(
     // Spec 3.8
     Ok(KeygenOutput {
         private_share: x_i,
-        public_key: big_f.evaluations[0].to_affine(),
+        public_key: big_f.evaluate_zero().to_affine(),
     })
 }
 
