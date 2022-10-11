@@ -19,7 +19,7 @@ pub struct KeygenOutput {
 }
 
 async fn do_keygen(
-    rng: &mut impl CryptoRngCore,
+    mut rng: impl CryptoRngCore,
     comms: Communication,
     participants: ParticipantList,
     me: Participant,
@@ -37,7 +37,7 @@ async fn do_keygen(
     );
 
     // Spec 1.3
-    let f = Polynomial::random(rng, threshold);
+    let f = Polynomial::random(&mut rng, threshold);
 
     // Spec 1.4
     let mut big_f = f.commit();
@@ -76,7 +76,7 @@ async fn do_keygen(
         x: &f.evaluate_zero(),
     };
     let my_phi_proof = dlog::prove(
-        rng,
+        &mut rng,
         &mut transcript.forked(b"dlog0", &me.bytes()),
         statement,
         witness,
@@ -164,12 +164,12 @@ async fn do_keygen(
     })
 }
 
-pub fn keygen<'a>(
-    rng: &'a mut impl CryptoRngCore,
+pub fn keygen(
+    rng: impl CryptoRngCore,
     participants: &[Participant],
     me: Participant,
     threshold: usize,
-) -> Result<impl Protocol<Output = KeygenOutput> + 'a, InitializationError> {
+) -> Result<impl Protocol<Output = KeygenOutput>, InitializationError> {
     if participants.len() < 2 {
         return Err(InitializationError::BadParameters(format!(
             "participant count cannot be < 2, found: {}",
@@ -196,4 +196,37 @@ pub fn keygen<'a>(
     let comms = Communication::new(4, participants.len());
     let fut = do_keygen(rng, comms.clone(), participants, me, threshold);
     Ok(Executor::new(comms, fut))
+}
+
+#[cfg(test)]
+mod test {
+    use rand_core::OsRng;
+
+    use super::*;
+    use crate::protocol::{run_protocol, Participant};
+
+    #[test]
+    fn test_keygen() {
+        let participants = vec![
+            Participant::from(0u32),
+            Participant::from(1u32),
+            Participant::from(2u32),
+        ];
+        let threshold = 2;
+
+        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = KeygenOutput>>)> =
+            Vec::with_capacity(participants.len());
+
+        for p in participants.iter() {
+            let protocol = keygen(OsRng, &participants, *p, threshold);
+            assert!(protocol.is_ok());
+            let protocol = protocol.unwrap();
+            protocols.push((*p, Box::new(protocol)));
+        }
+
+        let result = run_protocol(protocols);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert!(result.len() == participants.len())
+    }
 }

@@ -63,9 +63,7 @@ impl ParticipantList {
 
     /// Iterate over the other participants
     pub fn others(&self, me: Participant) -> impl Iterator<Item = Participant> + '_ {
-        self.participants
-            .iter()
-            .filter(move |x| **x != me).copied()
+        self.participants.iter().filter(move |x| **x != me).copied()
     }
 
     /// Return the index of a given participant.
@@ -73,15 +71,6 @@ impl ParticipantList {
     /// Basically, the order they appear in a sorted list
     pub fn index(&self, participant: Participant) -> usize {
         self.indices[&participant]
-    }
-
-    /// Get the evaluation domain.
-    ///
-    /// This will include the scalar for each participant, preceded by 0.
-    ///
-    /// This will not be calculated every time, but cached.
-    pub fn domain(&self) -> &[Scalar] {
-        &self.domain
     }
 
     /// Get the lagrange coefficient for a participant, relative to this list.
