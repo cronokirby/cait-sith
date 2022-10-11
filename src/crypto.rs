@@ -22,7 +22,7 @@ impl<'a> Write for MeowWriter<'a> {
 }
 
 /// Represents a commitment to some value.
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Commitment([u8; COMMIT_LEN]);
 
 impl AsRef<[u8]> for Commitment {

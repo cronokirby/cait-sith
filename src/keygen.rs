@@ -53,9 +53,6 @@ async fn do_keygen(
     all_commitments.put(me, my_commitment);
     while !all_commitments.full() {
         let (from, commitment) = comms.recv(0).await?;
-        if all_commitments.contains(from) {
-            continue;
-        }
         all_commitments.put(from, commitment);
     }
 
@@ -113,9 +110,6 @@ async fn do_keygen(
     while big_fs_seen.len() < n {
         let (from, (their_big_f, their_phi_proof)): (_, (GroupPolynomial, _)) =
             comms.recv(2).await?;
-        if big_fs_seen.contains(&from) {
-            continue;
-        }
         big_fs_seen.insert(from);
 
         if commit(&their_big_f) != all_commitments[from] {
@@ -127,7 +121,7 @@ async fn do_keygen(
             public: &their_big_f.evaluate_zero(),
         };
         if !dlog::verify(
-            &mut transcript.forked(b"phi proof for", &from.bytes()),
+            &mut transcript.forked(b"dlog0", &from.bytes()),
             statement,
             &their_phi_proof,
         ) {
@@ -141,11 +135,9 @@ async fn do_keygen(
     // Spec 3.5 + 3.6
     big_fs_seen.clear();
     let mut x_j_i_seen = big_fs_seen;
+    x_j_i_seen.insert(me);
     while x_j_i_seen.len() < n {
         let (from, x_j_i): (_, Scalar) = comms.recv(3).await?;
-        if x_j_i_seen.contains(&from) {
-            continue;
-        }
         x_j_i_seen.insert(from);
         x_i += x_j_i;
     }
@@ -227,6 +219,17 @@ mod test {
         let result = run_protocol(protocols);
         assert!(result.is_ok());
         let result = result.unwrap();
-        assert!(result.len() == participants.len())
+        assert!(result.len() == participants.len());
+        assert_eq!(result[0].1.public_key, result[1].1.public_key);
+        assert_eq!(result[1].1.public_key, result[2].1.public_key);
+
+        let pub_key = result[2].1.public_key;
+
+        let participants = vec![result[0].0, result[1].0];
+        let shares = vec![result[0].1.private_share, result[1].1.private_share];
+        let p_list = ParticipantList::new(&participants).unwrap();
+        let x = p_list.lagrange(participants[0]) * shares[0]
+            + p_list.lagrange(participants[1]) * shares[1];
+        assert_eq!(ProjectivePoint::GENERATOR * x, pub_key);
     }
 }

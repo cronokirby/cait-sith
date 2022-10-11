@@ -217,8 +217,8 @@ impl Communication {
 impl Clone for Communication {
     fn clone(&self) -> Self {
         Self {
-            queue: self.queue.clone(),
-            mailbox: self.mailbox.clone(),
+            queue: Rc::clone(&self.queue),
+            mailbox: Rc::clone(&self.mailbox),
         }
     }
 }
@@ -244,34 +244,60 @@ fn dummy_waker() -> Waker {
 /// which will also use that same infrastructure. The executor then implements
 /// the methods for advancing the protocol, which will end up polling the future
 /// and reacting accordingly, based on what's happening on the communications infrastructure.
-pub struct Executor<F> {
+pub struct Executor<F, O> {
     comms: Communication,
     fut: Pin<Box<F>>,
+    output: Option<O>,
+    done: bool,
 }
 
-impl<O, F: Future<Output = Result<O, ProtocolError>>> Executor<F> {
+impl<O, F: Future<Output = Result<O, ProtocolError>>> Executor<F, O> {
     pub fn new(comms: Communication, fut: F) -> Self {
         Self {
             comms,
             fut: Box::pin(fut),
+            output: None,
+            done: false,
         }
     }
 
+    fn take_output(&mut self) -> Option<O> {
+        let out = self.output.take();
+        if out.is_some() {
+            self.done = true;
+        }
+        out
+    }
+
     fn run(&mut self) -> Result<Action<O>, ProtocolError> {
+        if self.done {
+            return Ok(Action::Wait);
+        }
+        if let Some(out) = self.take_output() {
+            return Ok(Action::Return(out));
+        }
+
         let waker = dummy_waker();
         let mut ctx = Context::from_waker(&waker);
-        match self.fut.as_mut().poll(&mut ctx) {
-            Poll::Ready(out) => out.map(Action::Return),
-            Poll::Pending => match self.comms.outgoing() {
-                None => Ok(Action::Wait),
-                Some(Message::Many(m)) => Ok(Action::SendMany(m)),
-                Some(Message::Private(to, m)) => Ok(Action::SendPrivate(to, m)),
-            },
+        if let Poll::Ready(out) = self.fut.as_mut().poll(&mut ctx) {
+            self.output = Some(out?);
+        }
+
+        match self.comms.outgoing() {
+            Some(Message::Many(m)) => Ok(Action::SendMany(m)),
+            Some(Message::Private(to, m)) => Ok(Action::SendPrivate(to, m)),
+            None => {
+                if let Some(out) = self.take_output() {
+                    Ok(Action::Return(out))
+                } else {
+                    Ok(Action::Wait)
+                }
+            }
         }
     }
 }
 
-impl<O, F: Future<Output = Result<O, ProtocolError>>> Protocol for Executor<F> {
+impl<O, F: Future<Output = Result<O, ProtocolError>>> Protocol for Executor<F, O> {
     type Output = O;
 
     fn poke(&mut self) -> Result<Action<Self::Output>, ProtocolError> {

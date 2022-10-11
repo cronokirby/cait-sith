@@ -21,8 +21,6 @@ pub struct ParticipantList {
     /// This maps each participant to their index in the vector above.
     #[serde(skip_serializing)]
     indices: HashMap<Participant, usize>,
-    #[serde(skip_serializing)]
-    domain: Vec<Scalar>,
 }
 
 impl ParticipantList {
@@ -39,16 +37,9 @@ impl ParticipantList {
             return None;
         }
 
-        let mut domain = Vec::with_capacity(participants.len() + 1);
-        domain.push(Scalar::ZERO);
-        for &p in participants {
-            domain.push(p.scalar());
-        }
-
         Some(Self {
             participants: out,
             indices,
-            domain,
         })
     }
 
@@ -76,17 +67,19 @@ impl ParticipantList {
     /// Get the lagrange coefficient for a participant, relative to this list.
     pub fn lagrange(&self, p: Participant) -> Scalar {
         let p_scalar = p.scalar();
-        let p_i = self.index(p) + 1;
 
-        let mut acc = Scalar::ONE;
-        for (i, &s) in self.domain.iter().enumerate() {
-            if i == p_i || i == 0 {
+        let mut top = Scalar::ONE;
+        let mut bot = Scalar::ONE;
+        for q in &self.participants {
+            if p == *q {
                 continue;
             }
-            acc *= p_scalar - s;
+            let q_scalar = q.scalar();
+            top *= q_scalar;
+            bot *= q_scalar - p_scalar;
         }
 
-        p_scalar * acc.invert().unwrap()
+        top * bot.invert().unwrap()
     }
 }
 
@@ -138,8 +131,7 @@ impl<'a, T> ParticipantMap<'a, T> {
 
     /// Place the data for a participant in this map.
     ///
-    /// This will not assert that data for that participant already exists,
-    /// so upstream consumers should check this condition somehow.
+    /// This will do nothing if the participant is unknown, or already has a value
     pub fn put(&mut self, participant: Participant, data: T) {
         let i = self.participants.indices.get(&participant);
         if i.is_none() {
@@ -147,9 +139,12 @@ impl<'a, T> ParticipantMap<'a, T> {
         }
         let i = *i.unwrap();
 
-        assert!(self.data[i].is_none());
+        if self.data[i].is_some() {
+            return;
+        }
 
         self.data[i] = Some(data);
+        self.count += 1;
     }
 }
 
