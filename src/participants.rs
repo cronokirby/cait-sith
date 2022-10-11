@@ -119,16 +119,6 @@ impl<'a, T> ParticipantMap<'a, T> {
         self.count == self.data.len()
     }
 
-    /// Check if this map contains data from a specific participant.
-    pub fn contains(&mut self, participant: Participant) -> bool {
-        let i = self.participants.indices.get(&participant);
-        if i.is_none() {
-            return false;
-        }
-        let i = *i.unwrap();
-        self.data[i].is_some()
-    }
-
     /// Place the data for a participant in this map.
     ///
     /// This will do nothing if the participant is unknown, or already has a value
