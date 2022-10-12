@@ -64,18 +64,18 @@ In the setup phase, the parties generated a $t$ threshold sharing
 of the private key $x$, with the share of $\mathcal{P}_i$ being $x_i$.
 The parties also hold the public key $X = x \cdot G$.
 
-In the prior phase, a set of parties $\mathcal{P}_0$ of size $N_0$
-came together to generate a $t_0 \geq t$ threshold sharing of triples $a^0$, $b^0$, $c^0 = a^0 b^0$
-and $a^1$, $b^1$, $c^1 = a^1 b^1$ , along with values $A^\sigma = a^\sigma \cdot G$, $B^\sigma = b^\sigma \cdot G$ and $C^\sigma = c^\sigma \cdot G$.
+In two prior phases $\sigma \in \\{0, 1\\}$, a set of parties $\mathcal{P}_0^\sigma$ of size $N_0^\sigma$
+came together to generate a $t_0 \geq t$ threshold sharing of triples $a^\sigma$, $b^\sigma$, $c^\sigma = a^\sigma b^\sigma$
+along with values $A^\sigma = a^\sigma \cdot G$, $B^\sigma = b^\sigma \cdot G$ and $C^\sigma = c^\sigma \cdot G$.
 
-In the current phase, a set of parties $\mathcal{P}_1 \subseteq \mathcal{P}_0$
-of size $N_1 \geq t_0$ wish to generate a threshold $t_1 \geq t$ sharing
+In the current phase, a set of parties $\mathcal{P}_ 1 \subseteq \mathcal{P}_ 0^0 \cap \mathcal{P}^1_ 0$
+of size $N_1 \geq \text{max}(t_0^0, t_0^1)$ wish to generate a threshold $t_1 \geq t$ sharing
 of a pre-signature.
 
 **Round 1:**
 
-1. Each $P_i$ checks that $\mathcal{P}_1 \subseteq \mathcal{P}_0$, and $t_1 \geq t$.
-1. $T.\text{Add}(t, \mathcal{P}_0, t_0, \mathcal{P}_1, t_1, A^0, B^0, C^0, A^1, B^1, C^1)$
+1. Each $P_i$ checks that $\mathcal{P}_1 \subseteq \mathcal{P}_0^0 \cap \mathcal{P}_0^1$, that $t_1 \geq t$.
+1. $T.\text{Add}(t, \mathcal{P}_0^0, t_0^0, \mathcal{P}_0^1, t_0^1, \mathcal{P}_1, t_1, A^0, B^0, C^0, A^1, B^1, C^1)$
 2. Each party $P_i$ linearizes their share of $x$, setting $x_i \gets \lambda(\mathcal{P}_1)_i \cdot x_i$.
 3. Each party $P_i$ linearizes their triple shares, setting:
 
