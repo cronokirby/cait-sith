@@ -3,8 +3,8 @@ mod keygen;
 mod math;
 mod participants;
 mod proofs;
-mod protocol;
+pub mod protocol;
 mod serde;
+mod triples;
 
 pub use keygen::{KeygenOutput, keygen};
-pub use protocol::{Action, InitializationError, ProtocolError, Participant, Protocol};
