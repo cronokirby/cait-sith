@@ -99,7 +99,7 @@ $$
 $$
 \begin{align}
 \pi_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog0}, i), \text{Mau}(- \cdot G, F_ i(0); f(0)))\cr
-\pi'_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog1}, i), \text{Mau}(- \cdot G, D_ i; d_ i)))
+\pi'_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog1}, i), \text{Mau}(- \cdot G, D_ i; d_ i))
 \end{align}
 $$
 6. $\star$ Each $P_i$ sends $(F_i, \pi_i, D_i, \pi'_i)$ to every other party.
