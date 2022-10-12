@@ -96,12 +96,14 @@ $$
 3. $T.\text{Add}(\text{Confirm}_i)$
 4. $\star$ Each $P_i$ sends $\text{Confirm}_i$ to every other party.
 5. Each $P_i$ generates the proofs
+
 $$
 \begin{align}
 \pi_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog0}, i), \text{Mau}(- \cdot G, F_ i(0); f(0)))\cr
 \pi'_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog1}, i), \text{Mau}(- \cdot G, D_ i; d_ i))
 \end{align}
 $$
+
 6. $\star$ Each $P_i$ sends $(F_i, \pi_i, D_i, \pi'_i)$ to every other party.
 7. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $\text{k}_i^j := f(j)$ to each other party $P_j$, and saves $\text{k}_i^i$ for itself.
 8. Each $P_i$ sets:
@@ -123,6 +125,7 @@ $$
 2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_1.\ \text{Confirm}_j = \text{Confirm}_i$, aborting otherwise.
 3. $\bullet$ Each $P_i$ waits to receive $(F_j, D_j, \pi_j)$ from each other $P_j$.
 4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_ 1$:
+
 $$
 \begin{align}
 &\text{deg}(F_ j) = t - 1\cr
@@ -131,6 +134,7 @@ $$
 &\text{Verify}(T.\text{Cloned}(\texttt{dlog1}, j), \pi_ j, \text{Mau}(- \cdot G, D_j))
 \end{align}
 $$
+
 5. $\bullet$ Each $P_i$ waits to receive $k_j^i$ from each other party $P_j$.
 6. Each $P_i$ sets $k_ i \gets \sum_{P_ j \in \mathcal{P}_ 1} k^i_ j$ and $K \gets \sum_ {P_ j \in \mathcal{P}_ 1} F_ j(0)$.
 7. $\blacktriangle$ Each $P_i$ *asserts* that $k_i \cdot G = (\sum_{P_j \in \mathcal{P}_1} F_j)(i)$.
