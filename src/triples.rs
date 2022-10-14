@@ -1,4 +1,5 @@
 use k256::{AffinePoint, Scalar};
+use serde::Serialize;
 
 use crate::protocol::Participant;
 
@@ -7,15 +8,15 @@ use crate::protocol::Participant;
 /// This contains commitments to each part of the triple.
 ///
 /// We also record who participated in the protocol,
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct TriplePub {
-    big_a: AffinePoint,
-    big_b: AffinePoint,
-    big_c: AffinePoint,
+    pub big_a: AffinePoint,
+    pub big_b: AffinePoint,
+    pub big_c: AffinePoint,
     /// The participants in generating this triple.
-    participants: Vec<Participant>,
+    pub participants: Vec<Participant>,
     /// The threshold which will be able to reconstruct it.
-    threshold: usize,
+    pub threshold: usize,
 }
 
 /// Represents a share of a triple.
@@ -25,7 +26,7 @@ pub struct TriplePub {
 /// i.e. we have a share of a, b, and c such that a * b = c.
 #[derive(Clone, Debug)]
 pub struct TripleShare {
-    a: Scalar,
-    b: Scalar,
-    c: Scalar,
+    pub a: Scalar,
+    pub b: Scalar,
+    pub c: Scalar,
 }

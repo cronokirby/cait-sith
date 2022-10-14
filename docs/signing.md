@@ -75,19 +75,19 @@ of a pre-signature.
 **Round 1:**
 
 1. Each $P_i$ checks that $\mathcal{P}_1 \subseteq \mathcal{P}_0^0 \cap \mathcal{P}_0^1$, that $t_1 \geq t$.
-1. $T.\text{Add}(t, \mathcal{P}_0^0, t_0^0, \mathcal{P}_0^1, t_0^1, \mathcal{P}_1, t_1, A^0, B^0, C^0, A^1, B^1, C^1)$
-2. Each party $P_i$ linearizes their share of $x$, setting $x_i \gets \lambda(\mathcal{P}_1)_i \cdot x_i$.
-3. Each party $P_i$ linearizes their triple shares, setting:
+2. $T.\text{Add}(t, \mathcal{P}_0^0, t_0^0, \mathcal{P}_0^1, t_0^1, \mathcal{P}_1, t_1, A^0, B^0, C^0, A^1, B^1, C^1)$
+3. Each party $P_i$ linearizes their share of $x$, setting $x_i \gets \lambda(\mathcal{P}_1)_i \cdot x_i$.
+4. Each party $P_i$ linearizes their triple shares, setting:
 
 $$
 (a_i^\sigma, b_i^\sigma, c_i^\sigma) \gets \lambda(\mathcal{P}_1)_i \cdot (a_i^\sigma, b_i^\sigma, c_i^\sigma)
 $$
 
-3. Each $P_i$ samples $f \xleftarrow{\\\$} \mathbb{F}_ q[X]_ {\leq t - 1}$.
-4. Each $P_i$ sets $F_ i \gets f \cdot G$.
-5. Each $P_i$ generates $d_i \xleftarrow{\\\$} \mathbb{F}_q$, and sets $D_i \gets d_i \cdot G$.
-6. Each party $P_i$ sets $\text{Com}_i \gets H(F_i, D_i)$.
-7. $\star$ Each party $P_i$ sends $\text{Com}_i$ to every other party.
+5. Each $P_i$ samples $f \xleftarrow{\\\$} \mathbb{F}_ q[X]_ {\leq t - 1}$.
+6. Each $P_i$ sets $F_ i \gets f \cdot G$.
+7. Each $P_i$ generates $d_i \xleftarrow{\\\$} \mathbb{F}_q$, and sets $D_i \gets d_i \cdot G$.
+8. Each party $P_i$ sets $\text{Com}_i \gets H(F_i, D_i)$.
+9. $\star$ Each party $P_i$ sends $\text{Com}_i$ to every other party.
 
 **Round 2:**
 

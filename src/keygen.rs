@@ -88,7 +88,6 @@ async fn do_keygen(
     // Spec 2.7
     let wait3 = comms.next_waitpoint();
     for p in participants.others(me) {
-        // Need to add 1, since first evaluation is at 0.
         let x_i_j = f.evaluate(&p.scalar());
         comms.send_private(wait3, p, &x_i_j).await;
     }
