@@ -8,7 +8,7 @@ use crate::protocol::Participant;
 ///
 /// We also record who participated in the protocol,
 #[derive(Clone, Debug)]
-struct TriplePub {
+pub struct TriplePub {
     big_a: AffinePoint,
     big_b: AffinePoint,
     big_c: AffinePoint,
@@ -24,7 +24,7 @@ struct TriplePub {
 ///
 /// i.e. we have a share of a, b, and c such that a * b = c.
 #[derive(Clone, Debug)]
-struct TripleShare {
+pub struct TripleShare {
     a: Scalar,
     b: Scalar,
     c: Scalar,
