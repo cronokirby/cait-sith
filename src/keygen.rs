@@ -46,13 +46,14 @@ async fn do_keygen(
     let my_commitment = commit(&big_f);
 
     // Spec 1.6
-    comms.send_many(0, &my_commitment).await;
+    let wait0 = comms.next_waitpoint();
+    comms.send_many(wait0, &my_commitment).await;
 
     // Spec 2.1
     let mut all_commitments = ParticipantMap::new(&participants);
     all_commitments.put(me, my_commitment);
     while !all_commitments.full() {
-        let (from, commitment) = comms.recv(0).await?;
+        let (from, commitment) = comms.recv(wait0).await?;
         all_commitments.put(from, commitment);
     }
 
@@ -63,7 +64,8 @@ async fn do_keygen(
     transcript.message(b"confirmation", my_confirmation.as_ref());
 
     // Spec 2.4
-    comms.send_many(1, &my_confirmation).await;
+    let wait1 = comms.next_waitpoint();
+    comms.send_many(wait1, &my_confirmation).await;
 
     // Spec 2.5
     let statement = dlog::Statement {
@@ -80,13 +82,15 @@ async fn do_keygen(
     );
 
     // Spec 2.6
-    comms.send_many(2, &(&big_f, my_phi_proof)).await;
+    let wait2 = comms.next_waitpoint();
+    comms.send_many(wait2, &(&big_f, my_phi_proof)).await;
 
     // Spec 2.7
+    let wait3 = comms.next_waitpoint();
     for p in participants.others(me) {
         // Need to add 1, since first evaluation is at 0.
         let x_i_j = f.evaluate(&p.scalar());
-        comms.send_private(3, p, &x_i_j).await;
+        comms.send_private(wait3, p, &x_i_j).await;
     }
     let mut x_i = f.evaluate(&me.scalar());
 
@@ -94,7 +98,7 @@ async fn do_keygen(
     let mut confirmations_seen = HashSet::with_capacity(n);
     confirmations_seen.insert(me);
     while confirmations_seen.len() < n {
-        let (from, confirmation): (_, Commitment) = comms.recv(1).await?;
+        let (from, confirmation): (_, Commitment) = comms.recv(wait1).await?;
         if confirmation != my_confirmation {
             return Err(ProtocolError::AssertionFailed(format!(
                 "confirmation from {from:?} did not match expectation"
@@ -109,7 +113,7 @@ async fn do_keygen(
     big_fs_seen.insert(me);
     while big_fs_seen.len() < n {
         let (from, (their_big_f, their_phi_proof)): (_, (GroupPolynomial, _)) =
-            comms.recv(2).await?;
+            comms.recv(wait2).await?;
         big_fs_seen.insert(from);
 
         if commit(&their_big_f) != all_commitments[from] {
@@ -137,7 +141,7 @@ async fn do_keygen(
     let mut x_j_i_seen = big_fs_seen;
     x_j_i_seen.insert(me);
     while x_j_i_seen.len() < n {
-        let (from, x_j_i): (_, Scalar) = comms.recv(3).await?;
+        let (from, x_j_i): (_, Scalar) = comms.recv(wait3).await?;
         x_j_i_seen.insert(from);
         x_i += x_j_i;
     }
@@ -185,7 +189,7 @@ pub fn keygen(
         ));
     }
 
-    let comms = Communication::new(4, participants.len());
+    let comms = Communication::new(participants.len());
     let fut = do_keygen(rng, comms.clone(), participants, me, threshold);
     Ok(Executor::new(comms, fut))
 }

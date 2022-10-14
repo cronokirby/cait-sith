@@ -15,29 +15,47 @@ use crate::serde::{decode, encode_with_tag};
 
 use super::{Action, MessageData, Participant, Protocol, ProtocolError};
 
+/// A waiting point in the queue.
+type Waitpoint = usize;
+
 /// Represents a queue of messages.
 ///
 /// This is used to receive incoming messages as they arrive, and automatically
 /// sort them into bins based on
 #[derive(Debug, Clone)]
 struct MessageQueue {
+    buffer_size: usize,
+    next_waitpoint: usize,
     /// We have one stack of messages for each round / wait point.
+    ///
+    /// In practice this means starting with 256 empty buffers, to handle
+    /// all potential wait points.
     stacks: Vec<Vec<(Participant, MessageData)>>,
 }
 
 impl MessageQueue {
-    /// Create a new message queue, given a number of wait points.
-    ///
-    /// Each wait point is a distinct point in the protocol where we'll wait
-    /// for a message.
+    /// Create a new message queue.
     ///
     /// We also take in a hint for the number of parties participating in the protocol.
     /// This just allows us to pre-allocate buffers of the right size, and is just
     /// a performance optimization.
-    fn new(waitpoints: usize, parties_hint: usize) -> Self {
+    fn new(parties_hint: usize) -> Self {
         Self {
-            stacks: vec![Vec::with_capacity(parties_hint.saturating_sub(1)); waitpoints],
+            buffer_size: parties_hint.saturating_sub(1),
+            next_waitpoint: 0,
+            stacks: vec![Vec::new(); 0xFF],
         }
+    }
+
+    /// Get the next waitpoint.
+    fn next_waitpoint(&mut self) -> Waitpoint {
+        let out = self.next_waitpoint;
+        self.next_waitpoint += 1;
+        assert!(
+            self.next_waitpoint <= self.stacks.len(),
+            "too many waitpoints used"
+        );
+        out
     }
 
     /// Push a new message into the queue.
@@ -60,7 +78,7 @@ impl MessageQueue {
     /// Pop a message from a specific round.
     ///
     /// This round **must** be less than the number of waitpoints of this queue.
-    fn pop(&mut self, round: usize) -> Option<(Participant, MessageData)> {
+    fn pop(&mut self, round: Waitpoint) -> Option<(Participant, MessageData)> {
         assert!(round < self.stacks.len());
 
         self.stacks[round].pop()
@@ -159,17 +177,11 @@ pub struct Communication {
 }
 
 impl Communication {
-    /// Create new communications, given a number of waitpoints, and parties.
+    /// Create new communications, given a number of parties.
     ///
     /// The latter is just a hint for performance.
-    ///
-    /// The former is more meaningful, as it indicates which messages will be ignored.
-    /// Messages have a tag encoded into them, indicating the round they're sent
-    /// for. If a message gets sent to a round beyond the number of expected waitpoints,
-    /// that message is dropped. Thus, it's important for the number of waitpoints
-    /// to be correct.
-    pub fn new(waitpoints: usize, parties_hint: usize) -> Self {
-        let queue = MessageQueue::new(waitpoints, parties_hint);
+    pub fn new(parties_hint: usize) -> Self {
+        let queue = MessageQueue::new(parties_hint);
         let mailbox = Mailbox::new();
 
         Self {
@@ -200,6 +212,11 @@ impl Communication {
     pub async fn send_private<T: Serialize>(&self, round: u8, to: Participant, data: &T) {
         let message_data = encode_with_tag(round, data);
         self.send_raw(Message::Private(to, message_data)).await;
+    }
+
+    /// Get the next wait point for communications.
+    pub fn next_waitpoint(&self) -> u8 {
+        self.queue.borrow_mut().next_waitpoint() as u8
     }
 
     /// Receive a message for a specific round.
