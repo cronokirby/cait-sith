@@ -24,7 +24,6 @@ type Waitpoint = usize;
 /// sort them into bins based on
 #[derive(Debug, Clone)]
 struct MessageQueue {
-    buffer_size: usize,
     next_waitpoint: usize,
     /// We have one stack of messages for each round / wait point.
     ///
@@ -35,13 +34,8 @@ struct MessageQueue {
 
 impl MessageQueue {
     /// Create a new message queue.
-    ///
-    /// We also take in a hint for the number of parties participating in the protocol.
-    /// This just allows us to pre-allocate buffers of the right size, and is just
-    /// a performance optimization.
-    fn new(parties_hint: usize) -> Self {
+    fn new() -> Self {
         Self {
-            buffer_size: parties_hint.saturating_sub(1),
             next_waitpoint: 0,
             stacks: vec![Vec::new(); 0xFF],
         }
@@ -177,11 +171,9 @@ pub struct Communication {
 }
 
 impl Communication {
-    /// Create new communications, given a number of parties.
-    ///
-    /// The latter is just a hint for performance.
-    pub fn new(parties_hint: usize) -> Self {
-        let queue = MessageQueue::new(parties_hint);
+    /// Create new communications.
+    pub fn new() -> Self {
+        let queue = MessageQueue::new();
         let mailbox = Mailbox::new();
 
         Self {

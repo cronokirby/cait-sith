@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use k256::{AffinePoint, ProjectivePoint, Scalar};
 use magikitten::Transcript;
 use rand_core::CryptoRngCore;
@@ -196,7 +194,7 @@ pub fn keygen(
         ));
     }
 
-    let comms = Communication::new(participants.len());
+    let comms = Communication::new();
     let fut = do_keygen(rng, comms.clone(), participants, me, threshold);
     Ok(Executor::new(comms, fut))
 }

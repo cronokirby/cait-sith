@@ -460,7 +460,7 @@ pub fn presign(
         InitializationError::BadParameters("participant list cannot contain duplicates".to_string())
     })?;
 
-    let comms = Communication::new(participants.len());
+    let comms = Communication::new();
     let fut = do_presign(rng, comms.clone(), participants, me, args);
     Ok(Executor::new(comms, fut))
 }
