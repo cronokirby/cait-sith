@@ -468,7 +468,6 @@ pub fn presign(
 #[cfg(test)]
 mod test {
     use super::*;
-    use k256::elliptic_curve::ops::Invert;
     use rand_core::OsRng;
 
     use crate::{protocol::run_protocol, triples};
