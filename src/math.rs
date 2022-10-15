@@ -148,7 +148,7 @@ impl GroupPolynomial {
     }
 
     /// Evaluate this polynomial at a specific value.
-    pub fn evalute(&self, x: &Scalar) -> ProjectivePoint {
+    pub fn evaluate(&self, x: &Scalar) -> ProjectivePoint {
         let mut out = ProjectivePoint::IDENTITY;
         for c in self.coefficients.iter().rev() {
             out = out * x + c;

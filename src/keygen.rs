@@ -26,7 +26,6 @@ async fn do_keygen(
     threshold: usize,
 ) -> Result<KeygenOutput, ProtocolError> {
     let mut transcript = Transcript::new(b"cait-sith v0.1.0 keygen");
-    let n = participants.len();
 
     // Spec 1.2
     transcript.message(b"participants", &encode(&participants));
@@ -94,11 +93,11 @@ async fn do_keygen(
     let mut x_i = f.evaluate(&me.scalar());
 
     // Spec 3.1 + 3.2
-    let mut confirmations_seen = ParticipantCounter::new(&participants);
-    confirmations_seen.put(me);
-    while !confirmations_seen.full() {
+    let mut seen = ParticipantCounter::new(&participants);
+    seen.put(me);
+    while !seen.full() {
         let (from, confirmation): (_, Commitment) = comms.recv(wait1).await?;
-        if !confirmations_seen.put(from) {
+        if !seen.put(from) {
             continue;
         }
         if confirmation != my_confirmation {
@@ -109,15 +108,20 @@ async fn do_keygen(
     }
 
     // Spec 3.3 + 3.4, and also part of 3.6, for summing up the Fs.
-    let mut big_fs_seen = confirmations_seen.cleared();
-    big_fs_seen.put(me);
-    while !big_fs_seen.full() {
+    seen.clear();
+    seen.put(me);
+    while !seen.full() {
         let (from, (their_big_f, their_phi_proof)): (_, (GroupPolynomial, _)) =
             comms.recv(wait2).await?;
-        if !big_fs_seen.put(from) {
+        if !seen.put(from) {
             continue;
         }
 
+        if their_big_f.len() != threshold {
+            return Err(ProtocolError::AssertionFailed(format!(
+                "polynomial from {from:?} has the wrong length"
+            )));
+        }
         if commit(&their_big_f) != all_commitments[from] {
             return Err(ProtocolError::AssertionFailed(format!(
                 "commitment from {from:?} did not match revealed F"
@@ -132,25 +136,25 @@ async fn do_keygen(
             &their_phi_proof,
         ) {
             return Err(ProtocolError::AssertionFailed(format!(
-                "phi proof from {from:?} failed to verify"
+                "dlog proof from {from:?} failed to verify"
             )));
         }
         big_f += &their_big_f;
     }
 
     // Spec 3.5 + 3.6
-    let mut x_j_i_seen = big_fs_seen.cleared();
-    x_j_i_seen.put(me);
-    while !x_j_i_seen.full() {
+    seen.clear();
+    seen.put(me);
+    while !seen.full() {
         let (from, x_j_i): (_, Scalar) = comms.recv(wait3).await?;
-        if !x_j_i_seen.put(from) {
+        if !seen.put(from) {
             continue;
         }
         x_i += x_j_i;
     }
 
     // Spec 3.7
-    if big_f.evalute(&me.scalar()) != ProjectivePoint::GENERATOR * x_i {
+    if big_f.evaluate(&me.scalar()) != ProjectivePoint::GENERATOR * x_i {
         return Err(ProtocolError::AssertionFailed(
             "received bad private share".to_string(),
         ));
