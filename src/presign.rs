@@ -322,10 +322,10 @@ async fn do_presign(
     // Spec 3.18
     let wait7 = comms.next_waitpoint();
     for p in participants.others(me) {
-        let kx_i_j = f.evaluate(&p.scalar());
+        let kx_i_j = l.evaluate(&p.scalar());
         comms.send_private(wait7, p, &kx_i_j).await;
     }
-    let kx_i_i = f.evaluate(&me.scalar());
+    let kx_i_i = l.evaluate(&me.scalar());
 
     // Spec 4.1 + 4.2
     let mut kd = kd_i;
@@ -403,7 +403,7 @@ async fn do_presign(
 
     // Spec 4.10
     let big_k = match Option::<Scalar>::from(kd.invert()) {
-        Some(r) => (big_k * r).to_affine(),
+        Some(r) => (big_d * r).to_affine(),
         None => {
             return Err(ProtocolError::AssertionFailed(
                 "kd is not invertible".to_string(),
@@ -463,4 +463,83 @@ pub fn presign(
     let comms = Communication::new();
     let fut = do_presign(rng, comms.clone(), participants, me, args);
     Ok(Executor::new(comms, fut))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use k256::elliptic_curve::ops::Invert;
+    use rand_core::OsRng;
+
+    use crate::{protocol::run_protocol, triples};
+
+    #[test]
+    fn test_presign() {
+        let participants = vec![
+            Participant::from(0u32),
+            Participant::from(1u32),
+            Participant::from(2u32),
+            Participant::from(3u32),
+        ];
+        let original_threshold = 2;
+        let f = Polynomial::random(&mut OsRng, original_threshold);
+        let big_x = (ProjectivePoint::GENERATOR * f.evaluate_zero()).to_affine();
+        let threshold = 2;
+
+        let (triple0_pub, triple0_shares) =
+            triples::deal(&mut OsRng, &participants, original_threshold);
+        let (triple1_pub, triple1_shares) =
+            triples::deal(&mut OsRng, &participants, original_threshold);
+
+        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = PresignOutput>>)> =
+            Vec::with_capacity(participants.len());
+
+        for ((p, triple0), triple1) in participants
+            .iter()
+            .take(3)
+            .zip(triple0_shares.into_iter())
+            .zip(triple1_shares.into_iter())
+        {
+            let protocol = presign(
+                OsRng,
+                &participants[..3],
+                *p,
+                PresignArguments {
+                    original_threshold,
+                    triple0: (triple0, triple0_pub.clone()),
+                    triple1: (triple1, triple1_pub.clone()),
+                    keygen_out: KeygenOutput {
+                        private_share: f.evaluate(&p.scalar()),
+                        public_key: big_x,
+                    },
+                    threshold,
+                },
+            );
+            assert!(protocol.is_ok());
+            let protocol = protocol.unwrap();
+            protocols.push((*p, Box::new(protocol)));
+        }
+
+        let result = run_protocol(protocols);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+
+        assert!(result.len() == 3);
+        assert_eq!(result[0].1.big_k, result[1].1.big_k);
+        assert_eq!(result[1].1.big_k, result[2].1.big_k);
+
+        let big_k = result[2].1.big_k;
+
+        let participants = vec![result[0].0, result[1].0];
+        let k_shares = vec![result[0].1.k, result[1].1.k];
+        let sigma_shares = vec![result[0].1.sigma, result[1].1.sigma];
+        let p_list = ParticipantList::new(&participants).unwrap();
+        let k = p_list.lagrange(participants[0]) * k_shares[0]
+            + p_list.lagrange(participants[1]) * k_shares[1];
+        assert_eq!(ProjectivePoint::GENERATOR * k.invert().unwrap(), big_k);
+        let sigma = p_list.lagrange(participants[0]) * sigma_shares[0]
+            + p_list.lagrange(participants[1]) * sigma_shares[1];
+        let r = <Scalar as Reduce<U256>>::from_be_bytes_reduced(big_k.x());
+        assert_eq!(sigma, r * k * f.evaluate_zero());
+    }
 }

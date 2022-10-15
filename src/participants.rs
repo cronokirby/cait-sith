@@ -187,7 +187,6 @@ impl<'a> ParticipantCounter<'a> {
         // Need the old value to be false.
         let inserted = !mem::replace(&mut self.seen[i], true);
         if inserted {
-            dbg!(&self.seen, participant, self.counter);
             self.counter -= 1;
         }
         inserted

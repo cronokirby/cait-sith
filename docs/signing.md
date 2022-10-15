@@ -192,7 +192,7 @@ $$
 7. Each $P_i$ sets $\text{kx}_ i \gets \sum_ {P_ j \in \mathcal{P}_ 1} \text{kx}^i_ j$ and $L \gets \sum_{P_j \in \mathcal{P}_1} L_j$.
 8. $\blacktriangle$ Each $P_i$ *asserts* that $\text{kx}_ i \cdot G = L(i)$.
 9. Each $P_i$ *asserts* that $L(0) = \text{xa} \cdot K - \text{kb} \cdot A^1 + C^1$.
-10. Each $P_i$ modifies $K$, setting $K \gets \frac{1}{\text{kd}} \cdot K$, and then saves $K$.
+10. Each $P_i$ modifies $K$, setting $K \gets \frac{1}{\text{kd}} \cdot D$, and then saves $K$.
 11. Each $P_i$ sets $\sigma_i \gets h(K) \cdot \text{kx}_i$, then saves $\sigma_i$.
 
 **Output**
