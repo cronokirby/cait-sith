@@ -7,6 +7,7 @@ mod proofs;
 pub mod protocol;
 mod serde;
 pub mod triples;
+mod sign;
 
 pub use presign::{presign, PresignOutput};
 pub use keygen::{keygen, KeygenOutput};
