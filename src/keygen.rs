@@ -6,7 +6,7 @@ use rand_core::CryptoRngCore;
 
 use crate::crypto::{commit, Commitment};
 use crate::math::{GroupPolynomial, Polynomial};
-use crate::participants::{ParticipantList, ParticipantMap};
+use crate::participants::{ParticipantCounter, ParticipantList, ParticipantMap};
 use crate::proofs::dlog;
 use crate::protocol::internal::{Communication, Executor};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
@@ -94,26 +94,29 @@ async fn do_keygen(
     let mut x_i = f.evaluate(&me.scalar());
 
     // Spec 3.1 + 3.2
-    let mut confirmations_seen = HashSet::with_capacity(n);
-    confirmations_seen.insert(me);
-    while confirmations_seen.len() < n {
+    let mut confirmations_seen = ParticipantCounter::new(&participants);
+    confirmations_seen.put(me);
+    while !confirmations_seen.full() {
         let (from, confirmation): (_, Commitment) = comms.recv(wait1).await?;
+        if !confirmations_seen.put(from) {
+            continue;
+        }
         if confirmation != my_confirmation {
             return Err(ProtocolError::AssertionFailed(format!(
                 "confirmation from {from:?} did not match expectation"
             )));
         }
-        confirmations_seen.insert(from);
     }
 
     // Spec 3.3 + 3.4, and also part of 3.6, for summing up the Fs.
-    confirmations_seen.clear();
-    let mut big_fs_seen = confirmations_seen;
-    big_fs_seen.insert(me);
-    while big_fs_seen.len() < n {
+    let mut big_fs_seen = confirmations_seen.cleared();
+    big_fs_seen.put(me);
+    while !big_fs_seen.full() {
         let (from, (their_big_f, their_phi_proof)): (_, (GroupPolynomial, _)) =
             comms.recv(wait2).await?;
-        big_fs_seen.insert(from);
+        if !big_fs_seen.put(from) {
+            continue;
+        }
 
         if commit(&their_big_f) != all_commitments[from] {
             return Err(ProtocolError::AssertionFailed(format!(
@@ -136,12 +139,13 @@ async fn do_keygen(
     }
 
     // Spec 3.5 + 3.6
-    big_fs_seen.clear();
-    let mut x_j_i_seen = big_fs_seen;
-    x_j_i_seen.insert(me);
-    while x_j_i_seen.len() < n {
+    let mut x_j_i_seen = big_fs_seen.cleared();
+    x_j_i_seen.put(me);
+    while !x_j_i_seen.full() {
         let (from, x_j_i): (_, Scalar) = comms.recv(wait3).await?;
-        x_j_i_seen.insert(from);
+        if !x_j_i_seen.put(from) {
+            continue;
+        }
         x_i += x_j_i;
     }
 

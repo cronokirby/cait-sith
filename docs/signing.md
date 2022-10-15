@@ -123,7 +123,7 @@ $$
 
 1. $\bullet$ Each $P_i$ waits to receive $\text{Confirm}_j$ from each other $P_j$.
 2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_1.\ \text{Confirm}_j = \text{Confirm}_i$, aborting otherwise.
-3. $\bullet$ Each $P_i$ waits to receive $(F_j, D_j, \pi_j)$ from each other $P_j$.
+3. $\bullet$ Each $P_i$ waits to receive $(F_j, \pi_j, D_j, \pi'_j)$ from each other $P_j$.
 4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_ 1$:
 
 $$

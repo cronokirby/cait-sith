@@ -4,7 +4,7 @@
 //! or getting the field values corresponding to each participant, etc.
 //! This module tries to provide useful data structures for doing that.
 
-use std::{collections::HashMap, ops::Index};
+use std::{collections::HashMap, mem, ops::Index};
 
 use k256::Scalar;
 use serde::Serialize;
@@ -143,5 +143,67 @@ impl<'a, T> Index<Participant> for ParticipantMap<'a, T> {
 
     fn index(&self, index: Participant) -> &Self::Output {
         self.data[self.participants.index(index)].as_ref().unwrap()
+    }
+}
+
+/// A way to count participants.
+///
+/// This is used when you want to process a message from each participant only once.
+/// This datastructure will let you put a participant in, and then tell you if this
+/// participant was newly inserted or not, allowing you to thus process the
+/// first message received from them.
+#[derive(Debug, Clone)]
+pub struct ParticipantCounter<'a> {
+    participants: &'a ParticipantList,
+    seen: Vec<bool>,
+    counter: usize,
+}
+
+impl<'a> ParticipantCounter<'a> {
+    /// Create a new participant counter from the list of all participants.
+    pub fn new(participants: &'a ParticipantList) -> Self {
+        Self {
+            participants,
+            seen: vec![false; participants.len()],
+            counter: participants.len(),
+        }
+    }
+
+    /// Put a new participant in this counter.
+    ///
+    /// This will return true if the participant was added, or false otherwise.
+    ///
+    /// The participant may not have been added because:
+    /// - The participant is not part of our participant list.
+    /// - The participant has already been added.
+    ///
+    /// This can be checked to not process a message twice.
+    pub fn put(&mut self, participant: Participant) -> bool {
+        let i = match self.participants.indices.get(&participant) {
+            None => return false,
+            Some(&i) => i,
+        };
+
+        // Need the old value to be false.
+        let inserted = !mem::replace(&mut self.seen[i], true);
+        if inserted {
+            dbg!(&self.seen, participant, self.counter);
+            self.counter -= 1;
+        }
+        inserted
+    }
+
+    /// Consume this counter, returning a new empty counter.
+    pub fn cleared(mut self) -> Self {
+        for x in &mut self.seen {
+            *x = false
+        }
+        self.counter = self.participants.len();
+        self
+    }
+
+    /// Check if this counter contains all participants
+    pub fn full(&self) -> bool {
+        self.counter == 0
     }
 }
