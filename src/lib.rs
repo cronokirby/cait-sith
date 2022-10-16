@@ -1,4 +1,5 @@
 mod crypto;
+mod compat;
 mod keygen;
 mod math;
 mod participants;
