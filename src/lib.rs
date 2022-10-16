@@ -10,5 +10,6 @@ mod serde;
 pub mod triples;
 mod sign;
 
-pub use presign::{presign, PresignOutput};
+pub use sign::{sign, FullSignature};
+pub use presign::{presign, PresignOutput, PresignArguments};
 pub use keygen::{keygen, KeygenOutput};

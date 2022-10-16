@@ -9,7 +9,6 @@ pub fn scalar_hash(msg: &[u8]) -> Scalar {
     let digest = <Secp256k1 as DigestPrimitive>::Digest::new_with_prefix(&msg);
     let m_bytes = Secp256k1::prehash_to_field_bytes(&digest.finalize_fixed()).unwrap();
     let out = Option::<Scalar>::from(Scalar::from_repr(m_bytes)).unwrap();
-    dbg!(&m_bytes, &out.to_bytes());
     out
 }
 

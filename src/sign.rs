@@ -179,7 +179,6 @@ mod test {
             }
 
             let result = run_protocol(protocols);
-            dbg!(&result);
             assert!(result.is_ok());
         }
     }

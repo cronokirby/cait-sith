@@ -138,7 +138,7 @@ pub trait Protocol {
 /// Run a protocol to completion, synchronously.
 ///
 /// This works by executing each participant in order.
-pub(crate) fn run_protocol<T: std::fmt::Debug>(
+pub fn run_protocol<T: std::fmt::Debug>(
     mut ps: Vec<(Participant, Box<dyn Protocol<Output = T>>)>,
 ) -> Result<Vec<(Participant, T)>, ProtocolError> {
     let indices: HashMap<Participant, usize> =
