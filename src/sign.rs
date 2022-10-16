@@ -1,18 +1,7 @@
-use digest::{Digest, FixedOutput};
-use ecdsa::{
-    elliptic_curve::{
-        bigint::UInt,
-        group::prime::PrimeCurveAffine,
-        ops::{Invert, LinearCombination, Reduce},
-        AffineXCoordinate, Curve, PrimeField, ProjectiveArithmetic,
-    },
-    hazmat::DigestPrimitive,
-    signature::Verifier,
-    PrimeCurve,
-};
+use ecdsa::signature::Verifier;
 use k256::{
-    ecdsa::{Signature, SigningKey, VerifyingKey},
-    AffinePoint, ProjectivePoint, PublicKey, Scalar, Secp256k1, U256,
+    ecdsa::{Signature, VerifyingKey},
+    AffinePoint, PublicKey, Scalar,
 };
 
 use crate::{

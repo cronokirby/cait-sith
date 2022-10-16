@@ -2,7 +2,7 @@ use std::vec::Vec;
 
 use cait_sith::{
     keygen, presign,
-    protocol::{run_protocol, Participant, Protocol, ProtocolError},
+    protocol::{run_protocol, Participant, Protocol},
     sign,
     triples::{self, TriplePub, TripleShare},
     FullSignature, KeygenOutput, PresignArguments, PresignOutput,
