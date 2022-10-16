@@ -1,15 +1,13 @@
-use std::vec::Vec;
+use k256::AffinePoint;
+use rand_core::OsRng;
 
-use cait_sith::{
+use crate::{
     keygen, presign,
-    protocol::{run_protocol, Participant, Protocol, ProtocolError},
+    protocol::{run_protocol, Participant, Protocol},
     sign,
     triples::{self, TriplePub, TripleShare},
     FullSignature, KeygenOutput, PresignArguments, PresignOutput,
 };
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use k256::AffinePoint;
-use rand_core::OsRng;
 
 fn run_keygen(
     participants: Vec<Participant>,
@@ -89,7 +87,8 @@ fn run_sign(
     run_protocol(protocols).unwrap()
 }
 
-pub fn criterion_benchmark(c: &mut Criterion) {
+#[test]
+fn test_e2e() {
     let participants = vec![
         Participant::from(0u32),
         Participant::from(1u32),
@@ -97,46 +96,20 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     ];
     let t = 3;
 
-    c.bench_function("keygen (3,3)", |b| {
-        b.iter(|| run_keygen(black_box(participants.clone()), black_box(t)))
-    });
-
     let mut keygen_result = run_keygen(participants.clone(), t);
     keygen_result.sort_by_key(|(p, _)| *p);
 
     let public_key = keygen_result[0].1.public_key;
+    assert_eq!(keygen_result[0].1.public_key, keygen_result[1].1.public_key);
+    assert_eq!(keygen_result[1].1.public_key, keygen_result[2].1.public_key);
 
     let (pub0, shares0) = triples::deal(&mut OsRng, &participants, t);
     let (pub1, shares1) = triples::deal(&mut OsRng, &participants, t);
-
-    c.bench_function("presign (3,3)", |b| {
-        b.iter(|| {
-            run_presign(
-                black_box(keygen_result.clone()),
-                black_box(shares0.clone()),
-                black_box(shares1.clone()),
-                black_box(&pub0),
-                black_box(&pub1),
-                black_box(t),
-            )
-        })
-    });
 
     let mut presign_result = run_presign(keygen_result, shares0, shares1, &pub0, &pub1, t);
     presign_result.sort_by_key(|(p, _)| *p);
 
     let msg = b"hello world";
 
-    c.bench_function("sign (3,3)", |b| {
-        b.iter(|| {
-            run_sign(
-                black_box(presign_result.clone()),
-                black_box(public_key),
-                black_box(msg),
-            )
-        })
-    });
+    run_sign(presign_result, public_key, msg);
 }
-
-criterion_group!(benches, criterion_benchmark);
-criterion_main!(benches);

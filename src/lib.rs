@@ -9,6 +9,8 @@ pub mod protocol;
 mod serde;
 pub mod triples;
 mod sign;
+#[cfg(test)]
+mod test;
 
 pub use sign::{sign, FullSignature};
 pub use presign::{presign, PresignOutput, PresignArguments};

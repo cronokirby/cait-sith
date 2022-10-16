@@ -213,7 +213,7 @@ mod test {
             Participant::from(1u32),
             Participant::from(2u32),
         ];
-        let threshold = 2;
+        let threshold = 3;
 
         let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = KeygenOutput>>)> =
             Vec::with_capacity(participants.len());
@@ -234,11 +234,12 @@ mod test {
 
         let pub_key = result[2].1.public_key;
 
-        let participants = vec![result[0].0, result[1].0];
-        let shares = vec![result[0].1.private_share, result[1].1.private_share];
+        let participants = vec![result[0].0, result[1].0, result[2].0];
+        let shares = vec![result[0].1.private_share, result[1].1.private_share, result[2].1.private_share];
         let p_list = ParticipantList::new(&participants).unwrap();
         let x = p_list.lagrange(participants[0]) * shares[0]
-            + p_list.lagrange(participants[1]) * shares[1];
+            + p_list.lagrange(participants[1]) * shares[1]
+            + p_list.lagrange(participants[2]) * shares[2];
         assert_eq!(ProjectivePoint::GENERATOR * x, pub_key);
     }
 }
