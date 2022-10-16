@@ -1,0 +1,202 @@
+use digest::{Digest, FixedOutput};
+use ecdsa::{
+    elliptic_curve::{
+        bigint::UInt,
+        group::prime::PrimeCurveAffine,
+        ops::{Invert, LinearCombination, Reduce},
+        AffineXCoordinate, Curve, PrimeField, ProjectiveArithmetic,
+    },
+    hazmat::DigestPrimitive,
+    signature::Verifier,
+    PrimeCurve,
+};
+use k256::{
+    ecdsa::{Signature, VerifyingKey, SigningKey},
+    AffinePoint, ProjectivePoint, PublicKey, Scalar, Secp256k1, U256,
+};
+
+use crate::{
+    participants::{ParticipantCounter, ParticipantList},
+    protocol::{
+        internal::{Communication, Executor},
+        InitializationError, Participant, Protocol, ProtocolError,
+    },
+    PresignOutput, compat,
+};
+
+/// Represents a signature with extra information, to support different variants of ECDSA.
+///
+/// An ECDSA signature is usually two scalars. The first scalar is derived from
+/// a point on the curve, and because this process is lossy, some other variants
+/// of ECDSA also include some extra information in order to recover this point.
+///
+/// Furthermore, some signature formats may disagree on how precisely to serialize
+/// different values as bytes.
+///
+/// To support these variants, this simply gives you a normal signature, along with the entire
+/// first point.
+#[derive(Debug, Clone)]
+pub struct FullSignature {
+    /// This is the entire first point.
+    pub big_k: AffinePoint,
+    /// This is the usual signature.
+    pub sig: Signature,
+}
+
+async fn do_sign(
+    comms: Communication,
+    participants: ParticipantList,
+    me: Participant,
+    public_key: PublicKey,
+    presignature: PresignOutput,
+    msg: Vec<u8>,
+) -> Result<FullSignature, ProtocolError> {
+    // Spec 1.1
+    let lambda = participants.lagrange(me);
+    let k_i = lambda * presignature.k;
+
+    // Spec 1.2
+    let sigma_i = lambda * presignature.sigma;
+
+    // Spec 1.3
+    let m = compat::scalar_hash(&msg);
+
+    let s_i = m * k_i + sigma_i;
+
+    // Spec 1.4
+    let wait0 = comms.next_waitpoint();
+    comms.send_many(wait0, &s_i).await;
+
+    // Spec 2.1 + 2.2
+    let mut seen = ParticipantCounter::new(&participants);
+    let mut s = s_i;
+    seen.put(me);
+    while !seen.full() {
+        let (from, s_j): (_, Scalar) = comms.recv(wait0).await?;
+        if !seen.put(from) {
+            continue;
+        }
+        s += s_j
+    }
+
+    // Spec 2.3
+    let r = compat::x_coordinate(&presignature.big_k);
+    let sig = Signature::from_scalars(r, s).map_err(|e| ProtocolError::Other(Box::new(e)))?;
+
+    let s_inv = s.invert().unwrap();
+
+    assert_eq!(
+        r,
+        <Scalar as Reduce<<Secp256k1 as Curve>::UInt>>::from_be_bytes_reduced(
+            ProjectivePoint::lincomb(
+                &ProjectivePoint::GENERATOR,
+                &(m * s_inv),
+                &public_key.as_affine().to_curve(),
+                &(r * s_inv)
+            )
+            .to_affine()
+            .x()
+        )
+    );
+
+    if VerifyingKey::from(&public_key).verify(&msg, &sig).is_err() {
+        return Err(ProtocolError::AssertionFailed(
+            "signature failed to verify".to_string(),
+        ));
+    }
+
+    // Spec 2.4
+    Ok(FullSignature {
+        big_k: presignature.big_k,
+        sig,
+    })
+}
+
+pub fn sign(
+    participants: &[Participant],
+    me: Participant,
+    public_key: AffinePoint,
+    presignature: PresignOutput,
+    msg: &[u8],
+) -> Result<impl Protocol<Output = FullSignature>, InitializationError> {
+    if participants.len() < 2 {
+        return Err(InitializationError::BadParameters(format!(
+            "participant count cannot be < 2, found: {}",
+            participants.len()
+        )));
+    };
+
+    let participants = ParticipantList::new(participants).ok_or_else(|| {
+        InitializationError::BadParameters("participant list cannot contain duplicates".to_string())
+    })?;
+
+    let public_key = PublicKey::from_affine(public_key).map_err(|_| {
+        InitializationError::BadParameters("public key cannot be identity point".to_string())
+    })?;
+
+    let comms = Communication::new();
+    let fut = do_sign(
+        comms.clone(),
+        participants,
+        me,
+        public_key,
+        presignature,
+        msg.to_owned(),
+    );
+    Ok(Executor::new(comms, fut))
+}
+
+#[cfg(test)]
+mod test {
+    use k256::ProjectivePoint;
+    use rand_core::OsRng;
+
+    use crate::{math::Polynomial, protocol::run_protocol};
+
+    use super::*;
+
+    #[test]
+    fn test_sign() {
+        let threshold = 2;
+        let msg = b"hello?";
+
+        let f = Polynomial::random(&mut OsRng, threshold);
+        let x = f.evaluate_zero();
+        let public_key = (ProjectivePoint::GENERATOR * x).to_affine();
+
+        let g = Polynomial::random(&mut OsRng, threshold);
+
+        let k = g.evaluate_zero();
+        let big_k = (ProjectivePoint::GENERATOR * k.invert().unwrap()).to_affine();
+
+        let r = compat::x_coordinate(&big_k);
+        let sigma = r * k * x;
+        let m = compat::scalar_hash(msg);
+        let s = k * m + sigma;
+        let sig = Signature::from_scalars(r, s).unwrap();
+        assert!(VerifyingKey::from(PublicKey::from_affine(public_key).unwrap()).verify(msg, &sig).is_ok());
+
+
+        let h = Polynomial::extend_random(&mut OsRng, threshold, &sigma);
+
+        let participants = vec![Participant::from(0u32), Participant::from(1u32)];
+        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = FullSignature>>)> =
+            Vec::with_capacity(participants.len());
+        for p in &participants {
+            let p_scalar = p.scalar();
+            let presignature = PresignOutput {
+                big_k,
+                k: g.evaluate(&p_scalar),
+                sigma: h.evaluate(&p_scalar),
+            };
+            let protocol = sign(&participants, *p, public_key, presignature, msg);
+            assert!(protocol.is_ok());
+            let protocol = protocol.unwrap();
+            protocols.push((*p, Box::new(protocol)));
+        }
+
+        let result = run_protocol(protocols);
+        dbg!(&result);
+        assert!(result.is_ok());
+    }
+}
