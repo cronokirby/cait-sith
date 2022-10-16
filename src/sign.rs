@@ -11,17 +11,18 @@ use ecdsa::{
     PrimeCurve,
 };
 use k256::{
-    ecdsa::{Signature, VerifyingKey, SigningKey},
+    ecdsa::{Signature, SigningKey, VerifyingKey},
     AffinePoint, ProjectivePoint, PublicKey, Scalar, Secp256k1, U256,
 };
 
 use crate::{
+    compat,
     participants::{ParticipantCounter, ParticipantList},
     protocol::{
         internal::{Communication, Executor},
         InitializationError, Participant, Protocol, ProtocolError,
     },
-    PresignOutput, compat,
+    PresignOutput,
 };
 
 /// Represents a signature with extra information, to support different variants of ECDSA.
@@ -82,22 +83,7 @@ async fn do_sign(
     // Spec 2.3
     let r = compat::x_coordinate(&presignature.big_k);
     let sig = Signature::from_scalars(r, s).map_err(|e| ProtocolError::Other(Box::new(e)))?;
-
-    let s_inv = s.invert().unwrap();
-
-    assert_eq!(
-        r,
-        <Scalar as Reduce<<Secp256k1 as Curve>::UInt>>::from_be_bytes_reduced(
-            ProjectivePoint::lincomb(
-                &ProjectivePoint::GENERATOR,
-                &(m * s_inv),
-                &public_key.as_affine().to_curve(),
-                &(r * s_inv)
-            )
-            .to_affine()
-            .x()
-        )
-    );
+    let sig = sig.normalize_s().unwrap_or(sig);
 
     if VerifyingKey::from(&public_key).verify(&msg, &sig).is_err() {
         return Err(ProtocolError::AssertionFailed(
@@ -160,43 +146,41 @@ mod test {
         let threshold = 2;
         let msg = b"hello?";
 
-        let f = Polynomial::random(&mut OsRng, threshold);
-        let x = f.evaluate_zero();
-        let public_key = (ProjectivePoint::GENERATOR * x).to_affine();
+        // Run 4 times for flakiness reasons
+        for _ in 0..4 {
+            let f = Polynomial::random(&mut OsRng, threshold);
+            let x = f.evaluate_zero();
+            let public_key = (ProjectivePoint::GENERATOR * x).to_affine();
 
-        let g = Polynomial::random(&mut OsRng, threshold);
+            let g = Polynomial::random(&mut OsRng, threshold);
 
-        let k = g.evaluate_zero();
-        let big_k = (ProjectivePoint::GENERATOR * k.invert().unwrap()).to_affine();
+            let k = g.evaluate_zero();
+            let big_k = (ProjectivePoint::GENERATOR * k.invert().unwrap()).to_affine();
 
-        let r = compat::x_coordinate(&big_k);
-        let sigma = r * k * x;
-        let m = compat::scalar_hash(msg);
-        let s = k * m + sigma;
-        let sig = Signature::from_scalars(r, s).unwrap();
-        assert!(VerifyingKey::from(PublicKey::from_affine(public_key).unwrap()).verify(msg, &sig).is_ok());
+            let r = compat::x_coordinate(&big_k);
+            let sigma = r * k * x;
 
+            let h = Polynomial::extend_random(&mut OsRng, threshold, &sigma);
 
-        let h = Polynomial::extend_random(&mut OsRng, threshold, &sigma);
+            let participants = vec![Participant::from(0u32), Participant::from(1u32)];
+            let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = FullSignature>>)> =
+                Vec::with_capacity(participants.len());
+            for p in &participants {
+                let p_scalar = p.scalar();
+                let presignature = PresignOutput {
+                    big_k,
+                    k: g.evaluate(&p_scalar),
+                    sigma: h.evaluate(&p_scalar),
+                };
+                let protocol = sign(&participants, *p, public_key, presignature, msg);
+                assert!(protocol.is_ok());
+                let protocol = protocol.unwrap();
+                protocols.push((*p, Box::new(protocol)));
+            }
 
-        let participants = vec![Participant::from(0u32), Participant::from(1u32)];
-        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = FullSignature>>)> =
-            Vec::with_capacity(participants.len());
-        for p in &participants {
-            let p_scalar = p.scalar();
-            let presignature = PresignOutput {
-                big_k,
-                k: g.evaluate(&p_scalar),
-                sigma: h.evaluate(&p_scalar),
-            };
-            let protocol = sign(&participants, *p, public_key, presignature, msg);
-            assert!(protocol.is_ok());
-            let protocol = protocol.unwrap();
-            protocols.push((*p, Box::new(protocol)));
+            let result = run_protocol(protocols);
+            dbg!(&result);
+            assert!(result.is_ok());
         }
-
-        let result = run_protocol(protocols);
-        dbg!(&result);
-        assert!(result.is_ok());
     }
 }
