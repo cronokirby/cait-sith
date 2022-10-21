@@ -19,18 +19,18 @@ ECDSA is defined by algorithms for key generation, signing, and verification:
 First, key generation:
 
 $$
-\begin{align}
+\begin{aligned}
 &\underline{\texttt{Gen}():}\cr
 &\ x \xleftarrow{\$} \mathbb{F}_q\cr
 &\ X \gets x \cdot G\cr
 &\ \texttt{return } (x, X)\cr
-\end{align}
+\end{aligned}
 $$
 
 Next, signing:
 
 $$
-\begin{align}
+\begin{aligned}
 &\underline{\texttt{Sign}(x : \mathbb{F}_q, m : \{0, 1\}^*):}\cr
 &\ k \xleftarrow{\$} \mathbb{F}_q\cr
 &\ K \gets \frac{1}{k} \cdot G\cr
@@ -38,7 +38,7 @@ $$
 &\ \texttt{retry if } r = 0\cr
 &\ s \gets k (\texttt{Hash}(m) + rx)\cr
 &\ \texttt{return } (K, s)
-\end{align}
+\end{aligned}
 $$
 
 Note that we deviate slightly from ECDSA specifications by returning
@@ -49,13 +49,13 @@ the result signature into whatever format they need for compatability.
 Finally, verification:
 
 $$
-\begin{align}
+\begin{aligned}
 &\underline{\texttt{Verify}(X : \mathbb{G}, m : \{0, 1\}^*, (K, s) : \mathbb{G} \times \mathbb{F}_q):}\cr
 &\ r \gets h(K)\cr
 &\ \texttt{assert } r \neq 0, s \neq 0\cr
 &\ \hat{K} \gets \frac{\texttt{Hash}(m)}{s} \cdot G + \frac{r}{s} \cdot X\cr
 &\ \texttt{asssert } \hat{K} = K\cr
-\end{align}
+\end{aligned}
 $$
 
 # 3 Presigning
@@ -98,10 +98,10 @@ $$
 5. Each $P_i$ generates the proofs
 
 $$
-\begin{align}
+\begin{aligned}
 \pi_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog0}, i), \text{Mau}(- \cdot G, F_ i(0); f(0)))\cr
 \pi'_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog1}, i), \text{Mau}(- \cdot G, D_ i; d_ i))
-\end{align}
+\end{aligned}
 $$
 
 6. $\star$ Each $P_i$ sends $(F_i, \pi_i, D_i, \pi'_i)$ to every other party.
@@ -127,12 +127,12 @@ $$
 4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_ 1$:
 
 $$
-\begin{align}
+\begin{aligned}
 &\text{deg}(F_ j) = t - 1\cr
 &H(F_ j, D_ j) = \text{Com}_ j\cr
 &\text{Verify}(T.\text{Cloned}(\texttt{dlog0}, j), \pi_ j, \text{Mau}(- \cdot G, F_j(0)))\cr
 &\text{Verify}(T.\text{Cloned}(\texttt{dlog1}, j), \pi_ j, \text{Mau}(- \cdot G, D_j))
-\end{align}
+\end{aligned}
 $$
 
 5. $\bullet$ Each $P_i$ waits to receive $k_j^i$ from each other party $P_j$.
