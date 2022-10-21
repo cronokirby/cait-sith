@@ -65,6 +65,23 @@ as two points, providing a key derivation function $\mathbb{G} \to \mathbb{F}_2^
 
 # Setup Phase
 
+The goal of the setup phase is for each ordered pair of parties $\mathcal{P}_a$
+and $\mathcal{P}_b$ to run a $\lambda$ batched random OT.
+Each pair will be run twice, with one party being the sender in one instance,
+and the other party being the sender in the other.
+
+The end result is that $\mathcal{P}_a$ will learn $K_{ij}^0$ and $K_{ij}^1$,
+and $\mathcal{P}_b$ will learn $K_{ij}^{\Delta_ i}$, for a randomly chosen $\Delta \in \mathbb{F}_2^{\lambda}$.
+
+In more detail:
+
+Protocol `Triples-Setup`
+
+In parallel, for each ordered pair of parties $\mathcal{P}_a$ and $\mathcal{P}_b$
+$\mathcal{P}_b$ samples $\Delta \xleftarrow{R} \mathbb{F}_2^\lambda$,
+and then $\mathcal{P}_a$ and $\mathcal{P}_b$ run `Batch-Random-OT` with a batch size
+of $\lambda$, and save the result.
+
 # Extended Oblivious Transfer
 
 # Multiplicative to Additive Conversion
