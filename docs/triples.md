@@ -81,8 +81,45 @@ In parallel, for each ordered pair of parties $\mathcal{P}_a$ and $\mathcal{P}_b
 $\mathcal{P}_b$ samples $\Delta \xleftarrow{R} \mathbb{F}_2^\lambda$,
 and then $\mathcal{P}_a$ and $\mathcal{P}_b$ run `Batch-Random-OT` with a batch size
 of $\lambda$, and save the result.
+Note that communication in this subprotocol should be *private*.
 
 # Extended Oblivious Transfer
+
+The goal of the extended oblivious transfer protocol is for two parties
+to extend their joint setup, and use that setup to generate $\kappa$ oblivious
+transfers, using fast symmetric key primitives.
+
+## Correlated OT Extension
+
+We start with the *correlated* extension protocol.
+
+The correlation comes from the $\Delta$ value used in the setup, controlled
+by the sender $\mathcal{S}$.
+Note that the sender was the receiver in the original setup.
+In this protocol $\mathcal{R}$ uses an input matrix $X_{ij}$, and learns a random boolean matrix
+$T_{ij} \in \mathbb{F}_2$, $i \in [\kappa], j \in [\lambda]$,
+and $\mathcal{S}$ learns $Q_{ij} = T_{ij} + X_{ij} \cdot \Delta_j$
+
+Protocol `Correlated-OT-Extension`:
+
+$\mathcal{R}$ has $K_{ij}^b$ from a prior setup phase, and $\mathcal{S}$
+has $\Delta_i$ and $K_{ij}^{\Delta_i}$ from that setup phase.
+
+$\mathcal{R}$ has an input matrix $X_{ij}$, with $i \in [\kappa]$, and $j \in [\lambda]$.
+
+We also require a pseudo-random generator $\text{PRG} : \mathbb{F}_2^{\lambda} \to \mathbb{F}_2^{\kappa}$. 
+
+1. $\mathcal{R}$ computes: $T_{ij}^b \gets \text{PRG}(K^b_{j \bullet})_i$.
+2. $\mathcal{S}$ computes: $T_{ij}^{\Delta_j} \gets \text{PRG}(K^{\Delta_j}_{j \bullet})_i$.
+3. $\mathcal{R}$ computes $U_{ij} = T_{ij}^0 + T_{ij}^1 + X_{ij}$.
+4. $\star$ $\mathcal{R}$ sends $U_{ij}$ to $\mathcal{S}$
+5. $\bullet$ $\mathcal{S}$ waits to receive $U_{ij}$.
+6. $\mathcal{S}$ computes $Q_{ij} = \Delta_j \cdot U_{ij} + T_{ij}^{\Delta_j}$.
+7. $\square$ $\mathcal{R}$ returns $T_{ij}^0$, and $\mathcal{S}$ returns $Q_{ij}$.
+
+Note that since we're working in $\mathbb{F}_2$, we have $Q_{ij} = T_{ij}^0 + X_{ij} \cdot \Delta_j$.
+
+
 
 # Multiplicative to Additive Conversion
 
