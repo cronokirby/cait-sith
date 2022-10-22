@@ -22,6 +22,7 @@ This is a two-party protocol, involving a sender $\mathcal{S}$, and a receiver $
 The receiver has as input a bit $b$.
 
 The output of the protocol if a trusted dealer existed would be:
+
 $$
 \begin{aligned}
 &k_ 0, k_ 1 \xleftarrow{\$} \\\{0, 1\\\}^\lambda\cr
@@ -105,8 +106,8 @@ The correlation comes from the $\Delta$ value used in the setup, controlled
 by the sender $\mathcal{S}$.
 Note that the sender was the receiver in the original setup.
 In this protocol $\mathcal{R}$ uses an input matrix $X_{ij}$, and learns a random boolean matrix
-$T_{ij} \in \mathbb{F}_2$, $i \in [\kappa], j \in [\lambda]$,
-and $\mathcal{S}$ learns $Q_{ij} = T_{ij} + X_{ij} \cdot \Delta_j$
+$T_{ij} \in \mathbb{F}_ 2$, $i \in [\kappa], j \in [\lambda]$,
+and $\mathcal{S}$ learns $Q_{ij} = T_{ij} + X_{ij} \cdot \Delta_ j$
 
 Protocol `Correlated-OT-Extension`:
 
@@ -120,15 +121,15 @@ This generator is parameterized by a session id $\text{sid}$, allowing the same
 setup to be used for multiple extensions, so long as $\text{sid}$ is **unique**
 for each execution.
 
-1. $\mathcal{R}$ computes: $T_{ij}^b \gets \text{PRG}_{\text{sid}}(K^b_{j \bullet})_i$.
-2. $\mathcal{S}$ computes: $T_{ij}^{\Delta_j} \gets \text{PRG}_{\text{sid}}(K^{\Delta_j}_{j \bullet})_i$.
+1. $\mathcal{R}$ computes: $T_ {ij}^b \gets \text{PRG}_ {\text{sid}}(K^b_ {j \bullet})_ i$.
+2. $\mathcal{S}$ computes: $T_ {ij}^{\Delta_ j} \gets \text{PRG}_ {\text{sid}}(K^{\Delta_ j}_ {j \bullet})_ i$.
 3. $\mathcal{R}$ computes $U_{ij} = T_{ij}^0 + T_{ij}^1 + X_{ij}$.
 4. $\star$ $\mathcal{R}$ sends $U_{ij}$ to $\mathcal{S}$
 5. $\bullet$ $\mathcal{S}$ waits to receive $U_{ij}$.
 6. $\mathcal{S}$ computes $Q_{ij} = \Delta_j \cdot U_{ij} + T_{ij}^{\Delta_j}$.
 7. $\square$ $\mathcal{R}$ returns $T_{ij}^0$, and $\mathcal{S}$ returns $Q_{ij}$.
 
-Note that since we're working in $\mathbb{F}_2$, we have $Q_{ij} = T_{ij}^0 + X_{ij} \cdot \Delta_j$.
+Note that since we're working in $\mathbb{F}_ 2$, we have $Q_ {ij} = T_ {ij}^0 + X_ {ij} \cdot \Delta_ j$.
 
 ## Random OT Extension
 
@@ -137,8 +138,8 @@ The output of this phase are $\kappa$ pairs of random field elements
 $v_1^b, \ldots, v_\kappa^b$ in $\mathbb{F}_q$ for the sender, and $v_i^{b_i}$ for the receiver,
 where $b_i$ is random bit for the $i$-th element.
 
-For the sake of this protocol, we can identifier vectors in $\mathbb{F}_2^\lambda$
-with field elements in $\mathbb{F}_{2^\lambda}$, and we write $\text{mul}$ for
+For the sake of this protocol, we can identifier vectors in $\mathbb{F}_ 2^\lambda$
+with field elements in $\mathbb{F}_ {2^\lambda}$, and we write $\text{mul}$ for
 explicit multiplication in this field.
 
 Protocol `Random-OT-Extension`:
@@ -148,14 +149,14 @@ $\Delta_i$ and $K_{ij}^{\Delta_i}$ from that same setup.
 
 This protocol is also parameterized by a unique session id $\text{sid}$
 
-1. $\mathcal{R}$ generates $s_{\mathcal{R}} \xleftarrow{R} \mathbb{F}_2^\lambda$,
-and sets $\text{Com}_{\mathcal{R}} \gets H(s_{\mathcal{R}})$.
-2. $\mathcal{S}$ generates $s_{\mathcal{S}} \xleftarrow{R} \mathbb{F}_2^\lambda$,
-and sets $\text{Com}_{\mathcal{S}} \gets H(s_{\mathcal{S}})$.
-3. $\star$ $\mathcal{R}$ sends $\text{Com}_{\mathcal{R}}$ to $\mathcal{S}$,
-and $\mathcal{S}$ sends $\text{Com}_{\mathcal{S}}$ to $\mathcal{R}$.
+1. $\mathcal{R}$ generates $s_ {\mathcal{R}} \xleftarrow{R} \mathbb{F}_ 2^\lambda$,
+and sets $\text{Com}_ {\mathcal{R}} \gets H(s_ {\mathcal{R}})$.
+2. $\mathcal{S}$ generates $s_ {\mathcal{S}} \xleftarrow{R} \mathbb{F}_ 2^\lambda$,
+and sets $\text{Com}_ {\mathcal{S}} \gets H(s_ {\mathcal{S}})$.
+3. $\star$ $\mathcal{R}$ sends $\text{Com}_ {\mathcal{R}}$ to $\mathcal{S}$,
+and $\mathcal{S}$ sends $\text{Com}_ {\mathcal{S}}$ to $\mathcal{R}$.
 4. $\bullet$ The parties wait to receive these values.
-5. $\mathcal{R}$ generates a random vector $b_i \in \mathbb{F}_2$, with $i \in [\kappa']$, and sets $X_{ij} \gets b_ i 1_ j$. Where $1_j$ is a vector filled with $\lambda$ ones.
+5. $\mathcal{R}$ generates a random vector $b_ i \in \mathbb{F}_2$, with $i \in [\kappa']$, and sets $X_{ij} \gets b_ i 1_ j$. Where $1_ j$ is a vector filled with $\lambda$ ones.
 6. $\mathcal{R}$ and $\mathcal{S}$ run `Correlated-OT-Extension`, with batch size $\kappa'$, and session id $\text{sid}$ with $\mathcal{R}$
 using $X_{ij}$ as its input.
 The parties receive $T_{ij}$ and $Q_{ij}$ respectively.
@@ -196,6 +197,7 @@ Let $\kappa = \lceil \lg q \rceil + \lambda$.
 
 The parties have, in a previous phase, have generated correlated randomness
 of the following form:
+
 $$
 \begin{aligned}
 &v_i^0, v_i^1 \xleftarrow{R} \mathbb{F}_q\ (i \in [\kappa])\cr
@@ -211,13 +213,13 @@ $$
 sets $m_i \gets c^{t_i}_i - v_i^{t_i}$
 4. $\mathcal{R}$ samples $s \xleftarrow{R} \mathbb{F}_2^\lambda$, and
 extends this into $\chi_2, \ldots, \chi_\kappa \gets \text{PRG}(s)$.
-$\mathcal{S}$ then sets $\chi_1 \gets (-1)^{t_1}(b - \sum_{i \in [2\ldots \kappa]} \chi_i \cdot (-1)^{t_i})$.
-(This makes it so that $b = \langle \chi_i,  (-1)^{t_i} \rangle$)
-5. $\mathcal{R}$ saves $\beta = \langle \chi_i, m_i \rangle$.
-6. $\star$ $\mathcal{R}$ sends $s$ and $\chi_1$ to $\mathcal{S}$.
-7. $\bullet$ $\mathcal{S}$ waits to receive $s$ and $\chi_1$, and uses $s$
-to expand $\chi_2, \ldots, \chi_\kappa \gets \text{PRG(s)}$.
-8. $\square$ $\mathcal{S}$ outputs  $\alpha \gets - \langle \chi_i, \delta_i \rangle$
+$\mathcal{S}$ then sets $\chi_ 1 \gets (-1)^{t_ 1}(b - \sum_{i \in [2\ldots \kappa]} \chi_ i \cdot (-1)^{t_ i})$.
+(This makes it so that $b = \langle \chi_ i,  (-1)^{t_ i} \rangle$)
+5. $\mathcal{R}$ saves $\beta = \langle \chi_ i, m_ i \rangle$.
+6. $\star$ $\mathcal{R}$ sends $s$ and $\chi_ 1$ to $\mathcal{S}$.
+7. $\bullet$ $\mathcal{S}$ waits to receive $s$ and $\chi_ 1$, and uses $s$
+to expand $\chi_ 2, \ldots, \chi_\kappa \gets \text{PRG(s)}$.
+8. $\square$ $\mathcal{S}$ outputs  $\alpha \gets - \langle \chi_ i, \delta_ i \rangle$
 
 In the presence of malicious parties, this protocol may return a result
 such that $\alpha + \beta$ is *not* $ab$, however, malicious parties
