@@ -287,7 +287,7 @@ which want to generate a triple with threshold $t$.
 **Round 1:**
 
 1. $T.\text{Add}(\mathcal{P}, t)$
-2. Each $P_i$ samples $e, f \xleftarrow{R} \mathbb{F}_q[X]_{\leq (t - 1)}$.
+2. Each $P_ i$ samples $e, f \xleftarrow{R} \mathbb{F}_ q[X]_ {\leq (t - 1)}$.
 3. Each $P_i$ sets $E_i \gets e \cdot G$, and $F_i \gets f \cdot G$.
 4. Each $P_i$ sets $\text{Com}_i \gets H(E_i, F_I)$.
 5. $\star$ Each $P_i$ sends $\text{Com}_i$ to all other parties.
