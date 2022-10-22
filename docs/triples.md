@@ -156,7 +156,7 @@ and sets $\text{Com}_ {\mathcal{S}} \gets H(s_ {\mathcal{S}})$.
 3. $\star$ $\mathcal{R}$ sends $\text{Com}_ {\mathcal{R}}$ to $\mathcal{S}$,
 and $\mathcal{S}$ sends $\text{Com}_ {\mathcal{S}}$ to $\mathcal{R}$.
 4. $\bullet$ The parties wait to receive these values.
-5. $\mathcal{R}$ generates a random vector $b_ i \in \mathbb{F}_2$, with $i \in [\kappa']$, and sets $X_{ij} \gets b_ i 1_ j$. Where $1_ j$ is a vector filled with $\lambda$ ones.
+5. $\mathcal{R}$ generates a random vector $b_ i \in \mathbb{F}_ 2$, with $i \in [\kappa']$, and sets $X_ {ij} \gets b_ i 1_ j$. Where $1_ j$ is a vector filled with $\lambda$ ones.
 6. $\mathcal{R}$ and $\mathcal{S}$ run `Correlated-OT-Extension`, with batch size $\kappa'$, and session id $\text{sid}$ with $\mathcal{R}$
 using $X_{ij}$ as its input.
 The parties receive $T_{ij}$ and $Q_{ij}$ respectively.
