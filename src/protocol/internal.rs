@@ -1,5 +1,6 @@
 use std::{
     cell::RefCell,
+    collections::HashMap,
     error,
     future::Future,
     pin::Pin,
@@ -16,7 +17,11 @@ use crate::serde::{decode, encode_with_tag};
 use super::{Action, MessageData, Participant, Protocol, ProtocolError};
 
 /// A waiting point in the queue.
-type Waitpoint = usize;
+type Waitpoint = u8;
+/// Represents a specific channel we can send messages on.
+///
+/// The idea is that we can have multiple channels, allowing us to run protocols in parallel.
+type Channel = u8;
 
 /// Represents a queue of messages.
 ///
@@ -24,12 +29,9 @@ type Waitpoint = usize;
 /// sort them into bins based on
 #[derive(Debug, Clone)]
 struct MessageQueue {
-    next_waitpoint: usize,
-    /// We have one stack of messages for each round / wait point.
-    ///
-    /// In practice this means starting with 256 empty buffers, to handle
-    /// all potential wait points.
-    stacks: Vec<Vec<(Participant, MessageData)>>,
+    next_waitpoint: Waitpoint,
+    next_channel: Channel,
+    buffer: HashMap<(Channel, Waitpoint), Vec<(Participant, MessageData)>>,
 }
 
 impl MessageQueue {
@@ -37,18 +39,24 @@ impl MessageQueue {
     fn new() -> Self {
         Self {
             next_waitpoint: 0,
-            stacks: vec![Vec::new(); 0xFF],
+            next_channel: 0,
+            buffer: HashMap::new(),
         }
     }
 
     /// Get the next waitpoint.
     fn next_waitpoint(&mut self) -> Waitpoint {
         let out = self.next_waitpoint;
+        assert!(out < 0xFF, "max number of waitpoints reached");
         self.next_waitpoint += 1;
-        assert!(
-            self.next_waitpoint <= self.stacks.len(),
-            "too many waitpoints used"
-        );
+        out
+    }
+
+    /// Get the next available channel.
+    fn next_channel(&mut self) -> Channel {
+        let out = self.next_channel;
+        assert!(out < 0xFF, "max number of channels reached");
+        self.next_channel += 1;
         out
     }
 
@@ -61,33 +69,36 @@ impl MessageQueue {
             return;
         }
 
-        let round = usize::from(message[0]);
-        if round >= self.stacks.len() {
-            return;
-        }
+        let channel = message[0];
+        let waitpoint = message[1];
 
-        self.stacks[round].push((from, message));
+        self.buffer.entry((channel, waitpoint)).or_default().push((from, message));
     }
 
-    /// Pop a message from a specific round.
-    ///
-    /// This round **must** be less than the number of waitpoints of this queue.
-    fn pop(&mut self, round: Waitpoint) -> Option<(Participant, MessageData)> {
-        assert!(round < self.stacks.len());
-
-        self.stacks[round].pop()
+    /// Pop a message from a specific channel and waitpoint
+    fn pop(
+        &mut self,
+        channel: Channel,
+        waitpoint: Waitpoint,
+    ) -> Option<(Participant, MessageData)> {
+        self.buffer.get_mut(&(channel, waitpoint))?.pop()
     }
 }
 
 /// A future which tries to read a message from a specific round.
 struct MessageQueueWait {
     queue: Rc<RefCell<MessageQueue>>,
-    round: usize,
+    channel: Channel,
+    waitpoint: Waitpoint,
 }
 
 impl MessageQueueWait {
-    fn new(queue: Rc<RefCell<MessageQueue>>, round: usize) -> Self {
-        Self { queue, round }
+    fn new(queue: Rc<RefCell<MessageQueue>>, channel: Channel, waitpoint: Waitpoint) -> Self {
+        Self {
+            queue,
+            channel,
+            waitpoint,
+        }
     }
 }
 
@@ -95,7 +106,7 @@ impl Future for MessageQueueWait {
     type Output = (Participant, MessageData);
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.queue.borrow_mut().pop(self.round) {
+        match self.queue.borrow_mut().pop(self.channel, self.waitpoint) {
             Some(out) => Poll::Ready(out),
             None => Poll::Pending,
         }
@@ -195,14 +206,20 @@ impl Communication {
     }
 
     /// (Indicate that you want to) send a message to everybody else.
-    pub async fn send_many<T: Serialize>(&self, round: u8, data: &T) {
-        let message_data = encode_with_tag(round, data);
+    pub async fn send_many<T: Serialize>(&self, channel: Channel, waitpoint: Waitpoint, data: &T) {
+        let message_data = encode_with_tag((channel, waitpoint), data);
         self.send_raw(Message::Many(message_data)).await;
     }
 
     /// (Indicate that you want to) send a message privately to everybody else.
-    pub async fn send_private<T: Serialize>(&self, round: u8, to: Participant, data: &T) {
-        let message_data = encode_with_tag(round, data);
+    pub async fn send_private<T: Serialize>(
+        &self,
+        channel: Channel,
+        waitpoint: Waitpoint,
+        to: Participant,
+        data: &T,
+    ) {
+        let message_data = encode_with_tag((channel, waitpoint), data);
         self.send_raw(Message::Private(to, message_data)).await;
     }
 
@@ -210,15 +227,21 @@ impl Communication {
     pub fn next_waitpoint(&self) -> u8 {
         self.queue.borrow_mut().next_waitpoint() as u8
     }
+    ///
+    /// Get the next channel for communications.
+    pub fn next_channel(&self) -> u8 {
+        self.queue.borrow_mut().next_channel() as u8
+    }
 
     /// Receive a message for a specific round.
     pub async fn recv<T: DeserializeOwned>(
         &self,
-        round: u8,
+        channel: Channel,
+        waitpoint: Waitpoint,
     ) -> Result<(Participant, T), ProtocolError> {
-        let (from, data) = MessageQueueWait::new(self.queue.clone(), usize::from(round)).await;
+        let (from, data) = MessageQueueWait::new(self.queue.clone(), channel, waitpoint).await;
         // We know data will be at least one byte long
-        let decoded: Result<T, Box<dyn error::Error>> = decode(&data[1..]).map_err(|e| e.into());
+        let decoded: Result<T, Box<dyn error::Error>> = decode(&data[2..]).map_err(|e| e.into());
         Ok((from, decoded?))
     }
 }

@@ -1,5 +1,5 @@
-mod crypto;
 mod compat;
+mod crypto;
 mod keygen;
 mod math;
 mod participants;
@@ -7,11 +7,11 @@ mod presign;
 mod proofs;
 pub mod protocol;
 mod serde;
-pub mod triples;
 mod sign;
 #[cfg(test)]
 mod test;
+pub mod triples;
 
-pub use sign::{sign, FullSignature};
-pub use presign::{presign, PresignOutput, PresignArguments};
 pub use keygen::{keygen, KeygenOutput};
+pub use presign::{presign, PresignArguments, PresignOutput};
+pub use sign::{sign, FullSignature};

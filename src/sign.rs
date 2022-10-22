@@ -41,6 +41,8 @@ async fn do_sign(
     presignature: PresignOutput,
     msg: Vec<u8>,
 ) -> Result<FullSignature, ProtocolError> {
+    let chan0 = comms.next_channel();
+
     // Spec 1.1
     let lambda = participants.lagrange(me);
     let k_i = lambda * presignature.k;
@@ -55,14 +57,14 @@ async fn do_sign(
 
     // Spec 1.4
     let wait0 = comms.next_waitpoint();
-    comms.send_many(wait0, &s_i).await;
+    comms.send_many(chan0, wait0, &s_i).await;
 
     // Spec 2.1 + 2.2
     let mut seen = ParticipantCounter::new(&participants);
     let mut s = s_i;
     seen.put(me);
     while !seen.full() {
-        let (from, s_j): (_, Scalar) = comms.recv(wait0).await?;
+        let (from, s_j): (_, Scalar) = comms.recv(chan0, wait0).await?;
         if !seen.put(from) {
             continue;
         }
