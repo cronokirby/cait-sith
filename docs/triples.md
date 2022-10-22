@@ -119,7 +119,51 @@ We also require a pseudo-random generator $\text{PRG} : \mathbb{F}_2^{\lambda} \
 
 Note that since we're working in $\mathbb{F}_2$, we have $Q_{ij} = T_{ij}^0 + X_{ij} \cdot \Delta_j$.
 
+## Random OT Extension
 
+Random OT extension also uses $K^b_{ij}$, and $\Delta_i$ from the setup phase.
+The output of this phase are $\kappa$ pairs of random field elements
+$v_1^b, \ldots, v_\kappa^b$ in $\mathbb{F}_q$ for the sender, and $v_i^{b_i}$ for the receiver,
+where $b_i$ is the receivers choice for the $i$-th element.
+
+For the sake of this protocol, we can identifier vectors in $\mathbb{F}_2^\lambda$
+with field elements in $\mathbb{F}_{2^\lambda}$, and we write $\text{mul}$ for
+explicit multiplication in this field.
+
+Protocol `Random-OT-Extension`:
+
+$\mathcal{R}$ has $K^b_{ij}$ from a prior setup phase, and $\mathcal{S}$ has
+$\Delta_i$ and $K_{ij}^{\Delta_i}$ from that same setup.
+
+$\mathcal{R}$ has a vector of $\kappa$ bits $b_i$, they extend 
+this to a vector of $\kappa' = \kappa + 2\lambda$ bits,
+by padding with random bits.
+
+1. $\mathcal{R}$ generates $s_{\mathcal{R}} \xleftarrow{R} \mathbb{F}_2^\lambda$,
+and sets $\text{Com}_{\mathcal{R}} \gets H(s_{\mathcal{R}})$.
+2. $\mathcal{S}$ generates $s_{\mathcal{S}} \xleftarrow{R} \mathbb{F}_2^\lambda$,
+and sets $\text{Com}_{\mathcal{S}} \gets H(s_{\mathcal{S}})$.
+3. $\star$ $\mathcal{R}$ sends $\text{Com}_{\mathcal{R}}$ to $\mathcal{S}$,
+and $\mathcal{S}$ sends $\text{Com}_{\mathcal{S}}$ to $\mathcal{R}$.
+4. $\bullet$ The parties wait to receive these values.
+5. $\mathcal{R}$ sets $X_{ij} \gets b_ i 1_ j$. Where $1_j$ is a vector filled with $\lambda$ ones.
+6. $\mathcal{R}$ and $\mathcal{S}$ run `Correlated-OT-Extension`, with batch size $\kappa'$, with $\mathcal{R}$
+using $X_{ij}$ as its input.
+The parties receive $T_{ij}$ and $Q_{ij}$ respectively.
+7. $\star$ Each party $\mathcal{P}$ sends $s_{\mathcal{P}}$ to the other party.
+8. $\bullet$ Each party waits to receive $s_{\mathcal{P}}$, and checks
+that $\text{Com}_{\mathcal{P}} = H(s_\mathcal{P})$.
+9. The parties set $s \gets s_{\mathcal{R}} + s_{\mathcal{S}}$, using a
+PRG, the parties set $\chi_0, \ldots, \chi_\kappa' \gets \text{PRG}(s)$,
+where $\chi_i \in \mathbb{F}_{2^\lambda}$.
+10. $\mathcal{R}$ computes $x \gets \langle b_j, \chi_j\rangle$,
+and $t \gets \langle \text{mul}(T_{i \bullet}, \chi_i), 1_i\rangle$.
+11. $\star$ $\mathcal{R}$ sends $x$ and $t$ to $\mathcal{S}$.
+12. $\mathcal{S}$ calculates $q \gets \langle \text{mul}(Q_{i\bullet}, \chi_i), 1_i \rangle$.
+12. $\bullet$ $\mathcal{S}$ waits to receive $x$ and $t$, and checks that
+$q = t + \text{mul}(x, \Delta)$.
+13. $\mathcal{S}$ sets $v^0_i \gets H_i(Q_{i\bullet})$ and $v^1_i \gets H_i(Q_{i \bullet} + \Delta_\bullet)$, for $i \in [\kappa]$
+14. $\mathcal{R}$ sets $v^{b_i}_i \gets H_i(T_{i\bullet})$, for $i \in [\kappa]$
 
 # Multiplicative to Additive Conversion
 
