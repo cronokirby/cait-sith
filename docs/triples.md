@@ -89,6 +89,11 @@ The goal of the extended oblivious transfer protocol is for two parties
 to extend their joint setup, and use that setup to generate $\kappa$ oblivious
 transfers, using fast symmetric key primitives.
 
+We use the [KOS15](https://eprint.iacr.org/archive/2015/546/1433798896) protocol.
+Note that we use the "original" version of the paper,
+and not the amended version using SoftspokenOT, following
+the recent analysis of [Diamond22](https://eprint.iacr.org/2022/1371).
+
 ## Correlated OT Extension
 
 We start with the *correlated* extension protocol.
@@ -167,7 +172,56 @@ $q = t + \text{mul}(x, \Delta)$.
 
 # Multiplicative to Additive Conversion
 
+We follow [HMRT21](https://eprint.iacr.org/2021/1373).
+
+In this protocol, two parties $\mathcal{S}$ and $\mathcal{R}$ have values
+$a, b \in \mathbb{F}_q$ respectively.
+The output of this protocol has each party receiver $\alpha, \beta \in \mathbb{F}_q$
+respectively, such that $\alpha + \beta = a \cdot b$.
+
+This protocol requires the parties to have a triple setup.
+
+Protocol `MTA`:
+
+Let $\kappa = \lceil \lg q \rceil + \lambda$.
+
+1. $\mathcal{S}$ samples random $\delta_1, \ldots, \delta_\kappa \xleftarrow{R} \mathbb{F}_q$.
+2. $\mathcal{S}$ and $\mathcal{R}$ run `Random-OT-Extension`, with $\mathcal{R}$ using $\kappa$ random bits $t_i$, receiving $v_i^0, v_i^1$ and $v_i^{t_i}$, respectively.
+3. $\star$ $\mathcal{S}$ sends $(-a + \delta_i + v_i^0, a + \delta_i + v_i^1)$ to $\mathcal{R}$.
+4. $\bullet$ $\mathcal{R}$ waits to receive $(c^0_i, c^1_i)$ from $\mathcal{S}$, and
+sets $m_i \gets c^{b_i}_i - v_i^{b_i}$
+5. $\mathcal{R}$ samples $s \xleftarrow{R} \mathbb{F}_2^\lambda$, and
+extends this into $\chi_2, \ldots, \chi_\kappa \gets \text{PRG}(s)$.
+$\mathcal{S}$ then sets $\chi_1 \gets (-1)^{t_1}(b - \sum_{i \in [2\ldots \kappa]} \chi_i \cdot (-1)^{t_i})$.
+(This makes it so that $b = \langle \chi_i,  (-1)^{t_i} \rangle$)
+6. $\mathcal{R}$ saves $\beta = \langle \chi_i, m_i \rangle$.
+7. $\star$ $\mathcal{R}$ sends $s$ and $\chi_1$ to $\mathcal{S}$.
+8. $\bullet$ $\mathcal{S}$ waits to receive $s$ and $\chi_1$, and uses $s$
+to expand $\chi_2, \ldots, \chi_\kappa \gets \text{PRG(s)}$.
+9. $\square$ $\mathcal{S}$ outputs  $\alpha \gets - \langle \chi_i, \delta_i \rangle$
+
+In the presence of malicious parties, this protocol may return a result
+such that $\alpha + \beta$ is *not* $ab$, however, malicious parties
+cannot learn information about the other party's result, except with
+negligible probability.
+
+Our triple generation protocol will take care of multiplication potentially
+being wrong.
+
 # Multiplication
+
+This protocol involves $n$ parties $\mathcal{P}_1, \ldots, \mathcal{P}_n$.
+Each of them has a share $a_i$ and $b_i$, of global values $a$ and $b$ in $\mathbb{F}_q$.
+
+The goal is for each party to obtain a share $c_i$ of $c = ab$.
+
+The idea behind the protocol is to use the decomposition:
+$$
+c = ab = (\sum_i a_i)(\sum_j b_j) = \sum_{ij} a_i b_j
+$$
+We run the `MTA` protocol for each ordered pair of parties, giving each party
+two shares $\gamma^0_i$, and $\gamma^1_i$, which they then add to $a_{i} b_i$ to
+get their share $c_i$
 
 # Triple Generation
 
