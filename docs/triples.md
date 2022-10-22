@@ -65,10 +65,13 @@ as two points, providing a key derivation function $\mathbb{G} \to \mathbb{F}_2^
 
 # Setup Phase
 
-The goal of the setup phase is for each ordered pair of parties $\mathcal{P}_a$
+The goal of the setup phase is for each unordered pair of parties $\mathcal{P}_a$
 and $\mathcal{P}_b$ to run a $\lambda$ batched random OT.
-Each pair will be run twice, with one party being the sender in one instance,
-and the other party being the sender in the other.
+Each pair will be run only once, so we need to agree on a canonical
+way to determine which of two parties $\mathcal{P}_a$ and $\mathcal{P}_b$
+will act as the sender.
+We do this by imposing a total order $<$ on the parties, and $\mathcal{P}_a$
+is the sender in the $(\mathcal{P}_a, \mathcal{P}_b)$ pair, if $\mathcal{P}_a < \mathcal{P}_b$.
 
 The end result is that $\mathcal{P}_a$ will learn $K_{ij}^0$ and $K_{ij}^1$,
 and $\mathcal{P}_b$ will learn $K_{ij}^{\Delta_ i}$, for a randomly chosen $\Delta \in \mathbb{F}_2^{\lambda}$.
@@ -77,7 +80,7 @@ In more detail:
 
 Protocol `Triples-Setup`
 
-In parallel, for each ordered pair of parties $\mathcal{P}_a$ and $\mathcal{P}_b$
+In parallel, for each unordered pair of parties $\mathcal{P}_a$ and $\mathcal{P}_b$
 $\mathcal{P}_b$ samples $\Delta \xleftarrow{R} \mathbb{F}_2^\lambda$,
 and then $\mathcal{P}_a$ and $\mathcal{P}_b$ run `Batch-Random-OT` with a batch size
 of $\lambda$, and save the result.
@@ -231,10 +234,12 @@ Each of them has a share $a_i$ and $b_i$, of global values $a$ and $b$ in $\math
 The goal is for each party to obtain a share $c_i$ of $c = ab$.
 
 The idea behind the protocol is to use the decomposition:
+
 $$
 c = ab = (\sum_i a_i)(\sum_j b_j) = \sum_{ij} a_i b_j
 $$
-We run the `MTA` protocol for each ordered pair of parties, giving each party
+
+We run the `MTA` protocol for each unordered pair of parties, giving each party
 two shares $\gamma^0_i$, and $\gamma^1_i$, which they then add to $a_{i} b_i$ to
 get their share $c_i$
 
