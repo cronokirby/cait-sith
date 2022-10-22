@@ -180,25 +180,40 @@ The output of this protocol has each party receiver $\alpha, \beta \in \mathbb{F
 respectively, such that $\alpha + \beta = a \cdot b$.
 
 This protocol requires the parties to have a triple setup.
+Additionally, rather than describing the protocol as making a call to a random
+OT extension internally, we instead say that the participants must have done
+this prior to the protocol.
+This makes our description of using a single OT extension for multiple instances
+of MTA easier.
 
 Protocol `MTA`:
 
 Let $\kappa = \lceil \lg q \rceil + \lambda$.
 
+The parties have, in a previous phase, have generated correlated randomness
+of the following form:
+$$
+\begin{aligned}
+&v_i^0, v_i^1 \xleftarrow{R} \mathbb{F}_q\ (i \in [\kappa])\cr
+&t_i \xleftarrow{R} \mathbb{F}_2\cr
+&\mathcal{S} \texttt{ receives } (v_i^0, v_i^1)\cr
+&\mathcal{R} \texttt{ receives } (t_i, v_i^{t_i})\cr
+\end{aligned}
+$$
+
 1. $\mathcal{S}$ samples random $\delta_1, \ldots, \delta_\kappa \xleftarrow{R} \mathbb{F}_q$.
-2. $\mathcal{S}$ and $\mathcal{R}$ run `Random-OT-Extension`, with $\mathcal{R}$ using $\kappa$ random bits $t_i$, receiving $v_i^0, v_i^1$ and $v_i^{t_i}$, respectively.
-3. $\star$ $\mathcal{S}$ sends $(-a + \delta_i + v_i^0, a + \delta_i + v_i^1)$ to $\mathcal{R}$.
-4. $\bullet$ $\mathcal{R}$ waits to receive $(c^0_i, c^1_i)$ from $\mathcal{S}$, and
-sets $m_i \gets c^{b_i}_i - v_i^{b_i}$
-5. $\mathcal{R}$ samples $s \xleftarrow{R} \mathbb{F}_2^\lambda$, and
+2. $\star$ $\mathcal{S}$ sends $(-a + \delta_i + v_i^0, a + \delta_i + v_i^1)$ to $\mathcal{R}$.
+3. $\bullet$ $\mathcal{R}$ waits to receive $(c^0_i, c^1_i)$ from $\mathcal{S}$, and
+sets $m_i \gets c^{t_i}_i - v_i^{t_i}$
+4. $\mathcal{R}$ samples $s \xleftarrow{R} \mathbb{F}_2^\lambda$, and
 extends this into $\chi_2, \ldots, \chi_\kappa \gets \text{PRG}(s)$.
 $\mathcal{S}$ then sets $\chi_1 \gets (-1)^{t_1}(b - \sum_{i \in [2\ldots \kappa]} \chi_i \cdot (-1)^{t_i})$.
 (This makes it so that $b = \langle \chi_i,  (-1)^{t_i} \rangle$)
-6. $\mathcal{R}$ saves $\beta = \langle \chi_i, m_i \rangle$.
-7. $\star$ $\mathcal{R}$ sends $s$ and $\chi_1$ to $\mathcal{S}$.
-8. $\bullet$ $\mathcal{S}$ waits to receive $s$ and $\chi_1$, and uses $s$
+5. $\mathcal{R}$ saves $\beta = \langle \chi_i, m_i \rangle$.
+6. $\star$ $\mathcal{R}$ sends $s$ and $\chi_1$ to $\mathcal{S}$.
+7. $\bullet$ $\mathcal{S}$ waits to receive $s$ and $\chi_1$, and uses $s$
 to expand $\chi_2, \ldots, \chi_\kappa \gets \text{PRG(s)}$.
-9. $\square$ $\mathcal{S}$ outputs  $\alpha \gets - \langle \chi_i, \delta_i \rangle$
+8. $\square$ $\mathcal{S}$ outputs  $\alpha \gets - \langle \chi_i, \delta_i \rangle$
 
 In the presence of malicious parties, this protocol may return a result
 such that $\alpha + \beta$ is *not* $ab$, however, malicious parties
