@@ -116,9 +116,12 @@ has $\Delta_i$ and $K_{ij}^{\Delta_i}$ from that setup phase.
 $\mathcal{R}$ has an input matrix $X_{ij}$, with $i \in [\kappa]$, and $j \in [\lambda]$.
 
 We also require a pseudo-random generator $\text{PRG} : \mathbb{F}_2^{\lambda} \to \mathbb{F}_2^{\kappa}$. 
+This generator is parameterized by a session id $\text{sid}$, allowing the same
+setup to be used for multiple extensions, so long as $\text{sid}$ is **unique**
+for each execution.
 
-1. $\mathcal{R}$ computes: $T_{ij}^b \gets \text{PRG}(K^b_{j \bullet})_i$.
-2. $\mathcal{S}$ computes: $T_{ij}^{\Delta_j} \gets \text{PRG}(K^{\Delta_j}_{j \bullet})_i$.
+1. $\mathcal{R}$ computes: $T_{ij}^b \gets \text{PRG}_{\text{sid}}(K^b_{j \bullet})_i$.
+2. $\mathcal{S}$ computes: $T_{ij}^{\Delta_j} \gets \text{PRG}_{\text{sid}}(K^{\Delta_j}_{j \bullet})_i$.
 3. $\mathcal{R}$ computes $U_{ij} = T_{ij}^0 + T_{ij}^1 + X_{ij}$.
 4. $\star$ $\mathcal{R}$ sends $U_{ij}$ to $\mathcal{S}$
 5. $\bullet$ $\mathcal{S}$ waits to receive $U_{ij}$.
@@ -143,6 +146,8 @@ Protocol `Random-OT-Extension`:
 $\mathcal{R}$ has $K^b_{ij}$ from a prior setup phase, and $\mathcal{S}$ has
 $\Delta_i$ and $K_{ij}^{\Delta_i}$ from that same setup.
 
+This protocol is also parameterized by a unique session id $\text{sid}$
+
 $\mathcal{R}$ has a vector of $\kappa$ bits $b_i$, they extend 
 this to a vector of $\kappa' = \kappa + 2\lambda$ bits,
 by padding with random bits.
@@ -155,7 +160,7 @@ and sets $\text{Com}_{\mathcal{S}} \gets H(s_{\mathcal{S}})$.
 and $\mathcal{S}$ sends $\text{Com}_{\mathcal{S}}$ to $\mathcal{R}$.
 4. $\bullet$ The parties wait to receive these values.
 5. $\mathcal{R}$ sets $X_{ij} \gets b_ i 1_ j$. Where $1_j$ is a vector filled with $\lambda$ ones.
-6. $\mathcal{R}$ and $\mathcal{S}$ run `Correlated-OT-Extension`, with batch size $\kappa'$, with $\mathcal{R}$
+6. $\mathcal{R}$ and $\mathcal{S}$ run `Correlated-OT-Extension`, with batch size $\kappa'$, and session id $\text{sid}$ with $\mathcal{R}$
 using $X_{ij}$ as its input.
 The parties receive $T_{ij}$ and $Q_{ij}$ respectively.
 7. $\star$ Each party $\mathcal{P}$ sends $s_{\mathcal{P}}$ to the other party.
