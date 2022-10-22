@@ -173,7 +173,7 @@ and $t \gets \langle \text{mul}(T_{i \bullet}, \chi_i), 1_i\rangle$.
 12. $\bullet$ $\mathcal{S}$ waits to receive $x$ and $t$, and checks that
 $q = t + \text{mul}(x, \Delta)$.
 13. $\mathcal{S}$ sets $v^0_i \gets H_i(Q_{i\bullet})$ and $v^1_i \gets H_i(Q_{i \bullet} + \Delta_\bullet)$, for $i \in [\kappa]$
-14. $\mathcal{R}$ sets $v^{b_i}_i \gets H_i(T_{i\bullet})$, for $i \in [\kappa]$
+14. $\mathcal{R}$ sets $v^{b_ i}_ i \gets H_ i(T_ {i\bullet})$, for $i \in [\kappa]$
 
 # Multiplicative to Additive Conversion
 
