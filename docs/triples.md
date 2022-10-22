@@ -135,7 +135,7 @@ Note that since we're working in $\mathbb{F}_2$, we have $Q_{ij} = T_{ij}^0 + X_
 Random OT extension also uses $K^b_{ij}$, and $\Delta_i$ from the setup phase.
 The output of this phase are $\kappa$ pairs of random field elements
 $v_1^b, \ldots, v_\kappa^b$ in $\mathbb{F}_q$ for the sender, and $v_i^{b_i}$ for the receiver,
-where $b_i$ is the receivers choice for the $i$-th element.
+where $b_i$ is random bit for the $i$-th element.
 
 For the sake of this protocol, we can identifier vectors in $\mathbb{F}_2^\lambda$
 with field elements in $\mathbb{F}_{2^\lambda}$, and we write $\text{mul}$ for
@@ -148,10 +148,6 @@ $\Delta_i$ and $K_{ij}^{\Delta_i}$ from that same setup.
 
 This protocol is also parameterized by a unique session id $\text{sid}$
 
-$\mathcal{R}$ has a vector of $\kappa$ bits $b_i$, they extend 
-this to a vector of $\kappa' = \kappa + 2\lambda$ bits,
-by padding with random bits.
-
 1. $\mathcal{R}$ generates $s_{\mathcal{R}} \xleftarrow{R} \mathbb{F}_2^\lambda$,
 and sets $\text{Com}_{\mathcal{R}} \gets H(s_{\mathcal{R}})$.
 2. $\mathcal{S}$ generates $s_{\mathcal{S}} \xleftarrow{R} \mathbb{F}_2^\lambda$,
@@ -159,7 +155,7 @@ and sets $\text{Com}_{\mathcal{S}} \gets H(s_{\mathcal{S}})$.
 3. $\star$ $\mathcal{R}$ sends $\text{Com}_{\mathcal{R}}$ to $\mathcal{S}$,
 and $\mathcal{S}$ sends $\text{Com}_{\mathcal{S}}$ to $\mathcal{R}$.
 4. $\bullet$ The parties wait to receive these values.
-5. $\mathcal{R}$ sets $X_{ij} \gets b_ i 1_ j$. Where $1_j$ is a vector filled with $\lambda$ ones.
+5. $\mathcal{R}$ generates a random vector $b_i \in \mathbb{F}_2$, with $i \in [\kappa']$, and sets $X_{ij} \gets b_ i 1_ j$. Where $1_j$ is a vector filled with $\lambda$ ones.
 6. $\mathcal{R}$ and $\mathcal{S}$ run `Correlated-OT-Extension`, with batch size $\kappa'$, and session id $\text{sid}$ with $\mathcal{R}$
 using $X_{ij}$ as its input.
 The parties receive $T_{ij}$ and $Q_{ij}$ respectively.
@@ -246,7 +242,35 @@ $$
 
 We run the `MTA` protocol for each unordered pair of parties, giving each party
 two shares $\gamma^0_i$, and $\gamma^1_i$, which they then add to $a_{i} b_i$ to
-get their share $c_i$
+get their share $c_i$.
+
+The protocol is also parameterized by a unique session id $\text{sid}$,
+and requires the triple setup phase to have been performed.
+
+Protocol `Multiplication`:
+
+In parallel, for each order pair of parties $\mathcal{P}_i < \mathcal{P}_j$,
+with $\mathcal{S} = \mathcal{P}_i$, being the sender, and $\mathcal{R} = \mathcal{P}_j$
+being the receiver.
+
+Let $\kappa = \lceil q \rceil + \lambda$.
+
+1. $\mathcal{S}$ and $\mathcal{R}$ run `Random-OT-Extension` with $\text{sid}$ and a batch size of $2 \kappa$.
+$\mathcal{S}$ receives $v_i^0, v_i^1$, and $\mathcal{R}$ receives $t_i$ and $v_i^{t_i}$.
+
+In parallel, for $(a,b) = (a_i, b_j)$  and $(a, b) = (b_i, a_j)$:
+
+2. $\mathcal{S}$ and $\mathcal{R}$ run `MTA` using the first (or last, in the second
+instance) $\kappa$ elements of the previous step, as well as their respective inputs
+$a$ and $b$.
+
+3. $\mathcal{S}$ receives $\gamma_j^0, \gamma_j^1$, and $\mathcal{R}$ receives
+$\gamma_i^0, \gamma_i^1$. (Writing it this way means that each party has 
+one instance of $\gamma$ for every other party they're interacting with).
+
+After all the p2p interactions are done:
+
+4. Every party $\mathcal{P}_i$ sets $c_i = a_i b_i + \sum_j (\gamma_j^0 + \gamma_j^1)$.
 
 # Triple Generation
 
