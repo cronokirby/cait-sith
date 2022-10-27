@@ -106,7 +106,7 @@ async fn do_presign(
     let com_i = commit(&(&big_f_i, big_d_i.to_affine()));
 
     // Spec 1.9
-    let wait0 = comms.next_waitpoint();
+    let wait0 = comms.next_waitpoint(chan0);
     comms.send_many(chan0, wait0, &com_i).await;
 
     // Spec 2.1
@@ -124,7 +124,7 @@ async fn do_presign(
     transcript.message(b"confirmation", my_confirmation.as_ref());
 
     // Spec 2.4
-    let wait1 = comms.next_waitpoint();
+    let wait1 = comms.next_waitpoint(chan0);
     comms.send_many(chan0, wait1, &my_confirmation).await;
 
     // Spec 2.5
@@ -146,7 +146,7 @@ async fn do_presign(
     );
 
     // Spec 2.6
-    let wait2 = comms.next_waitpoint();
+    let wait2 = comms.next_waitpoint(chan0);
     comms
         .send_many(
             chan0,
@@ -156,7 +156,7 @@ async fn do_presign(
         .await;
 
     // Spec 2.7
-    let wait3 = comms.next_waitpoint();
+    let wait3 = comms.next_waitpoint(chan0);
     for p in participants.others(me) {
         let k_i_j = f.evaluate(&p.scalar());
         comms.send_private(chan0, wait3, p, &k_i_j).await;
@@ -170,7 +170,7 @@ async fn do_presign(
     let kb_i = f.evaluate_zero() + b1_i;
 
     // Spec 2.9
-    let wait4 = comms.next_waitpoint();
+    let wait4 = comms.next_waitpoint(chan0);
     comms
         .send_many(chan0, wait4, &(ka_i, db_i, xa_i, kb_i))
         .await;
@@ -301,7 +301,7 @@ async fn do_presign(
     let l0 = xa * f.evaluate_zero() - kb * a1_i + c1_i;
 
     // Spec 3.13
-    let wait5 = comms.next_waitpoint();
+    let wait5 = comms.next_waitpoint(chan0);
     comms.send_many(chan0, wait5, &kd_i).await;
 
     // Spec 3.14
@@ -323,11 +323,11 @@ async fn do_presign(
     );
 
     // Spec 3.17
-    let wait6 = comms.next_waitpoint();
+    let wait6 = comms.next_waitpoint(chan0);
     comms.send_many(chan0, wait6, &(&big_l_i, pi_i)).await;
 
     // Spec 3.18
-    let wait7 = comms.next_waitpoint();
+    let wait7 = comms.next_waitpoint(chan0);
     for p in participants.others(me) {
         let kx_i_j = l.evaluate(&p.scalar());
         comms.send_private(chan0, wait7, p, &kx_i_j).await;

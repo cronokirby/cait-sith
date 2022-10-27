@@ -17,11 +17,11 @@ use crate::serde::{decode, encode_with_tag};
 use super::{Action, MessageData, Participant, Protocol, ProtocolError};
 
 /// A waiting point in the queue.
-type Waitpoint = u8;
+pub type Waitpoint = u8;
 /// Represents a specific channel we can send messages on.
 ///
 /// The idea is that we can have multiple channels, allowing us to run protocols in parallel.
-type Channel = u8;
+pub type Channel = u8;
 
 /// Represents a queue of messages.
 ///
@@ -29,8 +29,8 @@ type Channel = u8;
 /// sort them into bins based on
 #[derive(Debug, Clone)]
 struct MessageQueue {
-    next_waitpoint: Waitpoint,
     next_channel: Channel,
+    next_waitpoints: Vec<Waitpoint>,
     buffer: HashMap<(Channel, Waitpoint), Vec<(Participant, MessageData)>>,
 }
 
@@ -38,17 +38,18 @@ impl MessageQueue {
     /// Create a new message queue.
     fn new() -> Self {
         Self {
-            next_waitpoint: 0,
             next_channel: 0,
+            next_waitpoints: vec![0; 256],
             buffer: HashMap::new(),
         }
     }
 
     /// Get the next waitpoint.
-    fn next_waitpoint(&mut self) -> Waitpoint {
-        let out = self.next_waitpoint;
+    fn next_waitpoint(&mut self, chan: Channel) -> Waitpoint {
+        let wp = &mut self.next_waitpoints[usize::from(chan)];
+        let out = *wp;
         assert!(out < 0xFF, "max number of waitpoints reached");
-        self.next_waitpoint += 1;
+        *wp += 1;
         out
     }
 
@@ -224,8 +225,8 @@ impl Communication {
     }
 
     /// Get the next wait point for communications.
-    pub fn next_waitpoint(&self) -> u8 {
-        self.queue.borrow_mut().next_waitpoint() as u8
+    pub fn next_waitpoint(&self, chan: Channel) -> u8 {
+        self.queue.borrow_mut().next_waitpoint(chan) as u8
     }
     ///
     /// Get the next channel for communications.

@@ -44,7 +44,7 @@ async fn do_keygen(
     let my_commitment = commit(&big_f);
 
     // Spec 1.6
-    let wait0 = comms.next_waitpoint();
+    let wait0 = comms.next_waitpoint(chan0);
     comms.send_many(chan0, wait0, &my_commitment).await;
 
     // Spec 2.1
@@ -62,7 +62,7 @@ async fn do_keygen(
     transcript.message(b"confirmation", my_confirmation.as_ref());
 
     // Spec 2.4
-    let wait1 = comms.next_waitpoint();
+    let wait1 = comms.next_waitpoint(chan0);
     comms.send_many(chan0, wait1, &my_confirmation).await;
 
     // Spec 2.5
@@ -80,11 +80,11 @@ async fn do_keygen(
     );
 
     // Spec 2.6
-    let wait2 = comms.next_waitpoint();
+    let wait2 = comms.next_waitpoint(chan0);
     comms.send_many(chan0, wait2, &(&big_f, my_phi_proof)).await;
 
     // Spec 2.7
-    let wait3 = comms.next_waitpoint();
+    let wait3 = comms.next_waitpoint(chan0);
     for p in participants.others(me) {
         let x_i_j = f.evaluate(&p.scalar());
         comms.send_private(chan0, wait3, p, &x_i_j).await;

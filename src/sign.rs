@@ -56,7 +56,7 @@ async fn do_sign(
     let s_i = m * k_i + sigma_i;
 
     // Spec 1.4
-    let wait0 = comms.next_waitpoint();
+    let wait0 = comms.next_waitpoint(chan0);
     comms.send_many(chan0, wait0, &s_i).await;
 
     // Spec 2.1 + 2.2
