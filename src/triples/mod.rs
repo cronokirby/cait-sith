@@ -72,3 +72,5 @@ pub fn deal(
 
     (triple_pub, shares)
 }
+
+mod batch_random_ot;
