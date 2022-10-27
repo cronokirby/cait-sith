@@ -16,6 +16,12 @@ use crate::serde::{decode, encode_with_tag};
 
 use super::{Action, MessageData, Participant, Protocol, ProtocolError};
 
+fn decode_with_prefix<T: DeserializeOwned>(data: &[u8]) -> Result<T, ProtocolError> {
+    // We know data will be at least two bytes long
+    let decoded: Result<T, Box<dyn error::Error>> = decode(&data[2..]).map_err(|e| e.into());
+    Ok(decoded?)
+}
+
 /// A waiting point in the queue.
 pub type Waitpoint = u8;
 /// Represents a specific channel we can send messages on.
@@ -73,7 +79,10 @@ impl MessageQueue {
         let channel = message[0];
         let waitpoint = message[1];
 
-        self.buffer.entry((channel, waitpoint)).or_default().push((from, message));
+        self.buffer
+            .entry((channel, waitpoint))
+            .or_default()
+            .push((from, message));
     }
 
     /// Pop a message from a specific channel and waitpoint
@@ -241,9 +250,26 @@ impl Communication {
         waitpoint: Waitpoint,
     ) -> Result<(Participant, T), ProtocolError> {
         let (from, data) = MessageQueueWait::new(self.queue.clone(), channel, waitpoint).await;
-        // We know data will be at least one byte long
-        let decoded: Result<T, Box<dyn error::Error>> = decode(&data[2..]).map_err(|e| e.into());
-        Ok((from, decoded?))
+        Ok((from, decode_with_prefix(&data)?))
+    }
+
+    /// Receive a message for a specific waitpoint, and from a specific participant.
+    ///
+    /// This will ignore, and **drop** all messages received at that waitpoint not
+    /// from that participant.
+    pub async fn recv_exclusive<T: DeserializeOwned>(
+        &self,
+        channel: Channel,
+        waitpoint: Waitpoint,
+        target: Participant,
+    ) -> Result<T, ProtocolError> {
+        loop {
+            let (from, data) = MessageQueueWait::new(self.queue.clone(), channel, waitpoint).await;
+            if from != target {
+                continue;
+            }
+            return Ok(decode_with_prefix(&data)?);
+        }
     }
 }
 
