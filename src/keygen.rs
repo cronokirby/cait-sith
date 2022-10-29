@@ -6,7 +6,7 @@ use crate::crypto::{commit, Commitment};
 use crate::math::{GroupPolynomial, Polynomial};
 use crate::participants::{ParticipantCounter, ParticipantList, ParticipantMap};
 use crate::proofs::dlog;
-use crate::protocol::internal::{Communication, Executor};
+use crate::protocol::internal::{Communication, Executor, SharedChannel};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
 use crate::serde::encode;
 
@@ -18,13 +18,12 @@ pub struct KeygenOutput {
 
 async fn do_keygen(
     mut rng: impl CryptoRngCore,
-    comms: Communication,
+    mut chan: SharedChannel,
     participants: ParticipantList,
     me: Participant,
     threshold: usize,
 ) -> Result<KeygenOutput, ProtocolError> {
     let mut transcript = Transcript::new(b"cait-sith v0.1.0 keygen");
-    let chan0 = comms.next_channel();
 
     // Spec 1.2
     transcript.message(b"participants", &encode(&participants));
@@ -44,14 +43,14 @@ async fn do_keygen(
     let my_commitment = commit(&big_f);
 
     // Spec 1.6
-    let wait0 = comms.next_waitpoint(chan0);
-    comms.send_many(chan0, wait0, &my_commitment).await;
+    let wait0 = chan.next_waitpoint();
+    chan.send_many(wait0, &my_commitment).await;
 
     // Spec 2.1
     let mut all_commitments = ParticipantMap::new(&participants);
     all_commitments.put(me, my_commitment);
     while !all_commitments.full() {
-        let (from, commitment) = comms.recv(chan0, wait0).await?;
+        let (from, commitment) = chan.recv(wait0).await?;
         all_commitments.put(from, commitment);
     }
 
@@ -62,8 +61,8 @@ async fn do_keygen(
     transcript.message(b"confirmation", my_confirmation.as_ref());
 
     // Spec 2.4
-    let wait1 = comms.next_waitpoint(chan0);
-    comms.send_many(chan0, wait1, &my_confirmation).await;
+    let wait1 = chan.next_waitpoint();
+    chan.send_many(wait1, &my_confirmation).await;
 
     // Spec 2.5
     let statement = dlog::Statement {
@@ -80,14 +79,14 @@ async fn do_keygen(
     );
 
     // Spec 2.6
-    let wait2 = comms.next_waitpoint(chan0);
-    comms.send_many(chan0, wait2, &(&big_f, my_phi_proof)).await;
+    let wait2 = chan.next_waitpoint();
+    chan.send_many(wait2, &(&big_f, my_phi_proof)).await;
 
     // Spec 2.7
-    let wait3 = comms.next_waitpoint(chan0);
+    let wait3 = chan.next_waitpoint();
     for p in participants.others(me) {
         let x_i_j = f.evaluate(&p.scalar());
-        comms.send_private(chan0, wait3, p, &x_i_j).await;
+        chan.send_private(wait3, p, &x_i_j).await;
     }
     let mut x_i = f.evaluate(&me.scalar());
 
@@ -95,7 +94,7 @@ async fn do_keygen(
     let mut seen = ParticipantCounter::new(&participants);
     seen.put(me);
     while !seen.full() {
-        let (from, confirmation): (_, Commitment) = comms.recv(chan0, wait1).await?;
+        let (from, confirmation): (_, Commitment) = chan.recv(wait1).await?;
         if !seen.put(from) {
             continue;
         }
@@ -111,7 +110,7 @@ async fn do_keygen(
     seen.put(me);
     while !seen.full() {
         let (from, (their_big_f, their_phi_proof)): (_, (GroupPolynomial, _)) =
-            comms.recv(chan0, wait2).await?;
+            chan.recv(wait2).await?;
         if !seen.put(from) {
             continue;
         }
@@ -145,7 +144,7 @@ async fn do_keygen(
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, x_j_i): (_, Scalar) = comms.recv(chan0, wait3).await?;
+        let (from, x_j_i): (_, Scalar) = chan.recv(wait3).await?;
         if !seen.put(from) {
             continue;
         }
@@ -196,7 +195,7 @@ pub fn keygen(
     }
 
     let comms = Communication::new();
-    let fut = do_keygen(rng, comms.clone(), participants, me, threshold);
+    let fut = do_keygen(rng, comms.shared_channel(), participants, me, threshold);
     Ok(Executor::new(comms, fut))
 }
 

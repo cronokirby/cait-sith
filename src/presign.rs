@@ -9,7 +9,7 @@ use crate::crypto::{commit, Commitment};
 use crate::math::{GroupPolynomial, Polynomial};
 use crate::participants::{ParticipantCounter, ParticipantMap};
 use crate::proofs::dlog;
-use crate::protocol::internal::Executor;
+use crate::protocol::internal::{Executor, SharedChannel};
 use crate::protocol::{InitializationError, Protocol};
 use crate::serde::encode;
 use crate::triples::{TriplePub, TripleShare};
@@ -47,13 +47,12 @@ pub struct PresignArguments {
 
 async fn do_presign(
     mut rng: impl CryptoRngCore,
-    comms: Communication,
+    mut chan: SharedChannel,
     participants: ParticipantList,
     me: Participant,
     args: PresignArguments,
 ) -> Result<PresignOutput, ProtocolError> {
     let mut transcript = Transcript::new(b"cait-sith v0.1.0 presign");
-    let chan0 = comms.next_channel();
 
     let big_x = args.keygen_out.public_key.to_curve();
 
@@ -106,14 +105,14 @@ async fn do_presign(
     let com_i = commit(&(&big_f_i, big_d_i.to_affine()));
 
     // Spec 1.9
-    let wait0 = comms.next_waitpoint(chan0);
-    comms.send_many(chan0, wait0, &com_i).await;
+    let wait0 = chan.next_waitpoint();
+    chan.send_many(wait0, &com_i).await;
 
     // Spec 2.1
     let mut all_commitments = ParticipantMap::new(&participants);
     all_commitments.put(me, com_i);
     while !all_commitments.full() {
-        let (from, commitment) = comms.recv(chan0, wait0).await?;
+        let (from, commitment) = chan.recv(wait0).await?;
         all_commitments.put(from, commitment);
     }
 
@@ -124,8 +123,8 @@ async fn do_presign(
     transcript.message(b"confirmation", my_confirmation.as_ref());
 
     // Spec 2.4
-    let wait1 = comms.next_waitpoint(chan0);
-    comms.send_many(chan0, wait1, &my_confirmation).await;
+    let wait1 = chan.next_waitpoint();
+    chan.send_many(wait1, &my_confirmation).await;
 
     // Spec 2.5
     let pi_i = dlog::prove(
@@ -146,20 +145,15 @@ async fn do_presign(
     );
 
     // Spec 2.6
-    let wait2 = comms.next_waitpoint(chan0);
-    comms
-        .send_many(
-            chan0,
-            wait2,
-            &(&big_f_i, pi_i, big_d_i.to_affine(), pi_prime_i),
-        )
+    let wait2 = chan.next_waitpoint();
+    chan.send_many(wait2, &(&big_f_i, pi_i, big_d_i.to_affine(), pi_prime_i))
         .await;
 
     // Spec 2.7
-    let wait3 = comms.next_waitpoint(chan0);
+    let wait3 = chan.next_waitpoint();
     for p in participants.others(me) {
         let k_i_j = f.evaluate(&p.scalar());
-        comms.send_private(chan0, wait3, p, &k_i_j).await;
+        chan.send_private(wait3, p, &k_i_j).await;
     }
     let mut k_i = f.evaluate(&me.scalar());
 
@@ -170,16 +164,14 @@ async fn do_presign(
     let kb_i = f.evaluate_zero() + b1_i;
 
     // Spec 2.9
-    let wait4 = comms.next_waitpoint(chan0);
-    comms
-        .send_many(chan0, wait4, &(ka_i, db_i, xa_i, kb_i))
-        .await;
+    let wait4 = chan.next_waitpoint();
+    chan.send_many(wait4, &(ka_i, db_i, xa_i, kb_i)).await;
 
     // Spec 3.1 + 3.2
     let mut seen = ParticipantCounter::new(&participants);
     seen.put(me);
     while !seen.full() {
-        let (from, confirmation): (_, Commitment) = comms.recv(chan0, wait1).await?;
+        let (from, confirmation): (_, Commitment) = chan.recv(wait1).await?;
         if !seen.put(from) {
             continue;
         }
@@ -200,7 +192,7 @@ async fn do_presign(
         let (from, (big_f_j, pi_j, big_d_j, pi_prime_j)): (
             _,
             (GroupPolynomial, _, AffinePoint, _),
-        ) = comms.recv(chan0, wait2).await?;
+        ) = chan.recv(wait2).await?;
         if !seen.put(from) {
             continue;
         }
@@ -247,7 +239,7 @@ async fn do_presign(
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, k_i_j): (_, Scalar) = comms.recv(chan0, wait3).await?;
+        let (from, k_i_j): (_, Scalar) = chan.recv(wait3).await?;
         if !seen.put(from) {
             continue;
         }
@@ -275,7 +267,7 @@ async fn do_presign(
     seen.put(me);
     while !seen.full() {
         let (from, (ka_j, db_j, xa_j, kb_j)): (_, (Scalar, Scalar, Scalar, Scalar)) =
-            comms.recv(chan0, wait4).await?;
+            chan.recv(wait4).await?;
         if !seen.put(from) {
             continue;
         }
@@ -301,8 +293,8 @@ async fn do_presign(
     let l0 = xa * f.evaluate_zero() - kb * a1_i + c1_i;
 
     // Spec 3.13
-    let wait5 = comms.next_waitpoint(chan0);
-    comms.send_many(chan0, wait5, &kd_i).await;
+    let wait5 = chan.next_waitpoint();
+    chan.send_many(wait5, &kd_i).await;
 
     // Spec 3.14
     let l = Polynomial::extend_random(&mut rng, args.threshold, &l0);
@@ -323,14 +315,14 @@ async fn do_presign(
     );
 
     // Spec 3.17
-    let wait6 = comms.next_waitpoint(chan0);
-    comms.send_many(chan0, wait6, &(&big_l_i, pi_i)).await;
+    let wait6 = chan.next_waitpoint();
+    chan.send_many(wait6, &(&big_l_i, pi_i)).await;
 
     // Spec 3.18
-    let wait7 = comms.next_waitpoint(chan0);
+    let wait7 = chan.next_waitpoint();
     for p in participants.others(me) {
         let kx_i_j = l.evaluate(&p.scalar());
-        comms.send_private(chan0, wait7, p, &kx_i_j).await;
+        chan.send_private(wait7, p, &kx_i_j).await;
     }
     let kx_i_i = l.evaluate(&me.scalar());
 
@@ -339,7 +331,7 @@ async fn do_presign(
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, kd_j): (_, Scalar) = comms.recv(chan0, wait5).await?;
+        let (from, kd_j): (_, Scalar) = chan.recv(wait5).await?;
         if !seen.put(from) {
             continue;
         }
@@ -358,8 +350,7 @@ async fn do_presign(
     seen.put(me);
     let mut big_l = big_l_i;
     while !seen.full() {
-        let (from, (big_l_j, pi_j)): (_, (GroupPolynomial, dlog::Proof)) =
-            comms.recv(chan0, wait6).await?;
+        let (from, (big_l_j, pi_j)): (_, (GroupPolynomial, dlog::Proof)) = chan.recv(wait6).await?;
         if !seen.put(from) {
             continue;
         }
@@ -387,7 +378,7 @@ async fn do_presign(
     seen.put(me);
     let mut kx_i = kx_i_i;
     while !seen.full() {
-        let (from, kx_i_j): (_, Scalar) = comms.recv(chan0, wait7).await?;
+        let (from, kx_i_j): (_, Scalar) = chan.recv(wait7).await?;
         if !seen.put(from) {
             continue;
         }
@@ -468,7 +459,7 @@ pub fn presign(
     })?;
 
     let comms = Communication::new();
-    let fut = do_presign(rng, comms.clone(), participants, me, args);
+    let fut = do_presign(rng, comms.shared_channel(), participants, me, args);
     Ok(Executor::new(comms, fut))
 }
 

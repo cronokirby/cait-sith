@@ -13,12 +13,11 @@ pub fn encode_writer<T: Serialize, W: Write>(w: &mut W, val: &T) {
     rmp_serde::encode::write(w, val).expect("failed to encode value");
 }
 
-/// Encode an arbitrary serializable with a two byte tag.
-pub fn encode_with_tag<T: Serialize>(tag: (u8, u8), val: &T) -> Vec<u8> {
+/// Encode an arbitrary serializable with a tag.
+pub fn encode_with_tag<T: Serialize>(tag: &[u8], val: &T) -> Vec<u8> {
     // Matches rmp_serde's internal default.
     let mut out = Vec::with_capacity(128);
-    out.push(tag.0);
-    out.push(tag.1);
+    out.extend_from_slice(tag);
     rmp_serde::encode::write(&mut out, val).expect("failed to encode value");
     out
 }

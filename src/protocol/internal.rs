@@ -16,55 +16,128 @@ use crate::serde::{decode, encode_with_tag};
 
 use super::{Action, MessageData, Participant, Protocol, ProtocolError};
 
-fn decode_with_prefix<T: DeserializeOwned>(data: &[u8]) -> Result<T, ProtocolError> {
-    // We know data will be at least two bytes long
-    let decoded: Result<T, Box<dyn error::Error>> = decode(&data[2..]).map_err(|e| e.into());
-    Ok(decoded?)
+// ChannelHeader lets us route to a specific channel.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Hash)]
+enum ChannelHeader {
+    SharedChannel,
+    PrivateChannel(Participant, Participant),
 }
 
-/// A waiting point in the queue.
-pub type Waitpoint = u8;
-/// Represents a specific channel we can send messages on.
+impl ChannelHeader {
+    /// Create a shared channel header.
+    fn shared() -> Self {
+        Self::SharedChannel
+    }
+
+    /// Create a private channel header from participants.
+    ///
+    /// This will sort the participants, creating a unique channel
+    /// for each unordered pair.
+    fn private(p0: Participant, p1: Participant) -> Self {
+        Self::PrivateChannel(p0.min(p1), p0.max(p1))
+    }
+}
+
+/// A sub channel, inside of a channel.
 ///
-/// The idea is that we can have multiple channels, allowing us to run protocols in parallel.
-pub type Channel = u8;
+/// Used to allow multiple channels in parallel.
+type SubChannel = u16;
+/// A waitpoint inside of a channel.
+pub type Waitpoint = u8;
+
+/// A header used to route the message
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Hash)]
+struct MessageHeader {
+    /// Identifying the main channel.
+    channel_header: ChannelHeader,
+    /// Identifying the sub channel.
+    sub_channel: SubChannel,
+    /// Identifying the specific waitpoint.
+    waitpoint: Waitpoint,
+}
+
+impl MessageHeader {
+    /// The number of bytes in this encoding.
+    const LEN: usize = 12;
+
+    fn to_bytes(&self) -> [u8; Self::LEN] {
+        let mut out = [0u8; Self::LEN];
+
+        let (channel_type, part0, part1) = match self.channel_header {
+            ChannelHeader::SharedChannel => (0, 0u32, 0u32),
+            ChannelHeader::PrivateChannel(p0, p1) => (1, p0.into(), p1.into()),
+        };
+
+        out[0..4].copy_from_slice(&part0.to_le_bytes());
+        out[4..8].copy_from_slice(&part1.to_le_bytes());
+        out[8..10].copy_from_slice(&self.sub_channel.to_le_bytes());
+        out[10] = channel_type;
+        out[11] = self.waitpoint;
+
+        out
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() < Self::LEN {
+            return None;
+        }
+        // Unwrapping is fine because we checked the length already.
+        let part0: Participant = u32::from_le_bytes(bytes[..4].try_into().unwrap()).into();
+        let part1: Participant = u32::from_le_bytes(bytes[4..8].try_into().unwrap()).into();
+        let sub_channel: u16 = u16::from_le_bytes(bytes[8..10].try_into().unwrap());
+        let channel_type: u8 = bytes[10];
+        let waitpoint: Waitpoint = bytes[11];
+
+        let channel_header = match channel_type {
+            1 => ChannelHeader::PrivateChannel(part0, part1),
+            _ => ChannelHeader::SharedChannel,
+        };
+
+        Some(Self {
+            channel_header,
+            sub_channel,
+            waitpoint,
+        })
+    }
+
+    fn with_waitpoint(&self, waitpoint: Waitpoint) -> Self {
+        Self {
+            channel_header: self.channel_header,
+            sub_channel: self.sub_channel,
+            waitpoint,
+        }
+    }
+
+    fn next_waitpoint(&mut self) -> Waitpoint {
+        let out = self.waitpoint;
+        self.waitpoint += 1;
+        out
+    }
+
+    fn successor(&self) -> Self {
+        Self {
+            channel_header: self.channel_header,
+            sub_channel: self.sub_channel + 1,
+            waitpoint: 0,
+        }
+    }
+}
 
 /// Represents a queue of messages.
 ///
 /// This is used to receive incoming messages as they arrive, and automatically
-/// sort them into bins based on
+/// sort them into bins based on what channel and wait point they're for.
 #[derive(Debug, Clone)]
 struct MessageQueue {
-    next_channel: Channel,
-    next_waitpoints: Vec<Waitpoint>,
-    buffer: HashMap<(Channel, Waitpoint), Vec<(Participant, MessageData)>>,
+    buffer: HashMap<MessageHeader, (Participant, MessageData)>,
 }
 
 impl MessageQueue {
     /// Create a new message queue.
     fn new() -> Self {
         Self {
-            next_channel: 0,
-            next_waitpoints: vec![0; 256],
             buffer: HashMap::new(),
         }
-    }
-
-    /// Get the next waitpoint.
-    fn next_waitpoint(&mut self, chan: Channel) -> Waitpoint {
-        let wp = &mut self.next_waitpoints[usize::from(chan)];
-        let out = *wp;
-        assert!(out < 0xFF, "max number of waitpoints reached");
-        *wp += 1;
-        out
-    }
-
-    /// Get the next available channel.
-    fn next_channel(&mut self) -> Channel {
-        let out = self.next_channel;
-        assert!(out < 0xFF, "max number of channels reached");
-        self.next_channel += 1;
-        out
     }
 
     /// Push a new message into the queue.
@@ -72,43 +145,33 @@ impl MessageQueue {
     /// This will read the first byte of the message to determine what round it
     /// belongs to.
     fn push(&mut self, from: Participant, message: MessageData) {
-        if message.is_empty() {
+        if message.len() < MessageHeader::LEN {
             return;
         }
 
-        let channel = message[0];
-        let waitpoint = message[1];
+        let header = match MessageHeader::from_bytes(&message) {
+            Some(h) => h,
+            _ => return,
+        };
 
-        self.buffer
-            .entry((channel, waitpoint))
-            .or_default()
-            .push((from, message));
+        self.buffer.insert(header, (from, message));
     }
 
-    /// Pop a message from a specific channel and waitpoint
-    fn pop(
-        &mut self,
-        channel: Channel,
-        waitpoint: Waitpoint,
-    ) -> Option<(Participant, MessageData)> {
-        self.buffer.get_mut(&(channel, waitpoint))?.pop()
+    /// Pop a message from a specific header point.
+    fn pop(&mut self, header: MessageHeader) -> Option<(Participant, MessageData)> {
+        self.buffer.remove(&header)
     }
 }
 
-/// A future which tries to read a message from a specific round.
+/// A future which tries to read a message at a specific point.
 struct MessageQueueWait {
     queue: Rc<RefCell<MessageQueue>>,
-    channel: Channel,
-    waitpoint: Waitpoint,
+    header: MessageHeader,
 }
 
 impl MessageQueueWait {
-    fn new(queue: Rc<RefCell<MessageQueue>>, channel: Channel, waitpoint: Waitpoint) -> Self {
-        Self {
-            queue,
-            channel,
-            waitpoint,
-        }
+    fn new(queue: Rc<RefCell<MessageQueue>>, header: MessageHeader) -> Self {
+        Self { queue, header }
     }
 }
 
@@ -116,7 +179,7 @@ impl Future for MessageQueueWait {
     type Output = (Participant, MessageData);
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.queue.borrow_mut().pop(self.channel, self.waitpoint) {
+        match self.queue.borrow_mut().pop(self.header) {
             Some(out) => Poll::Ready(out),
             None => Poll::Pending,
         }
@@ -216,60 +279,45 @@ impl Communication {
     }
 
     /// (Indicate that you want to) send a message to everybody else.
-    pub async fn send_many<T: Serialize>(&self, channel: Channel, waitpoint: Waitpoint, data: &T) {
-        let message_data = encode_with_tag((channel, waitpoint), data);
+    async fn send_many<T: Serialize>(&self, header: MessageHeader, data: &T) {
+        let header_bytes = header.to_bytes();
+        let message_data = encode_with_tag(&header_bytes, data);
         self.send_raw(Message::Many(message_data)).await;
     }
 
     /// (Indicate that you want to) send a message privately to everybody else.
-    pub async fn send_private<T: Serialize>(
-        &self,
-        channel: Channel,
-        waitpoint: Waitpoint,
-        to: Participant,
-        data: &T,
-    ) {
-        let message_data = encode_with_tag((channel, waitpoint), data);
+    async fn send_private<T: Serialize>(&self, header: MessageHeader, to: Participant, data: &T) {
+        let header_bytes = header.to_bytes();
+        let message_data = encode_with_tag(&header_bytes, data);
         self.send_raw(Message::Private(to, message_data)).await;
     }
 
-    /// Get the next wait point for communications.
-    pub fn next_waitpoint(&self, chan: Channel) -> u8 {
-        self.queue.borrow_mut().next_waitpoint(chan) as u8
-    }
-    ///
-    /// Get the next channel for communications.
-    pub fn next_channel(&self) -> u8 {
-        self.queue.borrow_mut().next_channel() as u8
-    }
-
     /// Receive a message for a specific round.
-    pub async fn recv<T: DeserializeOwned>(
+    async fn recv<T: DeserializeOwned>(
         &self,
-        channel: Channel,
-        waitpoint: Waitpoint,
+        header: MessageHeader,
     ) -> Result<(Participant, T), ProtocolError> {
-        let (from, data) = MessageQueueWait::new(self.queue.clone(), channel, waitpoint).await;
-        Ok((from, decode_with_prefix(&data)?))
+        let (from, data) = MessageQueueWait::new(self.queue.clone(), header).await;
+        let decoded: Result<T, Box<dyn error::Error>> =
+            decode(&data[MessageHeader::LEN..]).map_err(|e| e.into());
+        Ok((from, decoded?))
     }
 
-    /// Receive a message for a specific waitpoint, and from a specific participant.
+    /// Return the singular shared channel associated with these communications.
     ///
-    /// This will ignore, and **drop** all messages received at that waitpoint not
-    /// from that participant.
-    pub async fn recv_exclusive<T: DeserializeOwned>(
-        &self,
-        channel: Channel,
-        waitpoint: Waitpoint,
-        target: Participant,
-    ) -> Result<T, ProtocolError> {
-        loop {
-            let (from, data) = MessageQueueWait::new(self.queue.clone(), channel, waitpoint).await;
-            if from != target {
-                continue;
-            }
-            return Ok(decode_with_prefix(&data)?);
-        }
+    /// Note that this will always return the same result, so you should use `successor`
+    /// to get forked channels.
+    pub fn shared_channel(&self) -> SharedChannel {
+        SharedChannel::new(self.clone())
+    }
+
+    /// Return a private channel between two participants.
+    ///
+    /// The idea is that one person will use themselves as `from`, and the other person
+    /// as `to`, and that person will do the opposite. They will end up with the same
+    /// channel identifier, and can exchange messages across this channel immediately.
+    pub fn private_channel(&self, from: Participant, to: Participant) -> PrivateChannel {
+        PrivateChannel::new(self.clone(), from, to)
     }
 }
 
@@ -278,6 +326,126 @@ impl Clone for Communication {
         Self {
             queue: Rc::clone(&self.queue),
             mailbox: Rc::clone(&self.mailbox),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SharedChannel {
+    comms: Communication,
+    header: MessageHeader,
+}
+
+impl SharedChannel {
+    fn new(comms: Communication) -> Self {
+        Self {
+            comms,
+            header: MessageHeader {
+                channel_header: ChannelHeader::SharedChannel,
+                sub_channel: 0,
+                waitpoint: 0,
+            },
+        }
+    }
+
+    /// Returns the successor to this channel.
+    ///
+    /// This will also be a shared channel, but has an independent waitpoint set.
+    pub fn successor(&self) -> Self {
+        Self {
+            comms: self.comms.clone(),
+            header: self.header.successor(),
+        }
+    }
+
+    /// Get the next available waitpoint on this shared channel.
+    pub fn next_waitpoint(&mut self) -> Waitpoint {
+        self.header.next_waitpoint()
+    }
+
+    /// Send some data to many participants on this channel.
+    pub async fn send_many<T: Serialize>(&self, waitpoint: Waitpoint, data: &T) {
+        self.comms
+            .send_many(self.header.with_waitpoint(waitpoint), data)
+            .await
+    }
+
+    /// Send a private message to another participant across this channel.
+    pub async fn send_private<T: Serialize>(
+        &self,
+        waitpoint: Waitpoint,
+        to: Participant,
+        data: &T,
+    ) {
+        self.comms
+            .send_private(self.header.with_waitpoint(waitpoint), to, data)
+            .await
+    }
+
+    /// Receive a message for a specific round.
+    pub async fn recv<T: DeserializeOwned>(
+        &self,
+        waitpoint: Waitpoint,
+    ) -> Result<(Participant, T), ProtocolError> {
+        self.comms.recv(self.header.with_waitpoint(waitpoint)).await
+    }
+}
+
+/// Represents a private channel shared between two participants.
+#[derive(Debug)]
+pub struct PrivateChannel {
+    comms: Communication,
+    to: Participant,
+    header: MessageHeader,
+}
+
+impl PrivateChannel {
+    fn new(comms: Communication, from: Participant, to: Participant) -> Self {
+        Self {
+            comms,
+            to,
+            header: MessageHeader {
+                channel_header: ChannelHeader::PrivateChannel(from, to),
+                sub_channel: 0,
+                waitpoint: 0,
+            },
+        }
+    }
+
+    /// Return the successor to this channel.
+    ///
+    /// This is a private channel with an independent set of waitpoints.
+    pub fn successor(&self) -> Self {
+        Self {
+            comms: self.comms.clone(),
+            to: self.to,
+            header: self.header.successor(),
+        }
+    }
+
+    /// Return the next waitpoint for this channel.
+    pub fn next_waitpoint(&mut self) -> Waitpoint {
+        self.header.next_waitpoint()
+    }
+
+    /// Send a private message to the other participant on this channel.
+    pub async fn send<T: Serialize>(&self, waitpoint: Waitpoint, data: &T) {
+        self.comms
+            .send_private(self.header.with_waitpoint(waitpoint), self.to, data)
+            .await
+    }
+
+    /// Receive a message for a specific round.
+    pub async fn recv<T: DeserializeOwned>(&self, waitpoint: Waitpoint) -> Result<T, ProtocolError> {
+        loop {
+            let (from, data) = self
+                .comms
+                .recv(self.header.with_waitpoint(waitpoint))
+                .await?;
+            if from != self.to {
+                continue;
+            }
+            return Ok(data);
         }
     }
 }

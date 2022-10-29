@@ -8,7 +8,7 @@ use crate::{
     compat,
     participants::{ParticipantCounter, ParticipantList},
     protocol::{
-        internal::{Communication, Executor},
+        internal::{Communication, Executor, SharedChannel},
         InitializationError, Participant, Protocol, ProtocolError,
     },
     PresignOutput,
@@ -34,15 +34,13 @@ pub struct FullSignature {
 }
 
 async fn do_sign(
-    comms: Communication,
+    mut chan: SharedChannel,
     participants: ParticipantList,
     me: Participant,
     public_key: PublicKey,
     presignature: PresignOutput,
     msg: Vec<u8>,
 ) -> Result<FullSignature, ProtocolError> {
-    let chan0 = comms.next_channel();
-
     // Spec 1.1
     let lambda = participants.lagrange(me);
     let k_i = lambda * presignature.k;
@@ -56,15 +54,15 @@ async fn do_sign(
     let s_i = m * k_i + sigma_i;
 
     // Spec 1.4
-    let wait0 = comms.next_waitpoint(chan0);
-    comms.send_many(chan0, wait0, &s_i).await;
+    let wait0 = chan.next_waitpoint();
+    chan.send_many(wait0, &s_i).await;
 
     // Spec 2.1 + 2.2
     let mut seen = ParticipantCounter::new(&participants);
     let mut s = s_i;
     seen.put(me);
     while !seen.full() {
-        let (from, s_j): (_, Scalar) = comms.recv(chan0, wait0).await?;
+        let (from, s_j): (_, Scalar) = chan.recv(wait0).await?;
         if !seen.put(from) {
             continue;
         }
@@ -113,7 +111,7 @@ pub fn sign(
 
     let comms = Communication::new();
     let fut = do_sign(
-        comms.clone(),
+        comms.shared_channel(),
         participants,
         me,
         public_key,
