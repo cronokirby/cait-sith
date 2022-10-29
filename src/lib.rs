@@ -1,3 +1,4 @@
+mod constants;
 mod compat;
 mod crypto;
 mod keygen;
