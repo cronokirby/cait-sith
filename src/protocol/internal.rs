@@ -129,7 +129,7 @@ impl MessageHeader {
 /// sort them into bins based on what channel and wait point they're for.
 #[derive(Debug, Clone)]
 struct MessageQueue {
-    buffer: HashMap<MessageHeader, (Participant, MessageData)>,
+    buffer: HashMap<MessageHeader, Vec<(Participant, MessageData)>>,
 }
 
 impl MessageQueue {
@@ -153,13 +153,12 @@ impl MessageQueue {
             Some(h) => h,
             _ => return,
         };
-
-        self.buffer.insert(header, (from, message));
+        self.buffer.entry(header).or_default().push((from, message))
     }
 
     /// Pop a message from a specific header point.
     fn pop(&mut self, header: MessageHeader) -> Option<(Participant, MessageData)> {
-        self.buffer.remove(&header)
+        self.buffer.get_mut(&header)?.pop()
     }
 }
 
