@@ -1,6 +1,10 @@
+use rand_core::CryptoRngCore;
+use subtle::{Choice, ConstantTimeEq};
+
 use crate::constants::SECURITY_PARAMETER;
 
-const SEC_PARAM_64: usize = (SECURITY_PARAMETER + 64 - 1) / 64;
+pub const SEC_PARAM_64: usize = (SECURITY_PARAMETER + 64 - 1) / 64;
+pub const SEC_PARAM_8: usize = (SECURITY_PARAMETER + 8 - 1) / 8;
 
 /// Represents a vector of bits.
 ///
@@ -8,6 +12,35 @@ const SEC_PARAM_64: usize = (SECURITY_PARAMETER + 64 - 1) / 64;
 /// for most of our OT extension protocols.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BitVector([u64; SEC_PARAM_64]);
+
+impl BitVector {
+    /// Return a random bit vector.
+    pub fn random(rng: &mut impl CryptoRngCore) -> Self {
+        let mut out = [0u64; SEC_PARAM_64];
+        for o in &mut out {
+            *o = rng.next_u64();
+        }
+        Self(out)
+    }
+
+    pub fn from_bytes(bytes: &[u8; SEC_PARAM_8]) -> Self {
+        let u64s = bytes
+            .chunks_exact(8)
+            .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()));
+        let mut out = [0u64; SEC_PARAM_64];
+        for (o, u) in out.iter_mut().zip(u64s) {
+            *o = u;
+        }
+        Self(out)
+    }
+
+    /// Iterate over the bits of this vector.
+    pub fn bits(&self) -> impl Iterator<Item = Choice> {
+        self.0
+            .into_iter()
+            .flat_map(|u| (0..64).map(move |j| ((u >> j) & 1).ct_eq(&0)))
+    }
+}
 
 /// Represents a matrix of bits.
 ///
@@ -20,8 +53,8 @@ pub struct BitMatrix(Vec<BitVector>);
 
 impl BitMatrix {
     /// Create a new matrix from a list of rows.
-    pub fn from_rows(rows: &[BitVector]) -> Self {
-        Self(rows.iter().copied().collect())
+    pub fn from_rows<'a>(rows: impl IntoIterator<Item = &'a BitVector>) -> Self {
+        Self(rows.into_iter().copied().collect())
     }
 
     /// Return the number of rows in this matrix.
@@ -30,4 +63,8 @@ impl BitMatrix {
     }
 }
 
-
+impl FromIterator<BitVector> for BitMatrix {
+    fn from_iter<T: IntoIterator<Item = BitVector>>(iter: T) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
