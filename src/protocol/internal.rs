@@ -114,10 +114,11 @@ impl MessageHeader {
         out
     }
 
-    fn successor(&self) -> Self {
+    /// Return the ith successor of this header.
+    fn successor(&self, i: u16) -> Self {
         Self {
             channel_header: self.channel_header,
-            sub_channel: self.sub_channel + 1,
+            sub_channel: self.sub_channel + i + 1,
             waitpoint: 0,
         }
     }
@@ -347,13 +348,13 @@ impl SharedChannel {
         }
     }
 
-    /// Returns the successor to this channel.
+    /// Returns the ith successor to this channel.
     ///
     /// This will also be a shared channel, but has an independent waitpoint set.
-    pub fn successor(&self) -> Self {
+    pub fn successor(&self, i: u16) -> Self {
         Self {
             comms: self.comms.clone(),
-            header: self.header.successor(),
+            header: self.header.successor(i),
         }
     }
 
@@ -411,14 +412,14 @@ impl PrivateChannel {
         }
     }
 
-    /// Return the successor to this channel.
+    /// Return the ith successor to this channel.
     ///
     /// This is a private channel with an independent set of waitpoints.
-    pub fn successor(&self) -> Self {
+    pub fn successor(&self, i: u16) -> Self {
         Self {
             comms: self.comms.clone(),
             to: self.to,
-            header: self.header.successor(),
+            header: self.header.successor(i),
         }
     }
 
