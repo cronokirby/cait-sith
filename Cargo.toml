@@ -11,12 +11,13 @@ auto_ops = "0.3.0"
 ck-meow = "0.1.0"
 digest = "0.10.5"
 ecdsa = { version = "0.14.8", features = ["digest", "hazmat"] }
-futures = "0.3.25"
+event-listener = "2.5.3"
 k256 = { version = "0.11.6", features = ["sha256", "ecdsa", "serde"] }
 magikitten = { git = "https://github.com/cronokirby/magikitten", rev = "3060128e7889db9af337cad979b4be4b6ef7a428" }
 rand_core = "0.6.4"
 rmp-serde = "1.1.1"
 serde = { version = "1.0", features = ["derive"] }
+smol = "1.2.5"
 subtle = "2.4.1"
 
 [dev-dependencies]
