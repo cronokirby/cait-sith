@@ -1,6 +1,5 @@
 use ck_meow::Meow;
 use ecdsa::elliptic_curve::group::prime::PrimeCurveAffine;
-use futures::future::join_all;
 use k256::{AffinePoint, ProjectivePoint, Scalar};
 use rand_core::{CryptoRngCore, OsRng};
 use subtle::ConditionallySelectable;
@@ -8,7 +7,7 @@ use subtle::ConditionallySelectable;
 use crate::{
     constants::SECURITY_PARAMETER,
     protocol::{
-        internal::{Communication, PrivateChannel},
+        internal::{Communication, PrivateChannel, join_all},
         Participant, ProtocolError,
     },
     serde::encode,
@@ -80,6 +79,7 @@ pub async fn batch_random_ot_receiver(
     let futs = delta.bits().enumerate().map(|(i, d_i)| {
         let mut chan = chan.successor(i as u16);
         async move {
+            dbg!("foo?");
             // Step 4
             let x_i = Scalar::generate_biased(&mut OsRng);
             let mut big_x_i = ProjectivePoint::GENERATOR * x_i;
@@ -98,4 +98,46 @@ pub async fn batch_random_ot_receiver(
     let big_k: BitMatrix = out.into_iter().collect();
 
     Ok((delta, big_k))
+}
+
+#[cfg(test)]
+mod test {
+    use crate::protocol::{internal::Executor, run_two_party_protocol, Protocol};
+
+    use super::*;
+
+    #[test]
+    fn test_batch_random_ot() {
+        let s = Participant::from(0u32);
+        let r = Participant::from(1u32);
+        let comms = Communication::new();
+
+        let res = run_two_party_protocol(
+            s,
+            r,
+            &mut Executor::new(
+                comms.clone(),
+                batch_random_ot_sender(comms.private_channel(s, r)),
+            ),
+            &mut Executor::new(
+                comms.clone(),
+                batch_random_ot_receiver(comms.private_channel(r, s)),
+            ),
+        );
+        assert!(res.is_ok());
+        let ((k0, k1), (delta, k_delta)) = res.unwrap();
+
+        // Check that we've gotten the right rows of the two matrices.
+        for (((row0, row1), delta_i), row_delta) in k0
+            .rows()
+            .zip(k1.rows())
+            .zip(delta.bits())
+            .zip(k_delta.rows())
+        {
+            assert_eq!(
+                BitVector::conditional_select(row0, row1, delta_i),
+                *row_delta
+            );
+        }
+    }
 }

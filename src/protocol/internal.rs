@@ -1,8 +1,11 @@
 use std::{
+    borrow::BorrowMut,
     cell::RefCell,
     collections::HashMap,
     error,
     future::Future,
+    mem,
+    ops::DerefMut,
     pin::Pin,
     ptr,
     rc::Rc,
@@ -179,7 +182,7 @@ impl Future for MessageQueueWait {
     type Output = (Participant, MessageData);
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.queue.borrow_mut().pop(self.header) {
+        match self.queue.as_ref().borrow_mut().pop(self.header) {
             Some(out) => Poll::Ready(out),
             None => Poll::Pending,
         }
@@ -237,7 +240,7 @@ impl Future for MailboxWait {
             return Poll::Pending;
         }
         let message = self.message.take();
-        self.mailbox.borrow_mut().0 = message;
+        self.mailbox.as_ref().borrow_mut().0 = message;
         Poll::Ready(())
     }
 }
@@ -267,11 +270,11 @@ impl Communication {
     }
 
     fn push_message(&self, from: Participant, message: MessageData) {
-        self.queue.borrow_mut().push(from, message);
+        self.queue.as_ref().borrow_mut().push(from, message);
     }
 
     fn outgoing(&self) -> Option<Message> {
-        self.mailbox.borrow_mut().recv()
+        self.mailbox.as_ref().borrow_mut().recv()
     }
 
     async fn send_raw(&self, data: Message) {
@@ -405,7 +408,7 @@ impl PrivateChannel {
             comms,
             to,
             header: MessageHeader {
-                channel_header: ChannelHeader::PrivateChannel(from, to),
+                channel_header: ChannelHeader::private(from, to),
                 sub_channel: 0,
                 waitpoint: 0,
             },
@@ -436,7 +439,10 @@ impl PrivateChannel {
     }
 
     /// Receive a message for a specific round.
-    pub async fn recv<T: DeserializeOwned>(&self, waitpoint: Waitpoint) -> Result<T, ProtocolError> {
+    pub async fn recv<T: DeserializeOwned>(
+        &self,
+        waitpoint: Waitpoint,
+    ) -> Result<T, ProtocolError> {
         loop {
             let (from, data) = self
                 .comms
@@ -446,6 +452,122 @@ impl PrivateChannel {
                 continue;
             }
             return Ok(data);
+        }
+    }
+}
+
+// See: https://github.com/rust-lang/futures-rs/blob/556cc461be75316dcc00b37ec2b887f1a039a8d2/futures-util/src/future/join_all.rs
+// This code is basically taken from there, but using only the unoptimized version
+// which polls all futures, thus not requiring a waker.
+
+enum MaybeDone<F: Future> {
+    Fut(F),
+    Done(F::Output),
+    Gone,
+}
+
+impl<Fut: Future + Unpin> Unpin for MaybeDone<Fut> {}
+
+impl<Fut: Future> MaybeDone<Fut> {
+    /// Returns an [`Option`] containing a mutable reference to the output of the future.
+    /// The output of this method will be [`Some`] if and only if the inner
+    /// future has been completed and [`take_output`](MaybeDone::take_output)
+    /// has not yet been called.
+    #[inline]
+    pub fn output_mut(self: Pin<&mut Self>) -> Option<&mut Fut::Output> {
+        unsafe {
+            match self.get_unchecked_mut() {
+                MaybeDone::Done(res) => Some(res),
+                _ => None,
+            }
+        }
+    }
+
+    /// Attempt to take the output of a `MaybeDone` without driving it
+    /// towards completion.
+    #[inline]
+    pub fn take_output(self: Pin<&mut Self>) -> Option<Fut::Output> {
+        match &*self {
+            Self::Done(_) => {}
+            Self::Fut(_) | Self::Gone => return None,
+        }
+        unsafe {
+            match mem::replace(self.get_unchecked_mut(), Self::Gone) {
+                MaybeDone::Done(output) => Some(output),
+                _ => unreachable!(),
+            }
+        }
+    }
+}
+
+impl<F: Future> Future for MaybeDone<F> {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        unsafe {
+            match self.as_mut().get_unchecked_mut() {
+                MaybeDone::Fut(f) => {
+                    let res = match Pin::new_unchecked(f).poll(cx) {
+                        Poll::Ready(r) => r,
+                        Poll::Pending => return Poll::Pending,
+                    };
+                    self.set(Self::Done(res));
+                }
+                MaybeDone::Done(_) => {}
+                MaybeDone::Gone => panic!("MaybeDone polled after value taken"),
+            }
+        }
+        Poll::Ready(())
+    }
+}
+
+fn iter_pin_mut<T>(slice: Pin<&mut [T]>) -> impl Iterator<Item = Pin<&mut T>> {
+    // Safety: `std` _could_ make this unsound if it were to decide Pin's
+    // invariants aren't required to transmit through slices. Otherwise this has
+    // the same safety as a normal field pin projection.
+    unsafe { slice.get_unchecked_mut() }
+        .iter_mut()
+        .map(|t| unsafe { Pin::new_unchecked(t) })
+}
+
+pub struct JoinAll<F: Future> {
+    tasks: Pin<Box<[MaybeDone<F>]>>,
+}
+
+pub fn join_all<I>(iter: I) -> JoinAll<I::Item>
+where
+    I: IntoIterator,
+    <I as IntoIterator>::Item: Future,
+{
+    let tasks = iter
+        .into_iter()
+        .map(MaybeDone::Fut)
+        .collect::<Box<[_]>>()
+        .into();
+    JoinAll { tasks }
+}
+
+impl<F: Future> Future for JoinAll<F> {
+    type Output = Vec<F::Output>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut all_done = true;
+
+        let tasks = &mut self.tasks;
+        for elem in iter_pin_mut(tasks.as_mut()) {
+            if elem.poll(cx).is_pending() {
+                all_done = false;
+            }
+        }
+
+        if all_done {
+            let mut elems = mem::replace(tasks, Box::pin([]));
+            let result = iter_pin_mut(elems.as_mut())
+                .map(|e| e.take_output().unwrap())
+                .collect();
+            Poll::Ready(result)
+        } else {
+            Poll::Pending
         }
     }
 }
@@ -507,9 +629,10 @@ impl<O, F: Future<Output = Result<O, ProtocolError>>> Executor<F, O> {
         let waker = dummy_waker();
         let mut ctx = Context::from_waker(&waker);
         if let Poll::Ready(out) = self.fut.as_mut().poll(&mut ctx) {
+            dbg!("ready");
             self.output = Some(out?);
         }
-
+        dbg!("self.comms.mailbox", &self.comms.mailbox);
         match self.comms.outgoing() {
             Some(Message::Many(m)) => Ok(Action::SendMany(m)),
             Some(Message::Private(to, m)) => Ok(Action::SendPrivate(to, m)),
