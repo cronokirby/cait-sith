@@ -1,5 +1,5 @@
 use rand_core::CryptoRngCore;
-use subtle::{Choice, ConstantTimeEq, ConditionallySelectable};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 use crate::constants::SECURITY_PARAMETER;
 
@@ -44,9 +44,11 @@ impl BitVector {
 
 impl ConditionallySelectable for BitVector {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
-        let mut out = a.clone();
-        out.conditional_assign(b, choice);
-        out
+        let mut out = [0u64; SEC_PARAM_64];
+        for ((o_i, a_i), b_i) in out.iter_mut().zip(a.0.iter()).zip(b.0.iter()) {
+            *o_i = u64::conditional_select(a_i, b_i, choice);
+        }
+        Self(out)
     }
 }
 
