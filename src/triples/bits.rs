@@ -1,5 +1,5 @@
 use rand_core::CryptoRngCore;
-use subtle::{Choice, ConstantTimeEq};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 use crate::constants::SECURITY_PARAMETER;
 
@@ -42,6 +42,16 @@ impl BitVector {
     }
 }
 
+impl ConditionallySelectable for BitVector {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+        let mut out = [0u64; SEC_PARAM_64];
+        for ((o_i, a_i), b_i) in out.iter_mut().zip(a.0.iter()).zip(b.0.iter()) {
+            *o_i = u64::conditional_select(a_i, b_i, choice);
+        }
+        Self(out)
+    }
+}
+
 /// Represents a matrix of bits.
 ///
 /// Each row of this matrix is a `BitVector`, although we might have more or less
@@ -60,6 +70,11 @@ impl BitMatrix {
     /// Return the number of rows in this matrix.
     pub fn height(&self) -> usize {
         self.0.len()
+    }
+
+    /// Iterate over the rows of this matrix.
+    pub fn rows(&self) -> impl Iterator<Item = &BitVector> {
+        self.0.iter()
     }
 }
 

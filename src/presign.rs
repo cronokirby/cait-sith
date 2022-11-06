@@ -3,20 +3,20 @@ use k256::elliptic_curve::ops::Reduce;
 use k256::elliptic_curve::AffineXCoordinate;
 use k256::{AffinePoint, ProjectivePoint, Scalar, U256};
 use magikitten::Transcript;
-use rand_core::CryptoRngCore;
+use rand_core::OsRng;
 
 use crate::crypto::{commit, Commitment};
 use crate::math::{GroupPolynomial, Polynomial};
 use crate::participants::{ParticipantCounter, ParticipantMap};
 use crate::proofs::dlog;
-use crate::protocol::internal::{Executor, SharedChannel};
+use crate::protocol::internal::{run_protocol, Context, SharedChannel};
 use crate::protocol::{InitializationError, Protocol};
 use crate::serde::encode;
 use crate::triples::{TriplePub, TripleShare};
 use crate::KeygenOutput;
 use crate::{
     participants::ParticipantList,
-    protocol::{internal::Communication, Participant, ProtocolError},
+    protocol::{Participant, ProtocolError},
 };
 
 /// The output of a presignature
@@ -46,12 +46,12 @@ pub struct PresignArguments {
 }
 
 async fn do_presign(
-    mut rng: impl CryptoRngCore,
     mut chan: SharedChannel,
     participants: ParticipantList,
     me: Participant,
     args: PresignArguments,
 ) -> Result<PresignOutput, ProtocolError> {
+    let mut rng = OsRng;
     let mut transcript = Transcript::new(b"cait-sith v0.1.0 presign");
 
     let big_x = args.keygen_out.public_key.to_curve();
@@ -421,7 +421,6 @@ async fn do_presign(
 }
 
 pub fn presign(
-    rng: impl CryptoRngCore,
     participants: &[Participant],
     me: Participant,
     args: PresignArguments,
@@ -458,9 +457,9 @@ pub fn presign(
         InitializationError::BadParameters("participant list cannot contain duplicates".to_string())
     })?;
 
-    let comms = Communication::new();
-    let fut = do_presign(rng, comms.shared_channel(), participants, me, args);
-    Ok(Executor::new(comms, fut))
+    let ctx = Context::new();
+    let fut = do_presign(ctx.shared_channel(), participants, me, args);
+    Ok(run_protocol(ctx, fut))
 }
 
 #[cfg(test)]
@@ -498,7 +497,6 @@ mod test {
             .zip(triple1_shares.into_iter())
         {
             let protocol = presign(
-                OsRng,
                 &participants[..3],
                 *p,
                 PresignArguments {
