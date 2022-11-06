@@ -9,7 +9,7 @@ use crate::crypto::{commit, Commitment};
 use crate::math::{GroupPolynomial, Polynomial};
 use crate::participants::{ParticipantCounter, ParticipantMap};
 use crate::proofs::dlog;
-use crate::protocol::internal2::{run_protocol, Context, SharedChannel};
+use crate::protocol::internal::{run_protocol, Context, SharedChannel};
 use crate::protocol::{InitializationError, Protocol};
 use crate::serde::encode;
 use crate::triples::{TriplePub, TripleShare};

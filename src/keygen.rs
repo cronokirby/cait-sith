@@ -6,7 +6,7 @@ use crate::crypto::{commit, Commitment};
 use crate::math::{GroupPolynomial, Polynomial};
 use crate::participants::{ParticipantCounter, ParticipantList, ParticipantMap};
 use crate::proofs::dlog;
-use crate::protocol::internal2::{run_protocol, Context, SharedChannel};
+use crate::protocol::internal::{run_protocol, Context, SharedChannel};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
 use crate::serde::encode;
 

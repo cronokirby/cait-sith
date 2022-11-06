@@ -1,19 +1,13 @@
-use std::{
-    borrow::BorrowMut,
-    cell::RefCell,
-    collections::HashMap,
-    error,
-    future::Future,
-    mem,
-    ops::DerefMut,
-    pin::Pin,
-    ptr,
-    rc::Rc,
-    task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
+use event_listener::Event;
+use serde::{de::DeserializeOwned, Serialize};
+use smol::{
+    block_on,
+    channel::{self, Receiver, Sender},
+    future,
+    lock::Mutex,
+    Executor, Task,
 };
-
-use ::serde::Serialize;
-use serde::de::DeserializeOwned;
+use std::{collections::HashMap, error, future::Future, sync::Arc};
 
 use crate::serde::{decode, encode_with_tag};
 
@@ -21,15 +15,15 @@ use super::{Action, MessageData, Participant, Protocol, ProtocolError};
 
 // ChannelHeader lets us route to a specific channel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Hash)]
-enum ChannelHeader {
-    SharedChannel,
-    PrivateChannel(Participant, Participant),
+enum BaseChannel {
+    Shared,
+    Private(Participant, Participant),
 }
 
-impl ChannelHeader {
+impl BaseChannel {
     /// Create a shared channel header.
     fn shared() -> Self {
-        Self::SharedChannel
+        Self::Shared
     }
 
     /// Create a private channel header from participants.
@@ -37,7 +31,7 @@ impl ChannelHeader {
     /// This will sort the participants, creating a unique channel
     /// for each unordered pair.
     fn private(p0: Participant, p1: Participant) -> Self {
-        Self::PrivateChannel(p0.min(p1), p0.max(p1))
+        Self::Private(p0.min(p1), p0.max(p1))
     }
 }
 
@@ -52,7 +46,7 @@ pub type Waitpoint = u8;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Hash)]
 struct MessageHeader {
     /// Identifying the main channel.
-    channel_header: ChannelHeader,
+    base_channel: BaseChannel,
     /// Identifying the sub channel.
     sub_channel: SubChannel,
     /// Identifying the specific waitpoint.
@@ -66,9 +60,9 @@ impl MessageHeader {
     fn to_bytes(&self) -> [u8; Self::LEN] {
         let mut out = [0u8; Self::LEN];
 
-        let (channel_type, part0, part1) = match self.channel_header {
-            ChannelHeader::SharedChannel => (0, 0u32, 0u32),
-            ChannelHeader::PrivateChannel(p0, p1) => (1, p0.into(), p1.into()),
+        let (channel_type, part0, part1) = match self.base_channel {
+            BaseChannel::Shared => (0, 0u32, 0u32),
+            BaseChannel::Private(p0, p1) => (1, p0.into(), p1.into()),
         };
 
         out[0..4].copy_from_slice(&part0.to_le_bytes());
@@ -91,13 +85,13 @@ impl MessageHeader {
         let channel_type: u8 = bytes[10];
         let waitpoint: Waitpoint = bytes[11];
 
-        let channel_header = match channel_type {
-            1 => ChannelHeader::PrivateChannel(part0, part1),
-            _ => ChannelHeader::SharedChannel,
+        let base_channel = match channel_type {
+            1 => BaseChannel::Private(part0, part1),
+            _ => BaseChannel::Shared,
         };
 
         Some(Self {
-            channel_header,
+            base_channel,
             sub_channel,
             waitpoint,
         })
@@ -105,7 +99,7 @@ impl MessageHeader {
 
     fn with_waitpoint(&self, waitpoint: Waitpoint) -> Self {
         Self {
-            channel_header: self.channel_header,
+            base_channel: self.base_channel,
             sub_channel: self.sub_channel,
             waitpoint,
         }
@@ -120,71 +114,58 @@ impl MessageHeader {
     /// Return the ith successor of this header.
     fn successor(&self, i: u16) -> Self {
         Self {
-            channel_header: self.channel_header,
+            base_channel: self.base_channel,
             sub_channel: self.sub_channel + i + 1,
             waitpoint: 0,
         }
     }
+
+    fn channel_header(&self) -> (BaseChannel, SubChannel) {
+        (self.base_channel, self.sub_channel)
+    }
 }
 
-/// Represents a queue of messages.
-///
-/// This is used to receive incoming messages as they arrive, and automatically
-/// sort them into bins based on what channel and wait point they're for.
-#[derive(Debug, Clone)]
-struct MessageQueue {
-    buffer: HashMap<MessageHeader, Vec<(Participant, MessageData)>>,
+#[derive(Clone)]
+struct MessageBuffer {
+    messages: Arc<Mutex<HashMap<MessageHeader, Vec<(Participant, MessageData)>>>>,
+    events: Arc<Mutex<HashMap<MessageHeader, Event>>>,
 }
 
-impl MessageQueue {
-    /// Create a new message queue.
+impl MessageBuffer {
     fn new() -> Self {
         Self {
-            buffer: HashMap::new(),
+            messages: Arc::new(Mutex::new(HashMap::new())),
+            events: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
-    /// Push a new message into the queue.
-    ///
-    /// This will read the first byte of the message to determine what round it
-    /// belongs to.
-    fn push(&mut self, from: Participant, message: MessageData) {
-        if message.len() < MessageHeader::LEN {
-            return;
-        }
-
-        let header = match MessageHeader::from_bytes(&message) {
-            Some(h) => h,
-            _ => return,
-        };
-        self.buffer.entry(header).or_default().push((from, message))
+    async fn push(&self, header: MessageHeader, from: Participant, message: MessageData) {
+        dbg!("pushing...");
+        let mut messages_lock = self.messages.as_ref().lock().await;
+        dbg!("got messages lock...");
+        messages_lock
+            .entry(header)
+            .or_default()
+            .push((from, message));
+        let mut events_lock = self.events.as_ref().lock().await;
+        dbg!("got events lock...");
+        events_lock.entry(header).or_default().notify(1);
     }
 
-    /// Pop a message from a specific header point.
-    fn pop(&mut self, header: MessageHeader) -> Option<(Participant, MessageData)> {
-        self.buffer.get_mut(&header)?.pop()
-    }
-}
-
-/// A future which tries to read a message at a specific point.
-struct MessageQueueWait {
-    queue: Rc<RefCell<MessageQueue>>,
-    header: MessageHeader,
-}
-
-impl MessageQueueWait {
-    fn new(queue: Rc<RefCell<MessageQueue>>, header: MessageHeader) -> Self {
-        Self { queue, header }
-    }
-}
-
-impl Future for MessageQueueWait {
-    type Output = (Participant, MessageData);
-
-    fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.queue.as_ref().borrow_mut().pop(self.header) {
-            Some(out) => Poll::Ready(out),
-            None => Poll::Pending,
+    async fn pop(&self, header: MessageHeader) -> (Participant, MessageData) {
+        loop {
+            dbg!("acquiring listener");
+            let listener = {
+                let mut messages_lock = self.messages.as_ref().lock().await;
+                let messages = messages_lock.entry(header).or_default();
+                if let Some(out) = messages.pop() {
+                    return out;
+                }
+                let mut events_lock = self.events.as_ref().lock().await;
+                events_lock.entry(header).or_default().listen()
+            };
+            dbg!("listening...");
+            listener.await;
         }
     }
 }
@@ -198,87 +179,49 @@ pub enum Message {
     Private(Participant, MessageData),
 }
 
-/// A mailbox is a single item queue, used to handle message outputs.
-///
-/// The idea is that the future can write a message here, and then the executor
-/// can pull it out.
-#[derive(Debug)]
-pub struct Mailbox(Option<Message>);
-
-impl Mailbox {
-    fn new() -> Self {
-        Self(None)
-    }
-
-    /// Receive any message queued in here.
-    fn recv(&mut self) -> Option<Message> {
-        self.0.take()
-    }
+#[derive(Clone)]
+struct Comms {
+    buffer: MessageBuffer,
+    message_s: Sender<Message>,
+    message_r: Receiver<Message>,
 }
 
-/// A future used to wait until a mailbox is emptied.
-struct MailboxWait {
-    mailbox: Rc<RefCell<Mailbox>>,
-    /// This will always be some, but we need to be able to take it
-    message: Option<Message>,
-}
-
-impl MailboxWait {
-    fn new(mailbox: Rc<RefCell<Mailbox>>, message: Message) -> Self {
-        Self {
-            mailbox,
-            message: Some(message),
-        }
-    }
-}
-
-impl Future for MailboxWait {
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if self.mailbox.borrow().0.is_some() {
-            return Poll::Pending;
-        }
-        let message = self.message.take();
-        self.mailbox.as_ref().borrow_mut().0 = message;
-        Poll::Ready(())
-    }
-}
-
-/// Represents the communications between the executor and the participant.
-///
-/// This allows the participant to read messages from the queue, possibly
-/// waiting until a message for the round they're interested in arrives.
-/// The participant can also push outgoing messages into a mailbox, allowing
-/// the executor to pick them up.
-#[derive(Debug)]
-pub struct Communication {
-    queue: Rc<RefCell<MessageQueue>>,
-    mailbox: Rc<RefCell<Mailbox>>,
-}
-
-impl Communication {
-    /// Create new communications.
+impl Comms {
     pub fn new() -> Self {
-        let queue = MessageQueue::new();
-        let mailbox = Mailbox::new();
+        let (message_s, message_r) = channel::bounded(1);
 
         Self {
-            queue: Rc::new(RefCell::new(queue)),
-            mailbox: Rc::new(RefCell::new(mailbox)),
+            buffer: MessageBuffer::new(),
+            message_s,
+            message_r,
         }
     }
 
-    fn push_message(&self, from: Participant, message: MessageData) {
-        self.queue.as_ref().borrow_mut().push(from, message);
+    async fn outgoing(&self) -> Message {
+        self.message_r
+            .recv()
+            .await
+            .expect("failed to check outgoing messages")
     }
 
-    fn outgoing(&self) -> Option<Message> {
-        self.mailbox.as_ref().borrow_mut().recv()
+    async fn push_message(&self, from: Participant, message: MessageData) {
+        if message.len() < MessageHeader::LEN {
+            return;
+        }
+
+        let header = match MessageHeader::from_bytes(&message) {
+            Some(h) => h,
+            _ => return,
+        };
+
+        self.buffer.push(header, from, message).await
     }
 
     async fn send_raw(&self, data: Message) {
-        MailboxWait::new(self.mailbox.clone(), data).await;
+        self.message_s
+            .send(data)
+            .await
+            .expect("failed to send message");
     }
 
     /// (Indicate that you want to) send a message to everybody else.
@@ -288,72 +231,41 @@ impl Communication {
         self.send_raw(Message::Many(message_data)).await;
     }
 
-    /// (Indicate that you want to) send a message privately to everybody else.
+    /// (Indicate that you want to) send a message privately to someone.
     async fn send_private<T: Serialize>(&self, header: MessageHeader, to: Participant, data: &T) {
         let header_bytes = header.to_bytes();
         let message_data = encode_with_tag(&header_bytes, data);
         self.send_raw(Message::Private(to, message_data)).await;
     }
 
-    /// Receive a message for a specific round.
     async fn recv<T: DeserializeOwned>(
         &self,
         header: MessageHeader,
     ) -> Result<(Participant, T), ProtocolError> {
-        let (from, data) = MessageQueueWait::new(self.queue.clone(), header).await;
+        let (from, data) = self.buffer.pop(header).await;
         let decoded: Result<T, Box<dyn error::Error + Send + Sync>> =
             decode(&data[MessageHeader::LEN..]).map_err(|e| e.into());
         Ok((from, decoded?))
     }
-
-    /// Return the singular shared channel associated with these communications.
-    ///
-    /// Note that this will always return the same result, so you should use `successor`
-    /// to get forked channels.
-    pub fn shared_channel(&self) -> SharedChannel {
-        SharedChannel::new(self.clone())
-    }
-
-    /// Return a private channel between two participants.
-    ///
-    /// The idea is that one person will use themselves as `from`, and the other person
-    /// as `to`, and that person will do the opposite. They will end up with the same
-    /// channel identifier, and can exchange messages across this channel immediately.
-    pub fn private_channel(&self, from: Participant, to: Participant) -> PrivateChannel {
-        PrivateChannel::new(self.clone(), from, to)
-    }
 }
 
-impl Clone for Communication {
-    fn clone(&self) -> Self {
-        Self {
-            queue: Rc::clone(&self.queue),
-            mailbox: Rc::clone(&self.mailbox),
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct SharedChannel {
-    comms: Communication,
     header: MessageHeader,
+    comms: Comms,
 }
 
 impl SharedChannel {
-    fn new(comms: Communication) -> Self {
+    fn new(comms: Comms) -> Self {
         Self {
             comms,
             header: MessageHeader {
-                channel_header: ChannelHeader::SharedChannel,
+                base_channel: BaseChannel::Shared,
                 sub_channel: 0,
                 waitpoint: 0,
             },
         }
     }
 
-    /// Returns the ith successor to this channel.
-    ///
-    /// This will also be a shared channel, but has an independent waitpoint set.
     pub fn successor(&self, i: u16) -> Self {
         Self {
             comms: self.comms.clone(),
@@ -361,19 +273,16 @@ impl SharedChannel {
         }
     }
 
-    /// Get the next available waitpoint on this shared channel.
     pub fn next_waitpoint(&mut self) -> Waitpoint {
         self.header.next_waitpoint()
     }
 
-    /// Send some data to many participants on this channel.
     pub async fn send_many<T: Serialize>(&self, waitpoint: Waitpoint, data: &T) {
         self.comms
             .send_many(self.header.with_waitpoint(waitpoint), data)
             .await
     }
 
-    /// Send a private message to another participant across this channel.
     pub async fn send_private<T: Serialize>(
         &self,
         waitpoint: Waitpoint,
@@ -385,7 +294,6 @@ impl SharedChannel {
             .await
     }
 
-    /// Receive a message for a specific round.
     pub async fn recv<T: DeserializeOwned>(
         &self,
         waitpoint: Waitpoint,
@@ -394,30 +302,25 @@ impl SharedChannel {
     }
 }
 
-/// Represents a private channel shared between two participants.
-#[derive(Debug)]
 pub struct PrivateChannel {
-    comms: Communication,
-    to: Participant,
     header: MessageHeader,
+    to: Participant,
+    comms: Comms,
 }
 
 impl PrivateChannel {
-    fn new(comms: Communication, from: Participant, to: Participant) -> Self {
+    fn new(comms: Comms, from: Participant, to: Participant) -> Self {
         Self {
             comms,
             to,
             header: MessageHeader {
-                channel_header: ChannelHeader::private(from, to),
+                base_channel: BaseChannel::private(from, to),
                 sub_channel: 0,
                 waitpoint: 0,
             },
         }
     }
 
-    /// Return the ith successor to this channel.
-    ///
-    /// This is a private channel with an independent set of waitpoints.
     pub fn successor(&self, i: u16) -> Self {
         Self {
             comms: self.comms.clone(),
@@ -426,19 +329,16 @@ impl PrivateChannel {
         }
     }
 
-    /// Return the next waitpoint for this channel.
     pub fn next_waitpoint(&mut self) -> Waitpoint {
         self.header.next_waitpoint()
     }
 
-    /// Send a private message to the other participant on this channel.
     pub async fn send<T: Serialize>(&self, waitpoint: Waitpoint, data: &T) {
         self.comms
             .send_private(self.header.with_waitpoint(waitpoint), self.to, data)
             .await
     }
 
-    /// Receive a message for a specific round.
     pub async fn recv<T: DeserializeOwned>(
         &self,
         waitpoint: Waitpoint,
@@ -449,6 +349,7 @@ impl PrivateChannel {
                 .recv(self.header.with_waitpoint(waitpoint))
                 .await?;
             if from != self.to {
+                future::yield_now().await;
                 continue;
             }
             return Ok(data);
@@ -456,205 +357,119 @@ impl PrivateChannel {
     }
 }
 
-// See: https://github.com/rust-lang/futures-rs/blob/556cc461be75316dcc00b37ec2b887f1a039a8d2/futures-util/src/future/join_all.rs
-// This code is basically taken from there, but using only the unoptimized version
-// which polls all futures, thus not requiring a waker.
-
-enum MaybeDone<F: Future> {
-    Fut(F),
-    Done(F::Output),
-    Gone,
+#[derive(Clone)]
+pub struct Context<'a> {
+    comms: Comms,
+    executor: Arc<Executor<'a>>,
 }
 
-impl<Fut: Future + Unpin> Unpin for MaybeDone<Fut> {}
-
-impl<Fut: Future> MaybeDone<Fut> {
-    /// Returns an [`Option`] containing a mutable reference to the output of the future.
-    /// The output of this method will be [`Some`] if and only if the inner
-    /// future has been completed and [`take_output`](MaybeDone::take_output)
-    /// has not yet been called.
-    #[inline]
-    pub fn output_mut(self: Pin<&mut Self>) -> Option<&mut Fut::Output> {
-        unsafe {
-            match self.get_unchecked_mut() {
-                MaybeDone::Done(res) => Some(res),
-                _ => None,
-            }
+impl<'a> Context<'a> {
+    pub fn new() -> Self {
+        Self {
+            comms: Comms::new(),
+            executor: Arc::new(Executor::new()),
         }
     }
 
-    /// Attempt to take the output of a `MaybeDone` without driving it
-    /// towards completion.
-    #[inline]
-    pub fn take_output(self: Pin<&mut Self>) -> Option<Fut::Output> {
-        match &*self {
-            Self::Done(_) => {}
-            Self::Fut(_) | Self::Gone => return None,
-        }
-        unsafe {
-            match mem::replace(self.get_unchecked_mut(), Self::Gone) {
-                MaybeDone::Done(output) => Some(output),
-                _ => unreachable!(),
-            }
-        }
+    pub fn shared_channel(&self) -> SharedChannel {
+        SharedChannel::new(self.comms.clone())
+    }
+
+    pub fn private_channel(&self, from: Participant, to: Participant) -> PrivateChannel {
+        PrivateChannel::new(self.comms.clone(), from, to)
+    }
+
+    pub fn spawn<T: Send + 'a>(&self, fut: impl Future<Output = T> + Send + 'a) -> Task<T> {
+        self.executor.spawn(fut)
+    }
+
+    pub async fn run<T>(&self, fut: impl Future<Output = T>) -> T {
+        self.executor.run(fut).await
     }
 }
 
-impl<F: Future> Future for MaybeDone<F> {
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        unsafe {
-            match self.as_mut().get_unchecked_mut() {
-                MaybeDone::Fut(f) => {
-                    let res = match Pin::new_unchecked(f).poll(cx) {
-                        Poll::Ready(r) => r,
-                        Poll::Pending => return Poll::Pending,
-                    };
-                    self.set(Self::Done(res));
-                }
-                MaybeDone::Done(_) => {}
-                MaybeDone::Gone => panic!("MaybeDone polled after value taken"),
-            }
-        }
-        Poll::Ready(())
-    }
-}
-
-fn iter_pin_mut<T>(slice: Pin<&mut [T]>) -> impl Iterator<Item = Pin<&mut T>> {
-    // Safety: `std` _could_ make this unsound if it were to decide Pin's
-    // invariants aren't required to transmit through slices. Otherwise this has
-    // the same safety as a normal field pin projection.
-    unsafe { slice.get_unchecked_mut() }
-        .iter_mut()
-        .map(|t| unsafe { Pin::new_unchecked(t) })
-}
-
-pub struct JoinAll<F: Future> {
-    tasks: Pin<Box<[MaybeDone<F>]>>,
-}
-
-pub fn join_all<I>(iter: I) -> JoinAll<I::Item>
-where
-    I: IntoIterator,
-    <I as IntoIterator>::Item: Future,
-{
-    let tasks = iter
-        .into_iter()
-        .map(MaybeDone::Fut)
-        .collect::<Box<[_]>>()
-        .into();
-    JoinAll { tasks }
-}
-
-impl<F: Future> Future for JoinAll<F> {
-    type Output = Vec<F::Output>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut all_done = true;
-
-        let tasks = &mut self.tasks;
-        for elem in iter_pin_mut(tasks.as_mut()) {
-            if elem.poll(cx).is_pending() {
-                all_done = false;
-            }
-        }
-
-        if all_done {
-            let mut elems = mem::replace(tasks, Box::pin([]));
-            let result = iter_pin_mut(elems.as_mut())
-                .map(|e| e.take_output().unwrap())
-                .collect();
-            Poll::Ready(result)
-        } else {
-            Poll::Pending
-        }
-    }
-}
-
-fn dummy_raw_waker() -> RawWaker {
-    fn no_op(_: *const ()) {}
-    fn clone(_: *const ()) -> RawWaker {
-        dummy_raw_waker()
-    }
-
-    let vtable = &RawWakerVTable::new(clone, no_op, no_op, no_op);
-    RawWaker::new(ptr::null(), vtable)
-}
-
-/// Just a waker which does nothing, which is fine for our dummy future, which doesn't use the waker.
-fn dummy_waker() -> Waker {
-    unsafe { Waker::from_raw(dummy_raw_waker()) }
-}
-
-/// An executor which implements our protocol trait.
-///
-/// You pass it a copy of the communications infrastructure, and then a future,
-/// which will also use that same infrastructure. The executor then implements
-/// the methods for advancing the protocol, which will end up polling the future
-/// and reacting accordingly, based on what's happening on the communications infrastructure.
-pub struct Executor<F, O> {
-    comms: Communication,
-    fut: Pin<Box<F>>,
-    output: Option<O>,
+struct ProtocolExecutor<'a, T> {
+    ctx: Context<'a>,
+    ret_r: channel::Receiver<Result<T, ProtocolError>>,
     done: bool,
 }
 
-impl<O, F: Future<Output = Result<O, ProtocolError>>> Executor<F, O> {
-    pub fn new(comms: Communication, fut: F) -> Self {
+impl<'a, T: Send + 'a> ProtocolExecutor<'a, T> {
+    fn new(
+        ctx: Context<'a>,
+        fut: impl Future<Output = Result<T, ProtocolError>> + Send + 'a,
+    ) -> Self {
+        let (ret_s, ret_r) = smol::channel::bounded(1);
+        let fut = async move {
+            let res = fut.await;
+            ret_s
+                .send(res)
+                .await
+                .expect("failed to return result of protocol");
+        };
+
+        ctx.executor.spawn(fut).detach();
+
         Self {
-            comms,
-            fut: Box::pin(fut),
-            output: None,
+            ctx,
+            ret_r,
             done: false,
-        }
-    }
-
-    fn take_output(&mut self) -> Option<O> {
-        let out = self.output.take();
-        if out.is_some() {
-            self.done = true;
-        }
-        out
-    }
-
-    fn run(&mut self) -> Result<Action<O>, ProtocolError> {
-        if self.done {
-            return Ok(Action::Wait);
-        }
-        if let Some(out) = self.take_output() {
-            return Ok(Action::Return(out));
-        }
-
-        let waker = dummy_waker();
-        let mut ctx = Context::from_waker(&waker);
-        if let Poll::Ready(out) = self.fut.as_mut().poll(&mut ctx) {
-            dbg!("ready");
-            self.output = Some(out?);
-        }
-        dbg!("self.comms.mailbox", &self.comms.mailbox);
-        match self.comms.outgoing() {
-            Some(Message::Many(m)) => Ok(Action::SendMany(m)),
-            Some(Message::Private(to, m)) => Ok(Action::SendPrivate(to, m)),
-            None => {
-                if let Some(out) = self.take_output() {
-                    Ok(Action::Return(out))
-                } else {
-                    Ok(Action::Wait)
-                }
-            }
         }
     }
 }
 
-impl<O, F: Future<Output = Result<O, ProtocolError>>> Protocol for Executor<F, O> {
-    type Output = O;
+impl<'a, T> Protocol for ProtocolExecutor<'a, T> {
+    type Output = T;
 
     fn poke(&mut self) -> Result<Action<Self::Output>, ProtocolError> {
-        self.run()
+        if self.done {
+            return Ok(Action::Wait);
+        }
+        let fut_return = async {
+            let out = self
+                .ret_r
+                .recv()
+                .await
+                .expect("failed to retrieve return value");
+            Ok::<_, ProtocolError>(Action::Return(out?))
+        };
+        let fut_outgoing = async {
+            let action: Action<Self::Output> = match self.ctx.comms.outgoing().await {
+                Message::Many(m) => Action::SendMany(m),
+                Message::Private(to, m) => Action::SendPrivate(to, m),
+            };
+            Ok::<_, ProtocolError>(action)
+        };
+        let fut_wait = async {
+            while { self.ctx.executor.try_tick() } {
+                future::yield_now().await;
+            }
+            Ok(Action::Wait)
+        };
+        let action = block_on(
+            self.ctx
+                .run(future::or(fut_outgoing, future::or(fut_return, fut_wait))),
+        );
+        match action {
+            Err(_) => self.done = true,
+            Ok(Action::Return(_)) => self.done = true,
+            _ => {}
+        };
+        action
     }
 
     fn message(&mut self, from: Participant, data: MessageData) {
-        self.comms.push_message(from, data);
+        block_on(
+            self.ctx
+                .executor
+                .run(self.ctx.comms.push_message(from, data)),
+        );
     }
+}
+
+pub fn run_protocol<'a, T: Send + 'a>(
+    ctx: Context<'a>,
+    fut: impl Future<Output = Result<T, ProtocolError>> + Send + 'a,
+) -> impl Protocol<Output = T> + 'a {
+    ProtocolExecutor::new(ctx, fut)
 }

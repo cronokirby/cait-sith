@@ -243,4 +243,3 @@ pub(crate) fn run_two_party_protocol<T0: std::fmt::Debug, T1: std::fmt::Debug>(
 }
 
 pub(crate) mod internal;
-pub(crate) mod internal2;

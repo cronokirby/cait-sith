@@ -8,7 +8,7 @@ use crate::{
     compat,
     participants::{ParticipantCounter, ParticipantList},
     protocol::{
-        internal2::{Context, SharedChannel, run_protocol},
+        internal::{Context, SharedChannel, run_protocol},
         InitializationError, Participant, Protocol, ProtocolError,
     },
     PresignOutput,

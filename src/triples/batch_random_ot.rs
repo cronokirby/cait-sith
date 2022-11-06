@@ -8,7 +8,7 @@ use subtle::ConditionallySelectable;
 use crate::{
     constants::SECURITY_PARAMETER,
     protocol::{
-        internal2::{run_protocol, Context, PrivateChannel},
+        internal::{run_protocol, Context, PrivateChannel},
         Participant, ProtocolError,
     },
     serde::encode,
