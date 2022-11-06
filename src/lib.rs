@@ -1,5 +1,5 @@
-mod constants;
 mod compat;
+mod constants;
 mod crypto;
 mod keygen;
 mod math;

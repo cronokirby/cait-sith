@@ -22,7 +22,6 @@ async fn do_keygen(
     me: Participant,
     threshold: usize,
 ) -> Result<KeygenOutput, ProtocolError> {
-    dbg!("hello?");
     let mut rng = OsRng;
     let mut transcript = Transcript::new(b"cait-sith v0.1.0 keygen");
 

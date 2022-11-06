@@ -35,7 +35,6 @@ pub async fn batch_random_ot_sender(
     ctx: Context<'_>,
     mut chan: PrivateChannel,
 ) -> Result<(BitMatrix, BitMatrix), ProtocolError> {
-    eprintln!("I'm the sender");
     // Spec 1
     let y = Scalar::generate_biased(&mut OsRng);
     let big_y = ProjectivePoint::GENERATOR * y;
@@ -50,7 +49,6 @@ pub async fn batch_random_ot_sender(
         ctx.spawn(async move {
             let wait0 = chan.next_waitpoint();
             let big_x_i_affine: AffinePoint = chan.recv(wait0).await?;
-            dbg!("received big_x_i_affine");
 
             let y_big_x_i = big_x_i_affine.to_curve() * y;
 
@@ -71,7 +69,6 @@ pub async fn batch_random_ot_receiver(
     ctx: Context<'_>,
     mut chan: PrivateChannel,
 ) -> Result<(BitVector, BitMatrix), ProtocolError> {
-    eprintln!("I'm the receiver");
     // Step 3
     let wait0 = chan.next_waitpoint();
     let big_y_affine: AffinePoint = chan.recv(wait0).await?;

@@ -165,7 +165,7 @@ impl MessageHeader {
     }
 
     /// Return the ith successor of this header.
-    /// 
+    ///
     /// The 0th successor will be a different channel.
     ///
     /// One trick you might want to do is to have "bundles".
@@ -207,15 +207,12 @@ impl MessageBuffer {
     ///
     /// We also need the header for the message, and the participant who sent it.
     async fn push(&self, header: MessageHeader, from: Participant, message: MessageData) {
-        dbg!("pushing...");
         let mut messages_lock = self.messages.as_ref().lock().await;
-        dbg!("got messages lock...");
         messages_lock
             .entry(header)
             .or_default()
             .push((from, message));
         let mut events_lock = self.events.as_ref().lock().await;
-        dbg!("got events lock...");
         events_lock.entry(header).or_default().notify(1);
     }
 
@@ -225,7 +222,6 @@ impl MessageBuffer {
     /// also correctly wake the underlying task when such a message arrives.
     async fn pop(&self, header: MessageHeader) -> (Participant, MessageData) {
         loop {
-            dbg!("acquiring listener");
             let listener = {
                 let mut messages_lock = self.messages.as_ref().lock().await;
                 let messages = messages_lock.entry(header).or_default();
@@ -235,7 +231,6 @@ impl MessageBuffer {
                 let mut events_lock = self.events.as_ref().lock().await;
                 events_lock.entry(header).or_default().listen()
             };
-            dbg!("listening...");
             listener.await;
         }
     }

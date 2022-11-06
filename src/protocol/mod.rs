@@ -149,9 +149,7 @@ pub fn run_protocol<T: std::fmt::Debug>(
     while out.len() < size {
         for i in 0..size {
             while {
-                dbg!("poking", i);
                 let action = ps[i].1.poke()?;
-                dbg!("action", &action);
                 match action {
                     Action::Wait => false,
                     Action::SendMany(m) => {
@@ -198,7 +196,6 @@ pub(crate) fn run_two_party_protocol<T0: std::fmt::Debug, T1: std::fmt::Debug>(
 
     while out0.is_none() || out1.is_none() {
         if active0 {
-            eprintln!("poking 0");
             let action = prot0.poke()?;
             match action {
                 Action::Wait => active0 = false,
@@ -211,7 +208,6 @@ pub(crate) fn run_two_party_protocol<T0: std::fmt::Debug, T1: std::fmt::Debug>(
                 _ => {}
             }
         } else {
-            eprintln!("poking 1");
             let action = prot1.poke()?;
             match action {
                 Action::Wait => active0 = true,
