@@ -426,7 +426,6 @@ impl<'a, T> Protocol for ProtocolExecutor<'a, T> {
             return Ok(Action::Wait);
         }
         let fut_return = async {
-            dbg!("fut return polled");
             let out = self
                 .ret_r
                 .recv()

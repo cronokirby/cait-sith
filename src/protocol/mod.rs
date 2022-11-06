@@ -114,6 +114,17 @@ pub enum Action<T> {
     Return(T),
 }
 
+impl <T> Action<T> {
+    fn typ(&self) -> &'static str {
+        match self {
+            Action::Wait => "wait",
+            Action::SendMany(_) => "send many",
+            Action::SendPrivate(_, _) => "send private",
+            Action::Return(_) => "return",
+        }
+    }
+}
+
 /// A trait for protocols.
 ///
 /// Basically, this represents a struct for the behavior of a single participant
@@ -198,8 +209,9 @@ pub(crate) fn run_two_party_protocol<T0: std::fmt::Debug, T1: std::fmt::Debug>(
 
     while out0.is_none() || out1.is_none() {
         if active0 {
+            eprintln!("poking 0");
             let action = prot0.poke()?;
-            dbg!("0", &action);
+            eprintln!("action: {}", action.typ());
             match action {
                 Action::Wait => active0 = false,
                 Action::SendMany(m) => prot1.message(p0, m),
@@ -211,8 +223,9 @@ pub(crate) fn run_two_party_protocol<T0: std::fmt::Debug, T1: std::fmt::Debug>(
                 _ => {}
             }
         } else {
+            eprintln!("poking 1");
             let action = prot1.poke()?;
-            dbg!("1", &action);
+            eprintln!("action: {}", action.typ());
             match action {
                 Action::Wait => active0 = true,
                 Action::SendMany(m) => prot0.message(p1, m),

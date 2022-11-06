@@ -35,6 +35,7 @@ pub async fn batch_random_ot_sender(
     ctx: Context<'_>,
     mut chan: PrivateChannel,
 ) -> Result<(BitMatrix, BitMatrix), ProtocolError> {
+    eprintln!("I'm the sender");
     // Spec 1
     let y = Scalar::generate_biased(&mut OsRng);
     let big_y = ProjectivePoint::GENERATOR * y;
@@ -49,6 +50,7 @@ pub async fn batch_random_ot_sender(
         ctx.spawn(async move {
             let wait0 = chan.next_waitpoint();
             let big_x_i_affine: AffinePoint = chan.recv(wait0).await?;
+            dbg!("received big_x_i_affine");
 
             let y_big_x_i = big_x_i_affine.to_curve() * y;
 
@@ -69,6 +71,7 @@ pub async fn batch_random_ot_receiver(
     ctx: Context<'_>,
     mut chan: PrivateChannel,
 ) -> Result<(BitVector, BitMatrix), ProtocolError> {
+    eprintln!("I'm the receiver");
     // Step 3
     let wait0 = chan.next_waitpoint();
     let big_y_affine: AffinePoint = chan.recv(wait0).await?;
@@ -79,7 +82,6 @@ pub async fn batch_random_ot_receiver(
     let tasks = delta.bits().enumerate().map(|(i, d_i)| {
         let mut chan = chan.successor(i as u16);
         ctx.spawn(async move {
-            dbg!("foo?");
             // Step 4
             let x_i = Scalar::generate_biased(&mut OsRng);
             let mut big_x_i = ProjectivePoint::GENERATOR * x_i;
@@ -110,18 +112,19 @@ mod test {
     fn test_batch_random_ot() {
         let s = Participant::from(0u32);
         let r = Participant::from(1u32);
-        let ctx = Context::new();
+        let ctx_s = Context::new();
+        let ctx_r = Context::new();
 
         let res = run_two_party_protocol(
             s,
             r,
             &mut run_protocol(
-                ctx.clone(),
-                batch_random_ot_sender(ctx.clone(), ctx.private_channel(s, r)),
+                ctx_s.clone(),
+                batch_random_ot_sender(ctx_s.clone(), ctx_s.private_channel(s, r)),
             ),
             &mut run_protocol(
-                ctx.clone(),
-                batch_random_ot_receiver(ctx.clone(), ctx.private_channel(r, s)),
+                ctx_r.clone(),
+                batch_random_ot_receiver(ctx_r.clone(), ctx_r.private_channel(r, s)),
             ),
         );
         assert!(res.is_ok());
