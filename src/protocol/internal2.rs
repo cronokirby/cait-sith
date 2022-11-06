@@ -425,7 +425,6 @@ impl<'a, T> Protocol for ProtocolExecutor<'a, T> {
         if self.done {
             return Ok(Action::Wait);
         }
-        self.ctx.executor.try_tick();
         let fut_return = async {
             dbg!("fut return polled");
             let out = self
@@ -442,7 +441,14 @@ impl<'a, T> Protocol for ProtocolExecutor<'a, T> {
             };
             Ok::<_, ProtocolError>(action)
         };
-        let fut_wait = async { Ok(Action::Wait) };
+        let fut_wait = async {
+            while {
+                self.ctx.executor.try_tick()
+            } {
+                future::yield_now().await;
+            }
+            Ok(Action::Wait)
+        };
         let action = block_on(
             self.ctx
                 .run(future::or(fut_outgoing, future::or(fut_return, fut_wait))),

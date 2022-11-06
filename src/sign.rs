@@ -8,7 +8,7 @@ use crate::{
     compat,
     participants::{ParticipantCounter, ParticipantList},
     protocol::{
-        internal::{Communication, Executor, SharedChannel},
+        internal2::{Context, SharedChannel, run_protocol},
         InitializationError, Participant, Protocol, ProtocolError,
     },
     PresignOutput,
@@ -109,16 +109,16 @@ pub fn sign(
         InitializationError::BadParameters("public key cannot be identity point".to_string())
     })?;
 
-    let comms = Communication::new();
+    let ctx = Context::new();
     let fut = do_sign(
-        comms.shared_channel(),
+        ctx.shared_channel(),
         participants,
         me,
         public_key,
         presignature,
         msg.to_owned(),
     );
-    Ok(Executor::new(comms, fut))
+    Ok(run_protocol(ctx, fut))
 }
 
 #[cfg(test)]

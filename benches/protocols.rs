@@ -50,7 +50,6 @@ fn run_presign(
         .zip(shares1.into_iter())
     {
         let protocol = presign(
-            OsRng,
             &participant_list,
             p,
             PresignArguments {
