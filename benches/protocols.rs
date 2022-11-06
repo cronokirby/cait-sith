@@ -19,7 +19,7 @@ fn run_keygen(
         Vec::with_capacity(participants.len());
 
     for p in participants.iter() {
-        let protocol = keygen(OsRng, &participants, *p, threshold);
+        let protocol = keygen(&participants, *p, threshold);
         assert!(protocol.is_ok());
         let protocol = protocol.unwrap();
         protocols.push((*p, Box::new(protocol)));

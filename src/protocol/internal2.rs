@@ -140,17 +140,21 @@ impl MessageBuffer {
     }
 
     async fn push(&self, header: MessageHeader, from: Participant, message: MessageData) {
+        dbg!("pushing...");
         let mut messages_lock = self.messages.as_ref().lock().await;
+        dbg!("got messages lock...");
         messages_lock
             .entry(header)
             .or_default()
             .push((from, message));
         let mut events_lock = self.events.as_ref().lock().await;
+        dbg!("got events lock...");
         events_lock.entry(header).or_default().notify(1);
     }
 
     async fn pop(&self, header: MessageHeader) -> (Participant, MessageData) {
         loop {
+            dbg!("acquiring listener");
             let listener = {
                 let mut messages_lock = self.messages.as_ref().lock().await;
                 let messages = messages_lock.entry(header).or_default();
@@ -160,6 +164,7 @@ impl MessageBuffer {
                 let mut events_lock = self.events.as_ref().lock().await;
                 events_lock.entry(header).or_default().listen()
             };
+            dbg!("listening...");
             listener.await;
         }
     }
@@ -238,7 +243,7 @@ impl Comms {
         header: MessageHeader,
     ) -> Result<(Participant, T), ProtocolError> {
         let (from, data) = self.buffer.pop(header).await;
-        let decoded: Result<T, Box<dyn error::Error>> =
+        let decoded: Result<T, Box<dyn error::Error + Send + Sync>> =
             decode(&data[MessageHeader::LEN..]).map_err(|e| e.into());
         Ok((from, decoded?))
     }
@@ -359,7 +364,7 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             comms: Comms::new(),
             executor: Arc::new(Executor::new()),
@@ -385,11 +390,15 @@ impl<'a> Context<'a> {
 
 struct ProtocolExecutor<'a, T> {
     ctx: Context<'a>,
-    ret_r: channel::Receiver<T>,
+    ret_r: channel::Receiver<Result<T, ProtocolError>>,
+    done: bool,
 }
 
 impl<'a, T: Send + 'a> ProtocolExecutor<'a, T> {
-    fn new(ctx: Context<'a>, fut: impl Future<Output = T> + Send + 'a) -> Self {
+    fn new(
+        ctx: Context<'a>,
+        fut: impl Future<Output = Result<T, ProtocolError>> + Send + 'a,
+    ) -> Self {
         let (ret_s, ret_r) = smol::channel::bounded(1);
         let fut = async move {
             let res = fut.await;
@@ -401,7 +410,11 @@ impl<'a, T: Send + 'a> ProtocolExecutor<'a, T> {
 
         ctx.executor.spawn(fut).detach();
 
-        Self { ctx, ret_r }
+        Self {
+            ctx,
+            ret_r,
+            done: false,
+        }
     }
 }
 
@@ -409,13 +422,18 @@ impl<'a, T> Protocol for ProtocolExecutor<'a, T> {
     type Output = T;
 
     fn poke(&mut self) -> Result<Action<Self::Output>, ProtocolError> {
+        if self.done {
+            return Ok(Action::Wait);
+        }
+        self.ctx.executor.try_tick();
         let fut_return = async {
+            dbg!("fut return polled");
             let out = self
                 .ret_r
                 .recv()
                 .await
                 .expect("failed to retrieve return value");
-            Ok::<_, ProtocolError>(Action::Return(out))
+            Ok::<_, ProtocolError>(Action::Return(out?))
         };
         let fut_outgoing = async {
             let action: Action<Self::Output> = match self.ctx.comms.outgoing().await {
@@ -425,10 +443,16 @@ impl<'a, T> Protocol for ProtocolExecutor<'a, T> {
             Ok::<_, ProtocolError>(action)
         };
         let fut_wait = async { Ok(Action::Wait) };
-        block_on(
+        let action = block_on(
             self.ctx
-                .run(future::or(fut_return, future::or(fut_outgoing, fut_wait))),
-        )
+                .run(future::or(fut_outgoing, future::or(fut_return, fut_wait))),
+        );
+        match action {
+            Err(_) => self.done = true,
+            Ok(Action::Return(_)) => self.done = true,
+            _ => {}
+        };
+        action
     }
 
     fn message(&mut self, from: Participant, data: MessageData) {
@@ -442,7 +466,7 @@ impl<'a, T> Protocol for ProtocolExecutor<'a, T> {
 
 pub fn run_protocol<'a, T: Send + 'a>(
     ctx: Context<'a>,
-    fut: impl Future<Output = T> + Send + 'a,
+    fut: impl Future<Output = Result<T, ProtocolError>> + Send + 'a,
 ) -> impl Protocol<Output = T> + 'a {
     ProtocolExecutor::new(ctx, fut)
 }

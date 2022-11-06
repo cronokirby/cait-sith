@@ -10,7 +10,7 @@ pub enum ProtocolError {
     /// Some assertion in the protocol failed.
     AssertionFailed(String),
     /// Some generic error happened.
-    Other(Box<dyn error::Error>),
+    Other(Box<dyn error::Error + Send + Sync>),
 }
 
 impl fmt::Display for ProtocolError {
@@ -24,8 +24,8 @@ impl fmt::Display for ProtocolError {
 
 impl error::Error for ProtocolError {}
 
-impl From<Box<dyn error::Error>> for ProtocolError {
-    fn from(e: Box<dyn error::Error>) -> Self {
+impl From<Box<dyn error::Error + Send + Sync>> for ProtocolError {
+    fn from(e: Box<dyn error::Error + Send + Sync>) -> Self {
         Self::Other(e)
     }
 }
@@ -138,7 +138,7 @@ pub trait Protocol {
 /// Run a protocol to completion, synchronously.
 ///
 /// This works by executing each participant in order.
-pub(crate) fn run_protocol<T>(
+pub fn run_protocol<T: std::fmt::Debug>(
     mut ps: Vec<(Participant, Box<dyn Protocol<Output = T>>)>,
 ) -> Result<Vec<(Participant, T)>, ProtocolError> {
     let indices: HashMap<Participant, usize> =
@@ -149,7 +149,9 @@ pub(crate) fn run_protocol<T>(
     while out.len() < size {
         for i in 0..size {
             while {
+                dbg!("poking", i);
                 let action = ps[i].1.poke()?;
+                dbg!("action", &action);
                 match action {
                     Action::Wait => false,
                     Action::SendMany(m) => {

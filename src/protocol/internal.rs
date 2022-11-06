@@ -301,7 +301,7 @@ impl Communication {
         header: MessageHeader,
     ) -> Result<(Participant, T), ProtocolError> {
         let (from, data) = MessageQueueWait::new(self.queue.clone(), header).await;
-        let decoded: Result<T, Box<dyn error::Error>> =
+        let decoded: Result<T, Box<dyn error::Error + Send + Sync>> =
             decode(&data[MessageHeader::LEN..]).map_err(|e| e.into());
         Ok((from, decoded?))
     }

@@ -1,12 +1,12 @@
 use k256::{AffinePoint, ProjectivePoint, Scalar};
 use magikitten::Transcript;
-use rand_core::CryptoRngCore;
+use rand_core::OsRng;
 
 use crate::crypto::{commit, Commitment};
 use crate::math::{GroupPolynomial, Polynomial};
 use crate::participants::{ParticipantCounter, ParticipantList, ParticipantMap};
 use crate::proofs::dlog;
-use crate::protocol::internal::{Communication, Executor, SharedChannel};
+use crate::protocol::internal2::{run_protocol, Context, SharedChannel};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
 use crate::serde::encode;
 
@@ -17,12 +17,13 @@ pub struct KeygenOutput {
 }
 
 async fn do_keygen(
-    mut rng: impl CryptoRngCore,
     mut chan: SharedChannel,
     participants: ParticipantList,
     me: Participant,
     threshold: usize,
 ) -> Result<KeygenOutput, ProtocolError> {
+    dbg!("hello?");
+    let mut rng = OsRng;
     let mut transcript = Transcript::new(b"cait-sith v0.1.0 keygen");
 
     // Spec 1.2
@@ -166,7 +167,6 @@ async fn do_keygen(
 }
 
 pub fn keygen(
-    rng: impl CryptoRngCore,
     participants: &[Participant],
     me: Participant,
     threshold: usize,
@@ -194,15 +194,13 @@ pub fn keygen(
         ));
     }
 
-    let comms = Communication::new();
-    let fut = do_keygen(rng, comms.shared_channel(), participants, me, threshold);
-    Ok(Executor::new(comms, fut))
+    let ctx = Context::new();
+    let fut = do_keygen(ctx.shared_channel(), participants, me, threshold);
+    Ok(run_protocol(ctx, fut))
 }
 
 #[cfg(test)]
 mod test {
-    use rand_core::OsRng;
-
     use super::*;
     use crate::protocol::{run_protocol, Participant};
 
@@ -219,7 +217,7 @@ mod test {
             Vec::with_capacity(participants.len());
 
         for p in participants.iter() {
-            let protocol = keygen(OsRng, &participants, *p, threshold);
+            let protocol = keygen(&participants, *p, threshold);
             assert!(protocol.is_ok());
             let protocol = protocol.unwrap();
             protocols.push((*p, Box::new(protocol)));
