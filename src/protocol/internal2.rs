@@ -1,13 +1,17 @@
 use event_listener::Event;
 use serde::{de::DeserializeOwned, Serialize};
 use smol::{
-    channel,
+    block_on,
+    channel::{self, Receiver, Sender},
+    future,
     lock::{Mutex, RwLock},
-    Executor,
+    Executor, Task,
 };
-use std::{collections::HashMap, future::Future, sync::Arc, task::Waker};
+use std::{collections::HashMap, error, future::Future, sync::Arc, task::Waker};
 
-use super::{MessageData, Participant, ProtocolError};
+use crate::serde::{decode, encode_with_tag};
+
+use super::{Action, MessageData, Participant, Protocol, ProtocolError};
 
 // ChannelHeader lets us route to a specific channel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Hash)]
@@ -128,6 +132,13 @@ struct MessageBuffer {
 }
 
 impl MessageBuffer {
+    fn new() -> Self {
+        Self {
+            messages: Arc::new(Mutex::new(HashMap::new())),
+            events: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
     async fn push(&self, header: MessageHeader, from: Participant, message: MessageData) {
         let mut messages_lock = self.messages.as_ref().lock().await;
         messages_lock
@@ -154,31 +165,117 @@ impl MessageBuffer {
     }
 }
 
-struct Comms {}
+/// Used to represent the different kinds of messages a participant can send.
+///
+/// This is basically used to communicate between the future and the executor.
+#[derive(Debug, Clone)]
+pub enum Message {
+    Many(MessageData),
+    Private(Participant, MessageData),
+}
+
+#[derive(Clone)]
+struct Comms {
+    buffer: MessageBuffer,
+    message_s: Sender<Message>,
+    message_r: Receiver<Message>,
+}
 
 impl Comms {
-    pub fn shared_channel(&self) -> SharedChannel {
-        todo!()
+    pub fn new() -> Self {
+        let (message_s, message_r) = channel::bounded(1);
+
+        Self {
+            buffer: MessageBuffer::new(),
+            message_s,
+            message_r,
+        }
     }
 
-    pub fn private_channel(&self) -> PrivateChannel {
-        todo!()
+    async fn outgoing(&self) -> Message {
+        self.message_r
+            .recv()
+            .await
+            .expect("failed to check outgoing messages")
+    }
+
+    async fn push_message(&self, from: Participant, message: MessageData) {
+        if message.len() < MessageHeader::LEN {
+            return;
+        }
+
+        let header = match MessageHeader::from_bytes(&message) {
+            Some(h) => h,
+            _ => return,
+        };
+
+        self.buffer.push(header, from, message).await
+    }
+
+    async fn send_raw(&self, data: Message) {
+        self.message_s
+            .send(data)
+            .await
+            .expect("failed to send message");
+    }
+
+    /// (Indicate that you want to) send a message to everybody else.
+    async fn send_many<T: Serialize>(&self, header: MessageHeader, data: &T) {
+        let header_bytes = header.to_bytes();
+        let message_data = encode_with_tag(&header_bytes, data);
+        self.send_raw(Message::Many(message_data)).await;
+    }
+
+    /// (Indicate that you want to) send a message privately to someone.
+    async fn send_private<T: Serialize>(&self, header: MessageHeader, to: Participant, data: &T) {
+        let header_bytes = header.to_bytes();
+        let message_data = encode_with_tag(&header_bytes, data);
+        self.send_raw(Message::Private(to, message_data)).await;
+    }
+
+    async fn recv<T: DeserializeOwned>(
+        &self,
+        header: MessageHeader,
+    ) -> Result<(Participant, T), ProtocolError> {
+        let (from, data) = self.buffer.pop(header).await;
+        let decoded: Result<T, Box<dyn error::Error>> =
+            decode(&data[MessageHeader::LEN..]).map_err(|e| e.into());
+        Ok((from, decoded?))
     }
 }
 
-struct SharedChannel {}
+pub struct SharedChannel {
+    header: MessageHeader,
+    comms: Comms,
+}
 
 impl SharedChannel {
+    fn new(comms: Comms) -> Self {
+        Self {
+            comms,
+            header: MessageHeader {
+                base_channel: BaseChannel::Shared,
+                sub_channel: 0,
+                waitpoint: 0,
+            },
+        }
+    }
+
     pub fn successor(&self, i: u16) -> Self {
-        todo!()
+        Self {
+            comms: self.comms.clone(),
+            header: self.header.successor(i),
+        }
     }
 
     pub fn next_waitpoint(&mut self) -> Waitpoint {
-        todo!()
+        self.header.next_waitpoint()
     }
 
     pub async fn send_many<T: Serialize>(&self, waitpoint: Waitpoint, data: &T) {
-        todo!()
+        self.comms
+            .send_many(self.header.with_waitpoint(waitpoint), data)
+            .await
     }
 
     pub async fn send_private<T: Serialize>(
@@ -187,47 +284,112 @@ impl SharedChannel {
         to: Participant,
         data: &T,
     ) {
-        todo!()
+        self.comms
+            .send_private(self.header.with_waitpoint(waitpoint), to, data)
+            .await
     }
 
     pub async fn recv<T: DeserializeOwned>(
         &self,
         waitpoint: Waitpoint,
     ) -> Result<(Participant, T), ProtocolError> {
-        todo!()
+        self.comms.recv(self.header.with_waitpoint(waitpoint)).await
     }
 }
 
-struct PrivateChannel {}
+pub struct PrivateChannel {
+    header: MessageHeader,
+    to: Participant,
+    comms: Comms,
+}
 
 impl PrivateChannel {
+    fn new(comms: Comms, from: Participant, to: Participant) -> Self {
+        Self {
+            comms,
+            to,
+            header: MessageHeader {
+                base_channel: BaseChannel::private(from, to),
+                sub_channel: 0,
+                waitpoint: 0,
+            },
+        }
+    }
+
     pub fn successor(&self, i: u16) -> Self {
-        todo!()
+        Self {
+            comms: self.comms.clone(),
+            to: self.to,
+            header: self.header.successor(i),
+        }
     }
 
     pub fn next_waitpoint(&mut self) -> Waitpoint {
-        todo!()
+        self.header.next_waitpoint()
     }
 
     pub async fn send<T: Serialize>(&self, waitpoint: Waitpoint, data: &T) {
-        todo!()
+        self.comms
+            .send_private(self.header.with_waitpoint(waitpoint), self.to, data)
+            .await
     }
 
     pub async fn recv<T: DeserializeOwned>(
         &self,
         waitpoint: Waitpoint,
     ) -> Result<T, ProtocolError> {
-        todo!()
+        loop {
+            let (from, data) = self
+                .comms
+                .recv(self.header.with_waitpoint(waitpoint))
+                .await?;
+            if from != self.to {
+                future::yield_now().await;
+                continue;
+            }
+            return Ok(data);
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Context<'a> {
+    comms: Comms,
+    executor: Arc<Executor<'a>>,
+}
+
+impl<'a> Context<'a> {
+    fn new() -> Self {
+        Self {
+            comms: Comms::new(),
+            executor: Arc::new(Executor::new()),
+        }
+    }
+
+    pub fn shared_channel(&self) -> SharedChannel {
+        SharedChannel::new(self.comms.clone())
+    }
+
+    pub fn private_channel(&self, from: Participant, to: Participant) -> PrivateChannel {
+        PrivateChannel::new(self.comms.clone(), from, to)
+    }
+
+    pub fn spawn<T: Send + 'a>(&self, fut: impl Future<Output = T> + Send + 'a) -> Task<T> {
+        self.executor.spawn(fut)
+    }
+
+    pub async fn run<T>(&self, fut: impl Future<Output = T>) -> T {
+        self.executor.run(fut).await
     }
 }
 
 struct ProtocolExecutor<'a, T> {
+    ctx: Context<'a>,
     ret_r: channel::Receiver<T>,
-    executor: Executor<'a>,
 }
 
 impl<'a, T: Send + 'a> ProtocolExecutor<'a, T> {
-    fn new(fut: impl Future<Output = T> + Send + 'a) -> Self {
+    fn new(ctx: Context<'a>, fut: impl Future<Output = T> + Send + 'a) -> Self {
         let (ret_s, ret_r) = smol::channel::bounded(1);
         let fut = async move {
             let res = fut.await;
@@ -237,9 +399,50 @@ impl<'a, T: Send + 'a> ProtocolExecutor<'a, T> {
                 .expect("failed to return result of protocol");
         };
 
-        let executor: Executor<'a> = Executor::new();
-        executor.spawn(fut).detach();
+        ctx.executor.spawn(fut).detach();
 
-        Self { ret_r, executor }
+        Self { ctx, ret_r }
     }
+}
+
+impl<'a, T> Protocol for ProtocolExecutor<'a, T> {
+    type Output = T;
+
+    fn poke(&mut self) -> Result<Action<Self::Output>, ProtocolError> {
+        let fut_return = async {
+            let out = self
+                .ret_r
+                .recv()
+                .await
+                .expect("failed to retrieve return value");
+            Ok::<_, ProtocolError>(Action::Return(out))
+        };
+        let fut_outgoing = async {
+            let action: Action<Self::Output> = match self.ctx.comms.outgoing().await {
+                Message::Many(m) => Action::SendMany(m),
+                Message::Private(to, m) => Action::SendPrivate(to, m),
+            };
+            Ok::<_, ProtocolError>(action)
+        };
+        let fut_wait = async { Ok(Action::Wait) };
+        block_on(
+            self.ctx
+                .run(future::or(fut_return, future::or(fut_outgoing, fut_wait))),
+        )
+    }
+
+    fn message(&mut self, from: Participant, data: MessageData) {
+        block_on(
+            self.ctx
+                .executor
+                .run(self.ctx.comms.push_message(from, data)),
+        );
+    }
+}
+
+pub fn run_protocol<'a, T: Send + 'a>(
+    ctx: Context<'a>,
+    fut: impl Future<Output = T> + Send + 'a,
+) -> impl Protocol<Output = T> + 'a {
+    ProtocolExecutor::new(ctx, fut)
 }
