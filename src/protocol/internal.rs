@@ -35,13 +35,13 @@
 //! We have two basic kinds of channels: channels which are intended to be shared to communicate
 //! to all other participants, and channels which are supposed to be used for two-party
 //! protocols. The two kinds won't conflict with each other. Given a channel, we can
-//! also get new unique channels by adding an offset, allowing us to communicate in parallel
-//! with another person.
+//! also get new unique *children* channels, whose children will also be unique.
 //!
 //! One paramount thing about the identification system for channels is that both parties
 //! agree on what the identifier for the channels in each part of the protocol is.
 //! This is why we have to take great care that the identifiers a protocol will produce
 //! are deterministic, even in the presence of concurrent tasks.
+use ck_meow::Meow;
 use event_listener::Event;
 use serde::{de::DeserializeOwned, Serialize};
 use smol::{
@@ -84,43 +84,109 @@ impl BaseChannel {
     }
 }
 
-/// A sub channel, inside of a channel.
-///
-/// Used to allow multiple channels in parallel.
-type SubChannel = u16;
+/// The domain for our use of meow here.
+const MEOW_DOMAIN: &[u8] = b"cait-sith channel tags";
+
+/// Represents a unique tag for a channel.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Hash)]
+struct ChannelTag([u8; Self::SIZE]);
+
+impl ChannelTag {
+    /// 160 bit tags, enough for 80 bits of collision security, which should be ample.
+    const SIZE: usize = 20;
+    /// The channel tag for a shared channel.
+    ///
+    /// This will always yield the same tag, and is intended to be the root for shared channels.
+    fn root_shared() -> Self {
+        let mut out = [0u8; Self::SIZE];
+        let mut meow = Meow::new(MEOW_DOMAIN);
+        meow.meta_ad(b"root shared", false);
+        meow.prf(&mut out, false);
+        Self(out)
+    }
+
+    /// The channel tag for a private channel.
+    ///
+    /// This will always yield the same tag, and is intended to be the root for private channels.
+    ///
+    /// This tag will depend on the set of participants used; the order they're passed into this
+    /// function does not matter.
+    fn root_private(p0: Participant, p1: Participant) -> Self {
+        // Sort participants, for uniqueness.
+        let (p0, p1) = (p0.min(p1), p0.max(p1));
+        let mut meow = Meow::new(MEOW_DOMAIN);
+        meow.meta_ad(b"root private", false);
+        meow.meta_ad(b"p0", false);
+        meow.ad(&p0.bytes(), false);
+        meow.meta_ad(b"p1", false);
+        meow.ad(&p1.bytes(), false);
+        let mut out = [0u8; Self::SIZE];
+        meow.prf(&mut out, false);
+        Self(out)
+    }
+
+    /// Get the ith child of this tag.
+    ///
+    /// Each child has its own "namespace", with its children being distinct.
+    ///
+    /// Indexed children have a separate namespace from named children.
+    fn child(&self, i: u64) -> Self {
+        let mut meow = Meow::new(MEOW_DOMAIN);
+        meow.meta_ad(b"parent", false);
+        meow.ad(&self.0, false);
+        meow.meta_ad(b"i", false);
+        meow.ad(&i.to_le_bytes(), false);
+        let mut out = [0u8; Self::SIZE];
+        meow.prf(&mut out, false);
+        Self(out)
+    }
+
+    /// Get a named child from this tag.
+    ///
+    /// Each name will give a different child, and each child has its own namespace, like with
+    /// indexed children.
+    fn named_child(&self, name: &[u8]) -> Self {
+        let mut meow = Meow::new(MEOW_DOMAIN);
+        meow.meta_ad(b"parent", false);
+        meow.ad(&self.0, false);
+        meow.meta_ad(b"name", false);
+        meow.ad(name, false);
+        let mut out = [0u8; Self::SIZE];
+        meow.prf(&mut out, false);
+        Self(out)
+    }
+}
+
 /// A waitpoint inside of a channel.
-pub type Waitpoint = u8;
+pub type Waitpoint = u64;
 
 /// A header used to route the message.
 ///
 /// This header has a base channel, a sub channel, and then a final waitpoint.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Hash)]
 struct MessageHeader {
-    /// Identifying the main channel.
-    base_channel: BaseChannel,
-    /// Identifying the sub channel.
-    sub_channel: SubChannel,
+    /// Identifying the channel.
+    channel: ChannelTag,
     /// Identifying the specific waitpoint.
     waitpoint: Waitpoint,
 }
 
 impl MessageHeader {
     /// The number of bytes in this encoding.
-    const LEN: usize = 12;
+    const LEN: usize = ChannelTag::SIZE + 8;
+
+    fn new(channel: ChannelTag) -> Self {
+        Self {
+            channel,
+            waitpoint: 0,
+        }
+    }
 
     fn to_bytes(&self) -> [u8; Self::LEN] {
         let mut out = [0u8; Self::LEN];
 
-        let (channel_type, part0, part1) = match self.base_channel {
-            BaseChannel::Shared => (0, 0u32, 0u32),
-            BaseChannel::Private(p0, p1) => (1, p0.into(), p1.into()),
-        };
-
-        out[0..4].copy_from_slice(&part0.to_le_bytes());
-        out[4..8].copy_from_slice(&part1.to_le_bytes());
-        out[8..10].copy_from_slice(&self.sub_channel.to_le_bytes());
-        out[10] = channel_type;
-        out[11] = self.waitpoint;
+        out[..ChannelTag::SIZE].copy_from_slice(&self.channel.0);
+        out[ChannelTag::SIZE..].copy_from_slice(&self.waitpoint.to_le_bytes());
 
         out
     }
@@ -130,29 +196,16 @@ impl MessageHeader {
             return None;
         }
         // Unwrapping is fine because we checked the length already.
-        let part0: Participant = u32::from_le_bytes(bytes[..4].try_into().unwrap()).into();
-        let part1: Participant = u32::from_le_bytes(bytes[4..8].try_into().unwrap()).into();
-        let sub_channel: u16 = u16::from_le_bytes(bytes[8..10].try_into().unwrap());
-        let channel_type: u8 = bytes[10];
-        let waitpoint: Waitpoint = bytes[11];
+        let channel = ChannelTag(bytes[..ChannelTag::SIZE].try_into().unwrap());
+        let waitpoint = u64::from_le_bytes(bytes[ChannelTag::SIZE..Self::LEN].try_into().unwrap()).into();
 
-        let base_channel = match channel_type {
-            1 => BaseChannel::Private(part0, part1),
-            _ => BaseChannel::Shared,
-        };
-
-        Some(Self {
-            base_channel,
-            sub_channel,
-            waitpoint,
-        })
+        Some(Self { channel, waitpoint })
     }
 
     /// Returns a new header with the waitpoint modified.
     fn with_waitpoint(&self, waitpoint: Waitpoint) -> Self {
         Self {
-            base_channel: self.base_channel,
-            sub_channel: self.sub_channel,
+            channel: self.channel,
             waitpoint,
         }
     }
@@ -164,19 +217,16 @@ impl MessageHeader {
         out
     }
 
-    /// Return the ith successor of this header.
-    ///
-    /// The 0th successor will be a different channel.
-    ///
-    /// One trick you might want to do is to have "bundles".
-    /// For example, when spawning two protocols in parallel, which may also want
-    /// their own channels, you could give one of them `successor(0x0)`, and the other
-    /// `successor(0x100)`, so that each of them can create 256 successors on their own,
-    /// without conflicting with the other.
-    fn successor(&self, i: u16) -> Self {
+    fn child(&self, i: u64) -> Self {
         Self {
-            base_channel: self.base_channel,
-            sub_channel: self.sub_channel + i + 1,
+            channel: self.channel.child(i),
+            waitpoint: 0,
+        }
+    }
+
+    fn named_child(&self, name: &[u8]) -> Self {
+        Self {
+            channel: self.channel.named_child(name),
             waitpoint: 0,
         }
     }
@@ -325,19 +375,21 @@ impl SharedChannel {
     fn new(comms: Comms) -> Self {
         Self {
             comms,
-            header: MessageHeader {
-                base_channel: BaseChannel::shared(),
-                sub_channel: 0,
-                waitpoint: 0,
-            },
+            header: MessageHeader::new(ChannelTag::root_shared()),
         }
     }
 
-    /// Return the successor to this channel.
-    pub fn successor(&self, i: u16) -> Self {
+    pub fn child(&self, i: u64) -> Self {
         Self {
             comms: self.comms.clone(),
-            header: self.header.successor(i),
+            header: self.header.child(i),
+        }
+    }
+
+    pub fn named_child(&self, name: &[u8]) -> Self {
+        Self {
+            comms: self.comms.clone(),
+            header: self.header.named_child(name),
         }
     }
 
@@ -385,19 +437,23 @@ impl PrivateChannel {
         Self {
             comms,
             to,
-            header: MessageHeader {
-                base_channel: BaseChannel::private(from, to),
-                sub_channel: 0,
-                waitpoint: 0,
-            },
+            header: MessageHeader::new(ChannelTag::root_private(from, to)),
         }
     }
 
-    pub fn successor(&self, i: u16) -> Self {
+    pub fn child(&self, i: u64) -> Self {
         Self {
             comms: self.comms.clone(),
             to: self.to,
-            header: self.header.successor(i),
+            header: self.header.child(i),
+        }
+    }
+
+    pub fn named_child(&self, name: &[u8]) -> Self {
+        Self {
+            comms: self.comms.clone(),
+            to: self.to,
+            header: self.header.named_child(name),
         }
     }
 
@@ -561,7 +617,7 @@ impl<'a, T> Protocol for ProtocolExecutor<'a, T> {
 }
 
 /// Run a protocol, converting a future into an instance of the Protocol trait.
-pub fn run_protocol<'a, T: Send + 'a>(
+pub fn make_protocol<'a, T: Send + 'a>(
     ctx: Context<'a>,
     fut: impl Future<Output = Result<T, ProtocolError>> + Send + 'a,
 ) -> impl Protocol<Output = T> + 'a {

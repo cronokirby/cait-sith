@@ -8,7 +8,7 @@ use crate::{
     compat,
     participants::{ParticipantCounter, ParticipantList},
     protocol::{
-        internal::{run_protocol, Context, SharedChannel},
+        internal::{make_protocol, Context, SharedChannel},
         InitializationError, Participant, Protocol, ProtocolError,
     },
     PresignOutput,
@@ -118,7 +118,7 @@ pub fn sign(
         presignature,
         msg.to_owned(),
     );
-    Ok(run_protocol(ctx, fut))
+    Ok(make_protocol(ctx, fut))
 }
 
 #[cfg(test)]

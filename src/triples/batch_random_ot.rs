@@ -1,15 +1,15 @@
 use ck_meow::Meow;
 use ecdsa::elliptic_curve::group::prime::PrimeCurveAffine;
 use k256::{AffinePoint, ProjectivePoint, Scalar};
-use rand_core::{CryptoRngCore, OsRng};
+use rand_core::OsRng;
 use smol::stream::{self, StreamExt};
 use subtle::ConditionallySelectable;
 
 use crate::{
     constants::SECURITY_PARAMETER,
     protocol::{
-        internal::{run_protocol, Context, PrivateChannel},
-        Participant, ProtocolError,
+        internal::{Context, PrivateChannel},
+        ProtocolError,
     },
     serde::encode,
 };
@@ -45,7 +45,7 @@ pub async fn batch_random_ot_sender(
     chan.send(wait0, &big_y_affine).await;
 
     let tasks = (0..SECURITY_PARAMETER).map(|i| {
-        let mut chan = chan.successor(i as u16);
+        let mut chan = chan.child(i as u64);
         ctx.spawn(async move {
             let wait0 = chan.next_waitpoint();
             let big_x_i_affine: AffinePoint = chan.recv(wait0).await?;
@@ -77,7 +77,7 @@ pub async fn batch_random_ot_receiver(
     let delta = BitVector::random(&mut OsRng);
 
     let tasks = delta.bits().enumerate().map(|(i, d_i)| {
-        let mut chan = chan.successor(i as u16);
+        let mut chan = chan.child(i as u64);
         ctx.spawn(async move {
             // Step 4
             let x_i = Scalar::generate_biased(&mut OsRng);
@@ -101,7 +101,7 @@ pub async fn batch_random_ot_receiver(
 
 #[cfg(test)]
 mod test {
-    use crate::protocol::run_two_party_protocol;
+    use crate::protocol::{internal::make_protocol, run_two_party_protocol, Participant};
 
     use super::*;
 
@@ -115,11 +115,11 @@ mod test {
         let res = run_two_party_protocol(
             s,
             r,
-            &mut run_protocol(
+            &mut make_protocol(
                 ctx_s.clone(),
                 batch_random_ot_sender(ctx_s.clone(), ctx_s.private_channel(s, r)),
             ),
-            &mut run_protocol(
+            &mut make_protocol(
                 ctx_r.clone(),
                 batch_random_ot_receiver(ctx_r.clone(), ctx_r.private_channel(r, s)),
             ),

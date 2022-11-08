@@ -9,7 +9,7 @@ use crate::crypto::{commit, Commitment};
 use crate::math::{GroupPolynomial, Polynomial};
 use crate::participants::{ParticipantCounter, ParticipantMap};
 use crate::proofs::dlog;
-use crate::protocol::internal::{run_protocol, Context, SharedChannel};
+use crate::protocol::internal::{make_protocol, Context, SharedChannel};
 use crate::protocol::{InitializationError, Protocol};
 use crate::serde::encode;
 use crate::triples::{TriplePub, TripleShare};
@@ -459,7 +459,7 @@ pub fn presign(
 
     let ctx = Context::new();
     let fut = do_presign(ctx.shared_channel(), participants, me, args);
-    Ok(run_protocol(ctx, fut))
+    Ok(make_protocol(ctx, fut))
 }
 
 #[cfg(test)]

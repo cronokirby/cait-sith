@@ -6,7 +6,7 @@ use crate::crypto::{commit, Commitment};
 use crate::math::{GroupPolynomial, Polynomial};
 use crate::participants::{ParticipantCounter, ParticipantList, ParticipantMap};
 use crate::proofs::dlog;
-use crate::protocol::internal::{run_protocol, Context, SharedChannel};
+use crate::protocol::internal::{make_protocol, Context, SharedChannel};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
 use crate::serde::encode;
 
@@ -195,7 +195,7 @@ pub fn keygen(
 
     let ctx = Context::new();
     let fut = do_keygen(ctx.shared_channel(), participants, me, threshold);
-    Ok(run_protocol(ctx, fut))
+    Ok(make_protocol(ctx, fut))
 }
 
 #[cfg(test)]
