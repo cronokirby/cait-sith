@@ -14,7 +14,7 @@ use crate::{
     serde::encode,
 };
 
-use super::bits::{BitMatrix, BitVector, SEC_PARAM_8};
+use super::bits::{BitMatrix, BitVector, SquareBitMatrix, SEC_PARAM_8};
 
 const BATCH_RANDOM_OT_HASH: &[u8] = b"cait-sith v0.1.0 batch ROT";
 
@@ -34,7 +34,7 @@ fn hash(i: usize, big_x_i: &AffinePoint, big_y: &AffinePoint, p: &ProjectivePoin
 pub async fn batch_random_ot_sender(
     ctx: Context<'_>,
     mut chan: PrivateChannel,
-) -> Result<(BitMatrix, BitMatrix), ProtocolError> {
+) -> Result<(SquareBitMatrix, SquareBitMatrix), ProtocolError> {
     // Spec 1
     let y = Scalar::generate_biased(&mut OsRng);
     let big_y = ProjectivePoint::GENERATOR * y;
@@ -60,15 +60,15 @@ pub async fn batch_random_ot_sender(
     });
     let out: Vec<_> = stream::iter(tasks).then(|t| t).try_collect().await?;
 
-    let big_k0 = out.iter().map(|r| r.0).collect();
-    let big_k1 = out.iter().map(|r| r.1).collect();
-    Ok((big_k0, big_k1))
+    let big_k0: BitMatrix = out.iter().map(|r| r.0).collect();
+    let big_k1: BitMatrix = out.iter().map(|r| r.1).collect();
+    Ok((big_k0.try_into().unwrap(), big_k1.try_into().unwrap()))
 }
 
 pub async fn batch_random_ot_receiver(
     ctx: Context<'_>,
     mut chan: PrivateChannel,
-) -> Result<(BitVector, BitMatrix), ProtocolError> {
+) -> Result<(BitVector, SquareBitMatrix), ProtocolError> {
     // Step 3
     let wait0 = chan.next_waitpoint();
     let big_y_affine: AffinePoint = chan.recv(wait0).await?;
@@ -96,7 +96,7 @@ pub async fn batch_random_ot_receiver(
     let out: Vec<_> = stream::iter(tasks).then(|t| t).collect().await;
     let big_k: BitMatrix = out.into_iter().collect();
 
-    Ok((delta, big_k))
+    Ok((delta, big_k.try_into().unwrap()))
 }
 
 #[cfg(test)]
@@ -129,10 +129,11 @@ mod test {
 
         // Check that we've gotten the right rows of the two matrices.
         for (((row0, row1), delta_i), row_delta) in k0
+            .matrix
             .rows()
-            .zip(k1.rows())
+            .zip(k1.matrix.rows())
             .zip(delta.bits())
-            .zip(k_delta.rows())
+            .zip(k_delta.matrix.rows())
         {
             assert_eq!(
                 BitVector::conditional_select(row0, row1, delta_i),

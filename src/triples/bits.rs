@@ -1,3 +1,4 @@
+use ck_meow::Meow;
 use rand_core::CryptoRngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
@@ -52,6 +53,9 @@ impl ConditionallySelectable for BitVector {
     }
 }
 
+/// The context string for our PRG.
+const PRG_CTX: &[u8] = b"cait-sith v0.1.0 correlated OT PRG";
+
 /// Represents a matrix of bits.
 ///
 /// Each row of this matrix is a `BitVector`, although we might have more or less
@@ -76,10 +80,27 @@ impl BitMatrix {
     pub fn rows(&self) -> impl Iterator<Item = &BitVector> {
         self.0.iter()
     }
+
 }
 
 impl FromIterator<BitVector> for BitMatrix {
     fn from_iter<T: IntoIterator<Item = BitVector>>(iter: T) -> Self {
         Self(iter.into_iter().collect())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SquareBitMatrix {
+    pub matrix: BitMatrix,
+}
+
+impl TryFrom<BitMatrix> for SquareBitMatrix {
+    type Error = ();
+
+    fn try_from(matrix: BitMatrix) -> Result<Self, Self::Error> {
+        if matrix.0.len() != SECURITY_PARAMETER {
+            return Err(());
+        }
+        Ok(Self { matrix })
     }
 }
