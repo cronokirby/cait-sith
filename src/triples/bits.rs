@@ -15,6 +15,10 @@ pub const SEC_PARAM_8: usize = (SECURITY_PARAMETER + 8 - 1) / 8;
 pub struct BitVector([u64; SEC_PARAM_64]);
 
 impl BitVector {
+    pub fn zero() -> Self {
+        Self([0u64; SEC_PARAM_64])
+    }
+
     /// Return a random bit vector.
     pub fn random(rng: &mut impl CryptoRngCore) -> Self {
         let mut out = [0u64; SEC_PARAM_64];
@@ -80,7 +84,6 @@ impl BitMatrix {
     pub fn rows(&self) -> impl Iterator<Item = &BitVector> {
         self.0.iter()
     }
-
 }
 
 impl FromIterator<BitVector> for BitMatrix {
@@ -102,5 +105,39 @@ impl TryFrom<BitMatrix> for SquareBitMatrix {
             return Err(());
         }
         Ok(Self { matrix })
+    }
+}
+
+impl SquareBitMatrix {
+    /// Expand transpose expands each row to contain `rows` bits, and then transposes
+    /// the resulting matrix.
+    pub fn expand_transpose(&self, sid: &[u8], rows: usize) -> BitMatrix {
+        let mut meow = Meow::new(PRG_CTX);
+        meow.meta_ad(b"sid", false);
+        meow.ad(sid, false);
+
+        let mut out = BitMatrix(vec![BitVector::zero(); rows]);
+
+        // How many bytes to get rows bits?
+        let row8 = (rows + 7) / 8;
+        for (j, row) in self.matrix.0.iter().enumerate() {
+            // Expand the row
+            let mut expanded = vec![0u8; row8];
+            // We need to clone to make each row use the same prefix.
+            let mut meow = meow.clone();
+            meow.meta_ad(b"row", false);
+            meow.ad(b"", false);
+            for u in row.0 {
+                meow.ad(&u.to_le_bytes(), true);
+            }
+            meow.prf(&mut expanded, false);
+
+            // Now, write into the correct column
+            for i in 0..rows {
+                out.0[i].0[j / 64] |= u64::from((expanded[i / 8] >> (i % 8)) & 1) << (j % 64);
+            }
+        }
+
+        out
     }
 }
