@@ -1,6 +1,7 @@
 use auto_ops::impl_op_ex;
 use ck_meow::Meow;
 use rand_core::CryptoRngCore;
+use serde::{Deserialize, Serialize};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 use crate::constants::SECURITY_PARAMETER;
@@ -12,7 +13,7 @@ pub const SEC_PARAM_8: usize = (SECURITY_PARAMETER + 8 - 1) / 8;
 ///
 /// This vector will have the size of our security parameter, which is useful
 /// for most of our OT extension protocols.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct BitVector([u64; SEC_PARAM_64]);
 
 impl BitVector {
@@ -48,16 +49,28 @@ impl BitVector {
     }
 
     /// Modify this vector by xoring it with another vector.
-    pub fn xor_mut(&mut self, other: &BitVector) {
+    pub fn xor_mut(&mut self, other: &Self) {
         for (self_i, other_i) in self.0.iter_mut().zip(other.0.iter()) {
             *self_i ^= other_i;
         }
     }
 
     /// Xor this vector with another.
-    pub fn xor(&self, other: &BitVector) -> Self {
+    pub fn xor(&self, other: &Self) -> Self {
         let mut out = self.clone();
         out.xor_mut(other);
+        out
+    }
+
+    pub fn and_mut(&mut self, other: &Self) {
+        for (self_i, other_i) in self.0.iter_mut().zip(other.0.iter()) {
+            *self_i &= other_i;
+        }
+    }
+
+    pub fn and(&self, other: &Self) -> Self {
+        let mut out = self.clone();
+        out.and_mut(other);
         out
     }
 }
@@ -74,6 +87,8 @@ impl ConditionallySelectable for BitVector {
 
 impl_op_ex!(^ |u: &BitVector, v: &BitVector| -> BitVector { u.xor(v) });
 impl_op_ex!(^= |u: &mut BitVector, v: &BitVector| { u.xor_mut(v) });
+impl_op_ex!(&|u: &BitVector, v: &BitVector| -> BitVector { u.and(v) });
+impl_op_ex!(&= |u: &mut BitVector, v: &BitVector| { u.and_mut(v) });
 
 /// The context string for our PRG.
 const PRG_CTX: &[u8] = b"cait-sith v0.1.0 correlated OT PRG";
@@ -84,7 +99,7 @@ const PRG_CTX: &[u8] = b"cait-sith v0.1.0 correlated OT PRG";
 /// rows.
 ///
 /// This is a fundamental object used for our OT extension protocol.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BitMatrix(Vec<BitVector>);
 
 impl BitMatrix {
@@ -116,6 +131,18 @@ impl BitMatrix {
         out.xor_mut(other);
         out
     }
+
+    pub fn and_vec_mut(&mut self, v: &BitVector) {
+        for self_i in &mut self.0 {
+            *self_i &= v;
+        }
+    }
+
+    pub fn and_vec(&self, v: &BitVector) -> Self {
+        let mut out = self.clone();
+        out.and_vec_mut(v);
+        out
+    }
 }
 
 impl FromIterator<BitVector> for BitMatrix {
@@ -126,6 +153,7 @@ impl FromIterator<BitVector> for BitMatrix {
 
 impl_op_ex!(^ |u: &BitMatrix, v: &BitMatrix| -> BitMatrix { u.xor(v) });
 impl_op_ex!(^= |u: &mut BitMatrix, v: &BitMatrix| { u.xor_mut(v) });
+impl_op_ex!(&|u: &BitMatrix, v: &BitVector| -> BitMatrix { u.and_vec(v) });
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SquareBitMatrix {
