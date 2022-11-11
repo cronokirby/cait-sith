@@ -45,7 +45,7 @@ impl BitVector {
     pub fn bits(&self) -> impl Iterator<Item = Choice> {
         self.0
             .into_iter()
-            .flat_map(|u| (0..64).map(move |j| ((u >> j) & 1).ct_eq(&0)))
+            .flat_map(|u| (0..64).map(move |j| ((u >> j) & 1).ct_eq(&1)))
     }
 
     /// Modify this vector by xoring it with another vector.
@@ -192,7 +192,7 @@ impl SquareBitMatrix {
             // Expand the row
             let mut expanded = vec![0u8; row8];
             // We need to clone to make each row use the same prefix.
-            let mut meow = meow.clone();
+            let mut meow = Meow::new(PRG_CTX);
             meow.meta_ad(b"row", false);
             meow.ad(b"", false);
             for u in row.0 {
