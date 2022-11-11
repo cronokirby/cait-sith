@@ -103,6 +103,11 @@ const PRG_CTX: &[u8] = b"cait-sith v0.1.0 correlated OT PRG";
 pub struct BitMatrix(Vec<BitVector>);
 
 impl BitMatrix {
+    /// Create a random matrix of a certain height.
+    pub fn random(rng: &mut impl CryptoRngCore, height: usize) -> Self {
+        Self((0..height).map(|_| BitVector::random(rng)).collect())
+    }
+
     /// Create a new matrix from a list of rows.
     pub fn from_rows<'a>(rows: impl IntoIterator<Item = &'a BitVector>) -> Self {
         Self(rows.into_iter().copied().collect())
