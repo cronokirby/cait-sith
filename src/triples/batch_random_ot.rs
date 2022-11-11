@@ -8,8 +8,8 @@ use subtle::ConditionallySelectable;
 use crate::{
     constants::SECURITY_PARAMETER,
     protocol::{
-        internal::{Context, PrivateChannel},
-        ProtocolError,
+        internal::{make_protocol, Context, PrivateChannel},
+        run_two_party_protocol, Participant, ProtocolError,
     },
     serde::encode,
 };
@@ -99,31 +99,40 @@ pub async fn batch_random_ot_receiver(
     Ok((delta, big_k.try_into().unwrap()))
 }
 
+/// Run the batch random OT protocol between two parties.
+pub(crate) fn run_batch_random_ot() -> Result<
+    (
+        (SquareBitMatrix, SquareBitMatrix),
+        (BitVector, SquareBitMatrix),
+    ),
+    ProtocolError,
+> {
+    let s = Participant::from(0u32);
+    let r = Participant::from(1u32);
+    let ctx_s = Context::new();
+    let ctx_r = Context::new();
+
+    run_two_party_protocol(
+        s,
+        r,
+        &mut make_protocol(
+            ctx_s.clone(),
+            batch_random_ot_sender(ctx_s.clone(), ctx_s.private_channel(s, r)),
+        ),
+        &mut make_protocol(
+            ctx_r.clone(),
+            batch_random_ot_receiver(ctx_r.clone(), ctx_r.private_channel(r, s)),
+        ),
+    )
+}
+
 #[cfg(test)]
 mod test {
-    use crate::protocol::{internal::make_protocol, run_two_party_protocol, Participant};
-
     use super::*;
 
     #[test]
     fn test_batch_random_ot() {
-        let s = Participant::from(0u32);
-        let r = Participant::from(1u32);
-        let ctx_s = Context::new();
-        let ctx_r = Context::new();
-
-        let res = run_two_party_protocol(
-            s,
-            r,
-            &mut make_protocol(
-                ctx_s.clone(),
-                batch_random_ot_sender(ctx_s.clone(), ctx_s.private_channel(s, r)),
-            ),
-            &mut make_protocol(
-                ctx_r.clone(),
-                batch_random_ot_receiver(ctx_r.clone(), ctx_r.private_channel(r, s)),
-            ),
-        );
+        let res = run_batch_random_ot();
         assert!(res.is_ok());
         let ((k0, k1), (delta, k_delta)) = res.unwrap();
 
