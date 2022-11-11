@@ -1,3 +1,4 @@
+use auto_ops::impl_op_ex;
 use ck_meow::Meow;
 use rand_core::CryptoRngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
@@ -45,6 +46,20 @@ impl BitVector {
             .into_iter()
             .flat_map(|u| (0..64).map(move |j| ((u >> j) & 1).ct_eq(&0)))
     }
+
+    /// Modify this vector by xoring it with another vector.
+    pub fn xor_mut(&mut self, other: &BitVector) {
+        for (self_i, other_i) in self.0.iter_mut().zip(other.0.iter()) {
+            *self_i ^= other_i;
+        }
+    }
+
+    /// Xor this vector with another.
+    pub fn xor(&self, other: &BitVector) -> Self {
+        let mut out = self.clone();
+        out.xor_mut(other);
+        out
+    }
 }
 
 impl ConditionallySelectable for BitVector {
@@ -56,6 +71,9 @@ impl ConditionallySelectable for BitVector {
         Self(out)
     }
 }
+
+impl_op_ex!(^ |u: &BitVector, v: &BitVector| -> BitVector { u.xor(v) });
+impl_op_ex!(^= |u: &mut BitVector, v: &BitVector| { u.xor_mut(v) });
 
 /// The context string for our PRG.
 const PRG_CTX: &[u8] = b"cait-sith v0.1.0 correlated OT PRG";
@@ -84,6 +102,20 @@ impl BitMatrix {
     pub fn rows(&self) -> impl Iterator<Item = &BitVector> {
         self.0.iter()
     }
+
+    /// Modify this matrix by xoring it with another.
+    pub fn xor_mut(&mut self, other: &Self) {
+        for (self_i, other_i) in self.0.iter_mut().zip(other.0.iter()) {
+            *self_i ^= other_i;
+        }
+    }
+
+    /// The result of xoring this matrix with another.
+    pub fn xor(&self, other: &Self) -> Self {
+        let mut out = self.clone();
+        out.xor_mut(other);
+        out
+    }
 }
 
 impl FromIterator<BitVector> for BitMatrix {
@@ -91,6 +123,9 @@ impl FromIterator<BitVector> for BitMatrix {
         Self(iter.into_iter().collect())
     }
 }
+
+impl_op_ex!(^ |u: &BitMatrix, v: &BitMatrix| -> BitMatrix { u.xor(v) });
+impl_op_ex!(^= |u: &mut BitMatrix, v: &BitMatrix| { u.xor_mut(v) });
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SquareBitMatrix {
