@@ -26,6 +26,13 @@ pub async fn correlated_ot_sender(
     // Spec 5
     let wait0 = chan.next_waitpoint();
     let u: BitMatrix = chan.recv(wait0).await?;
+    if u.height() != params.batch_size {
+        return Err(ProtocolError::AssertionFailed(format!(
+            "expected matrix of height {} found {}",
+            params.batch_size,
+            u.height()
+        )));
+    }
 
     // Spec 6
     let q = (u & delta) ^ t;
