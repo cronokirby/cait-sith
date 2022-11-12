@@ -9,6 +9,22 @@ use crate::constants::SECURITY_PARAMETER;
 pub const SEC_PARAM_64: usize = (SECURITY_PARAMETER + 64 - 1) / 64;
 pub const SEC_PARAM_8: usize = (SECURITY_PARAMETER + 8 - 1) / 8;
 
+/// Create a random vector of choices, of a certain size.
+pub fn random_choices(rng: &mut impl CryptoRngCore, size: usize) -> Vec<Choice> {
+    let mut out = Vec::with_capacity(size);
+    let mut buf = 0u64;
+    let mut i = 64;
+    for _ in 0..size {
+        if i >= 64 {
+            buf = rng.next_u64();
+            i = 0;
+        }
+        out.push(Choice::from(((buf >> i) & 1) as u8));
+        i += 1;
+    }
+    out
+}
+
 /// Represents a vector of bits.
 ///
 /// This vector will have the size of our security parameter, which is useful
@@ -62,6 +78,15 @@ impl BitVector {
         out
     }
 
+    /// Return the bitwise not of this vector.
+    pub fn not(&self) -> Self {
+        let mut out = self.clone();
+        for out_i in &mut out.0 {
+            *out_i = !*out_i;
+        }
+        out
+    }
+
     pub fn and_mut(&mut self, other: &Self) {
         for (self_i, other_i) in self.0.iter_mut().zip(other.0.iter()) {
             *self_i &= other_i;
@@ -89,6 +114,7 @@ impl_op_ex!(^ |u: &BitVector, v: &BitVector| -> BitVector { u.xor(v) });
 impl_op_ex!(^= |u: &mut BitVector, v: &BitVector| { u.xor_mut(v) });
 impl_op_ex!(&|u: &BitVector, v: &BitVector| -> BitVector { u.and(v) });
 impl_op_ex!(&= |u: &mut BitVector, v: &BitVector| { u.and_mut(v) });
+impl_op_ex!(!|u: &BitVector| -> BitVector { u.not() });
 
 /// The context string for our PRG.
 const PRG_CTX: &[u8] = b"cait-sith v0.1.0 correlated OT PRG";

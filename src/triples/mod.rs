@@ -74,5 +74,6 @@ pub fn deal(
 }
 
 mod batch_random_ot;
-mod correlated_ot_extension;
 mod bits;
+mod correlated_ot_extension;
+mod random_ot_extension;

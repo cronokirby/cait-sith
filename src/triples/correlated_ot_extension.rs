@@ -10,8 +10,8 @@ use super::bits::{BitMatrix, BitVector, SquareBitMatrix};
 /// Parameters we need for the correlated OT.
 #[derive(Debug, Clone, Copy)]
 pub struct CorrelatedOtParams<'sid> {
-    sid: &'sid [u8],
-    batch_size: usize,
+    pub(crate) sid: &'sid [u8],
+    pub(crate) batch_size: usize,
 }
 
 pub async fn correlated_ot_sender(
