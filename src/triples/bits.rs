@@ -98,6 +98,38 @@ impl BitVector {
         out.and_mut(other);
         out
     }
+
+    /// Multiplication in the field.
+    ///
+    /// This returns an unreduced value, which is fine for our use case.
+    pub fn gf_mul(&self, other: &Self) -> DoubleBitVector {
+        // Algorithm 2.35 in "Guide to Elliptic Curve Cryptography"
+        let mut out = [0u64; 2 * SEC_PARAM_64];
+
+        for k in (0..64).rev() {
+            for j in 0..SEC_PARAM_64 {
+                let to_add = Self::conditional_select(
+                    &Self::zero(),
+                    other,
+                    Choice::from(((self.0[j] >> k) & 1) as u8),
+                );
+
+                for i in 0..SEC_PARAM_64 {
+                    out[j + i] ^= to_add.0[i];
+                }
+            }
+            if k != 0 {
+                let mut prev = 0u64;
+                for out_i in &mut out {
+                    let next_prev = *out_i >> 63;
+                    *out_i = (*out_i << 1) | prev;
+                    prev = next_prev;
+                }
+            }
+        }
+
+        DoubleBitVector(out)
+    }
 }
 
 impl ConditionallySelectable for BitVector {
@@ -115,6 +147,35 @@ impl_op_ex!(^= |u: &mut BitVector, v: &BitVector| { u.xor_mut(v) });
 impl_op_ex!(&|u: &BitVector, v: &BitVector| -> BitVector { u.and(v) });
 impl_op_ex!(&= |u: &mut BitVector, v: &BitVector| { u.and_mut(v) });
 impl_op_ex!(!|u: &BitVector| -> BitVector { u.not() });
+
+/// A BitVector of double the size.
+///
+/// This is useful because it's quicker to avoid reducing the result of GF multiplication.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DoubleBitVector([u64; Self::SIZE]);
+
+impl DoubleBitVector {
+    const SIZE: usize = 2 * SEC_PARAM_64;
+
+    pub fn zero() -> Self {
+        Self([0u64; Self::SIZE])
+    }
+
+    pub fn xor_mut(&mut self, other: &Self) {
+        for (self_i, other_i) in self.0.iter_mut().zip(other.0.iter()) {
+            *self_i ^= *other_i;
+        }
+    }
+
+    pub fn xor(&self, other: &Self) -> Self {
+        let mut out = self.clone();
+        out.xor_mut(other);
+        out
+    }
+}
+
+impl_op_ex!(^ |u: &DoubleBitVector, v: &DoubleBitVector| -> DoubleBitVector { u.xor(v) });
+impl_op_ex!(^= |u: &mut DoubleBitVector, v: &DoubleBitVector| { u.xor_mut(v) });
 
 /// The context string for our PRG.
 const PRG_CTX: &[u8] = b"cait-sith v0.1.0 correlated OT PRG";
@@ -233,5 +294,18 @@ impl SquareBitMatrix {
         }
 
         out
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_gf_multiplication() {
+        let a = BitVector([0b10, 0b10]);
+        let b = BitVector([0b100, 0b100]);
+        let c = DoubleBitVector([0b1000, 0, 0b1000, 0]);
+        assert_eq!(a.gf_mul(&b), c);
     }
 }
