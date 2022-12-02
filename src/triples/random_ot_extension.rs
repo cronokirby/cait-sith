@@ -8,7 +8,10 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 use crate::{
     constants::SECURITY_PARAMETER,
     crypto::{commit, Commitment},
-    protocol::{internal::PrivateChannel, ProtocolError},
+    protocol::{
+        internal::{make_protocol, Context, PrivateChannel},
+        run_two_party_protocol, Participant, ProtocolError,
+    },
 };
 
 use super::{
@@ -33,17 +36,24 @@ fn adjust_size(size: usize) -> usize {
 }
 
 /// Parameters we need for random OT extension
+#[derive(Debug, Clone, Copy)]
 pub struct RandomOtExtensionParams<'sid> {
     sid: &'sid [u8],
     batch_size: usize,
 }
+
+/// The result that the sender gets.
+pub type RandomOTExtensionSenderOut = Vec<(Scalar, Scalar)>;
+
+/// The result that the receiver gets.
+pub type RandomOTExtensionReceiverOut = Vec<(Choice, Scalar)>;
 
 pub async fn random_ot_extension_sender(
     mut chan: PrivateChannel,
     params: RandomOtExtensionParams<'_>,
     delta: BitVector,
     k: &SquareBitMatrix,
-) -> Result<Vec<(Scalar, Scalar)>, ProtocolError> {
+) -> Result<RandomOTExtensionSenderOut, ProtocolError> {
     // Step 2
     let mut seed_s = [0u8; 32];
     OsRng.fill_bytes(&mut seed_s);
@@ -123,7 +133,7 @@ pub async fn random_ot_extension_receiver(
     params: RandomOtExtensionParams<'_>,
     k0: &SquareBitMatrix,
     k1: &SquareBitMatrix,
-) -> Result<Vec<(Choice, Scalar)>, ProtocolError> {
+) -> Result<RandomOTExtensionReceiverOut, ProtocolError> {
     // Step 1
     let mut seed_r = [0u8; 32];
     OsRng.fill_bytes(&mut seed_r);
@@ -205,4 +215,53 @@ pub async fn random_ot_extension_receiver(
         .collect();
 
     Ok(out)
+}
+
+/// Run the random OT protocol between two parties.
+pub(crate) fn run_random_ot(
+    (delta, k): (BitVector, &SquareBitMatrix),
+    (k0, k1): (&SquareBitMatrix, &SquareBitMatrix),
+    sid: &[u8],
+    batch_size: usize,
+) -> Result<(RandomOTExtensionSenderOut, RandomOTExtensionReceiverOut), ProtocolError> {
+    let s = Participant::from(0u32);
+    let r = Participant::from(1u32);
+    let ctx_s = Context::new();
+    let ctx_r = Context::new();
+
+    let params = RandomOtExtensionParams { sid, batch_size };
+
+    run_two_party_protocol(
+        s,
+        r,
+        &mut make_protocol(
+            ctx_s.clone(),
+            random_ot_extension_sender(ctx_s.private_channel(s, r), params, delta, &k),
+        ),
+        &mut make_protocol(
+            ctx_r.clone(),
+            random_ot_extension_receiver(ctx_r.private_channel(r, s), params, &k0, &k1),
+        ),
+    )
+}
+
+#[cfg(test)]
+mod test {
+    use crate::triples::batch_random_ot::run_batch_random_ot;
+
+    use super::*;
+
+    #[test]
+    fn test_random_ot() -> Result<(), ProtocolError> {
+        let ((k0, k1), (delta, k)) = run_batch_random_ot()?;
+        let batch_size = 16;
+        let (sender_out, receiver_out) =
+            run_random_ot((delta, &k), (&k0, &k1), b"test sid", batch_size)?;
+        assert_eq!(sender_out.len(), batch_size);
+        assert_eq!(receiver_out.len(), batch_size);
+        for ((v0_i, v1_i), (b_i, vb_i)) in sender_out.iter().zip(receiver_out.iter()) {
+            assert_eq!(*vb_i, Scalar::conditional_select(v0_i, v1_i, *b_i));
+        }
+        Ok(())
+    }
 }

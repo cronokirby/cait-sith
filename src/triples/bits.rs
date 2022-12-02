@@ -29,7 +29,7 @@ pub fn random_choices(rng: &mut impl CryptoRngCore, size: usize) -> Vec<Choice> 
 ///
 /// This vector will have the size of our security parameter, which is useful
 /// for most of our OT extension protocols.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Eq)]
 pub struct BitVector([u64; SEC_PARAM_64]);
 
 impl BitVector {
@@ -60,7 +60,7 @@ impl BitVector {
     pub fn bytes(&self) -> [u8; SEC_PARAM_8] {
         let mut out = [0u8; SEC_PARAM_8];
         for (i, x_i) in self.0.iter().enumerate() {
-            out[8 * i..].copy_from_slice(&x_i.to_le_bytes())
+            out[8 * i..8 * (i + 1)].copy_from_slice(&x_i.to_le_bytes())
         }
         out
     }

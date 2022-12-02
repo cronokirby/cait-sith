@@ -197,7 +197,8 @@ impl MessageHeader {
         }
         // Unwrapping is fine because we checked the length already.
         let channel = ChannelTag(bytes[..ChannelTag::SIZE].try_into().unwrap());
-        let waitpoint = u64::from_le_bytes(bytes[ChannelTag::SIZE..Self::LEN].try_into().unwrap()).into();
+        let waitpoint =
+            u64::from_le_bytes(bytes[ChannelTag::SIZE..Self::LEN].try_into().unwrap()).into();
 
         Some(Self { channel, waitpoint })
     }
