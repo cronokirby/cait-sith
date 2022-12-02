@@ -57,6 +57,14 @@ impl BitVector {
         Self(out)
     }
 
+    pub fn bytes(&self) -> [u8; SEC_PARAM_8] {
+        let mut out = [0u8; SEC_PARAM_8];
+        for (i, x_i) in self.0.iter().enumerate() {
+            out[8 * i..].copy_from_slice(&x_i.to_le_bytes())
+        }
+        out
+    }
+
     /// Iterate over the bits of this vector.
     pub fn bits(&self) -> impl Iterator<Item = Choice> {
         self.0

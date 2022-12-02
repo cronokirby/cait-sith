@@ -1,6 +1,9 @@
+use ck_meow::Meow;
+use ecdsa::elliptic_curve::{bigint::U512, ops::Reduce};
+use k256::Scalar;
 use magikitten::MeowRng;
 use rand_core::{OsRng, RngCore};
-use subtle::ConditionallySelectable;
+use subtle::{Choice, ConditionallySelectable};
 
 use crate::{
     constants::SECURITY_PARAMETER,
@@ -12,6 +15,18 @@ use super::{
     bits::{random_choices, BitMatrix, BitVector, DoubleBitVector, SquareBitMatrix},
     correlated_ot_extension::{correlated_ot_receiver, correlated_ot_sender, CorrelatedOtParams},
 };
+
+const MEOW_CTX: &[u8] = b"Random OT Extension Hash";
+
+fn hash_to_scalar(i: usize, v: &BitVector) -> Scalar {
+    let mut meow = Meow::new(MEOW_CTX);
+    let i64 = u64::try_from(i).expect("failed to convert usize to u64");
+    meow.meta_ad(&i64.to_le_bytes(), false);
+    meow.ad(&v.bytes(), false);
+    let mut scalar_bytes = [0u8; 512 / 8];
+    meow.prf(&mut scalar_bytes, false);
+    <Scalar as Reduce<U512>>::from_le_bytes_reduced(scalar_bytes.into())
+}
 
 fn adjust_size(size: usize) -> usize {
     size + 2 * SECURITY_PARAMETER
@@ -61,7 +76,7 @@ pub async fn random_ot_extension_receiver(
     params: RandomOtExtensionParams<'_>,
     k0: &SquareBitMatrix,
     k1: &SquareBitMatrix,
-) -> Result<(), ProtocolError> {
+) -> Result<Vec<(Choice, Scalar)>, ProtocolError> {
     // Step 1
     let mut seed_r = [0u8; 32];
     OsRng.fill_bytes(&mut seed_r);
@@ -133,5 +148,13 @@ pub async fn random_ot_extension_receiver(
     let wait2 = chan.next_waitpoint();
     chan.send(wait2, &(x, small_t)).await;
 
-    todo!()
+    let out: Vec<_> = b
+        .iter()
+        .zip(t.rows())
+        .take(params.batch_size)
+        .enumerate()
+        .map(|(i, (b_i, t_i))| (*b_i, hash_to_scalar(i, t_i)))
+        .collect();
+
+    Ok(out)
 }
