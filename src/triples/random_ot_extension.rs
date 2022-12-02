@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    bits::{random_choices, BitMatrix, BitVector, SquareBitMatrix},
+    bits::{random_choices, BitMatrix, BitVector, DoubleBitVector, SquareBitMatrix},
     correlated_ot_extension::{correlated_ot_receiver, correlated_ot_sender, CorrelatedOtParams},
 };
 
@@ -114,6 +114,24 @@ pub async fn random_ot_extension_receiver(
         seed[i] ^= seed_s[i];
     }
     let mut prng = MeowRng::new(&seed);
+
+    let chi: Vec<BitVector> = (0..adjusted_size)
+        .map(|_| BitVector::random(&mut prng))
+        .collect();
+
+    // Step 10
+    let mut x = BitVector::zero();
+    for (b_j, chi_j) in b.iter().zip(chi.iter()) {
+        x.conditional_assign(&(x ^ chi_j), *b_j);
+    }
+    let mut small_t = DoubleBitVector::zero();
+    for (t_j, chi_j) in t.rows().zip(chi.iter()) {
+        small_t ^= t_j.gf_mul(chi_j);
+    }
+
+    // Step 11
+    let wait2 = chan.next_waitpoint();
+    chan.send(wait2, &(x, small_t)).await;
 
     todo!()
 }
