@@ -3,7 +3,7 @@ use ecdsa::elliptic_curve::{bigint::U512, ops::Reduce};
 use k256::Scalar;
 use magikitten::MeowRng;
 use rand_core::{OsRng, RngCore};
-use subtle::{Choice, ConditionallySelectable};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 use crate::{
     constants::SECURITY_PARAMETER,
@@ -43,7 +43,7 @@ pub async fn random_ot_extension_sender(
     params: RandomOtExtensionParams<'_>,
     delta: BitVector,
     k: &SquareBitMatrix,
-) -> Result<(), ProtocolError> {
+) -> Result<Vec<(Scalar, Scalar)>, ProtocolError> {
     // Step 2
     let mut seed_s = [0u8; 32];
     OsRng.fill_bytes(&mut seed_s);
@@ -68,7 +68,54 @@ pub async fn random_ot_extension_sender(
         k,
     )
     .await?;
-    todo!()
+
+    // Step 7
+    let wait1 = chan.next_waitpoint();
+    chan.send(wait1, &seed_s).await;
+
+    // Step 8
+    let seed_r: [u8; 32] = chan.recv(wait1).await?;
+    if commit(&seed_r) != com_r {
+        return Err(ProtocolError::AssertionFailed(
+            "seed commitment was incorrect".to_owned(),
+        ));
+    }
+
+    // Step 9
+    let mut seed = seed_r;
+    for i in 0..32 {
+        seed[i] ^= seed_s[i];
+    }
+    let mut prng = MeowRng::new(&seed);
+
+    let chi: Vec<BitVector> = (0..adjusted_size)
+        .map(|_| BitVector::random(&mut prng))
+        .collect();
+
+    // Step 12
+    let mut small_q = DoubleBitVector::zero();
+    for (q_i, chi_i) in q.rows().zip(chi.iter()) {
+        small_q ^= q_i.gf_mul(chi_i);
+    }
+
+    // Step 13
+    let wait2 = chan.next_waitpoint();
+    let (x, small_t): (BitVector, DoubleBitVector) = chan.recv(wait2).await?;
+
+    if !bool::from(small_q.ct_eq(&(small_t ^ x.gf_mul(&delta)))) {
+        return Err(ProtocolError::AssertionFailed("q check failed".to_owned()));
+    }
+
+    // Step 14
+    let mut out = Vec::with_capacity(params.batch_size);
+
+    for (i, q_i) in q.rows().take(params.batch_size).enumerate() {
+        let v0_i = hash_to_scalar(i, q_i);
+        let v1_i = hash_to_scalar(i, &(q_i ^ delta));
+        out.push((v0_i, v1_i))
+    }
+
+    Ok(out)
 }
 
 pub async fn random_ot_extension_receiver(
@@ -148,6 +195,7 @@ pub async fn random_ot_extension_receiver(
     let wait2 = chan.next_waitpoint();
     chan.send(wait2, &(x, small_t)).await;
 
+    // Step 15
     let out: Vec<_> = b
         .iter()
         .zip(t.rows())

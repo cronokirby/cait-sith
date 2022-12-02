@@ -182,6 +182,16 @@ impl DoubleBitVector {
     }
 }
 
+impl ConstantTimeEq for DoubleBitVector {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        let mut out = Choice::from(1);
+        for (a, b) in self.0.iter().zip(other.0.iter()) {
+            out &= a.ct_eq(b);
+        }
+        out
+    }
+}
+
 impl_op_ex!(^ |u: &DoubleBitVector, v: &DoubleBitVector| -> DoubleBitVector { u.xor(v) });
 impl_op_ex!(^= |u: &mut DoubleBitVector, v: &DoubleBitVector| { u.xor_mut(v) });
 
