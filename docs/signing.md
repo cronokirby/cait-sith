@@ -76,6 +76,7 @@ of a pre-signature.
 
 1. Each $P_i$ checks that $\mathcal{P}_1 \subseteq \mathcal{P}_0^0 \cap \mathcal{P}_0^1$, and that $t_0 \geq t$.
 2. Each $P_i$ renames:
+
 $$
 \begin{aligned}
 &k_i \gets a^0_i, &d_i \gets b^0_i,\quad &\text{kd}_i \gets c^0_i\cr
@@ -84,7 +85,9 @@ $$
 &A \gets A^1, &B \gets B^1,\quad &C \gets C^1\cr
 \end{aligned}
 $$
+
 3. Then, each $P_i$ linearizes their shares, setting:
+
 $$
 \begin{aligned}
 (k'_i, d_i, \text{kd}_i) &\gets \lambda(\mathcal{P}_0^0)_i \cdot (k_i, d_i, \text{kd}_i)\cr
@@ -92,6 +95,7 @@ $$
 x'_i &\gets \lambda(\mathcal{P})_i \cdot x_i\cr
 \end{aligned}
 $$
+
 4. Each $P_i$ samples $f \xleftarrow{\\\$} \mathbb{F}_ q[X]_ {\leq t_0 - 1}$,
 subject to $f(0) = x'_i$
 5. Each $P_i$ sets $F_ i \gets f \cdot G$.
@@ -99,12 +103,14 @@ subject to $f(0) = x'_i$
 7. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $x_i^j := f(j)$ to each other party $P_j$, and saves $x_i^i$ for itself.
 8. $\star$ Each $P_i$ sends $\text{kd}_i$ to every other party.
 9. Each $P_i$ sets:
+
 $$
 \begin{aligned}
 &\text{ka}_i \gets k'_i + a_i\cr
 &\text{xb}_i \gets x'_i + b_i\cr
 \end{aligned}
 $$
+
 10. $\star$ Each $P_i$ sends $\text{ka}_i$ and $\text{xb}_i$ to every other party.
 
 **Round 2:**
@@ -125,12 +131,14 @@ $$
 19. $\bullet$ Each $P_i$ waits to receive $\text{ka}_j$ and $\text{xb}_j$ from from every other party $P_j$.
 20. Each $P_i$ sets $\text{ka} \gets \sum_j \text{ka}_j$ and $\text{xb} \gets \sum_j \text{xb}_j$.
 21. $\blacktriangle$ Each $P_i$ asserts that:
+
 $$
 \begin{aligned}
 \text{ka} \cdot G &= K + A\cr
 \text{xb} \cdot G &= X + B
 \end{aligned}
 $$
+
 22. Each $P_i$ sets: $R \gets \frac{1}{\text{kd}} \cdot D$.
 23. Each $P_i$ sets $\sigma_i \gets \text{ka} \cdot x_i + \text{xb} \cdot a_i + c_i$, which is already threshold shared.
 
