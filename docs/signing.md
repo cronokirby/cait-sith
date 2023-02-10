@@ -90,9 +90,9 @@ $$
 
 $$
 \begin{aligned}
-(k'_i, d_i, \text{kd}_i) &\gets \lambda(\mathcal{P}_0^0)_i \cdot (k_i, d_i, \text{kd}_i)\cr
-(a_i, b_i, c_i) &\gets \lambda(\mathcal{P}_1^0)_i \cdot (a_i, b_i, c_i)\cr
-x'_i &\gets \lambda(\mathcal{P})_i \cdot x_i\cr
+(k'_i, d_i, \text{kd}_i) &\gets \lambda(\mathcal{P}_1)_i \cdot (k_i, d_i, \text{kd}_i)\cr
+(a_i, b_i, c_i) &\gets \lambda(\mathcal{P}_1)_i \cdot (a_i, b_i, c_i)\cr
+x'_i &\gets \lambda(\mathcal{P}_1)_i \cdot x_i\cr
 \end{aligned}
 $$
 
