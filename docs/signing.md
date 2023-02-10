@@ -91,7 +91,7 @@ $$
 $$
 \begin{aligned}
 (k'_i, d_i, \text{kd}_i) &\gets \lambda(\mathcal{P}_1)_i \cdot (k_i, d_i, \text{kd}_i)\cr
-(a_i, b_i, c_i) &\gets \lambda(\mathcal{P}_1)_i \cdot (a_i, b_i, c_i)\cr
+(a'_i, b'_i, c'_i) &\gets \lambda(\mathcal{P}_1)_i \cdot (a_i, b_i, c_i)\cr
 x'_i &\gets \lambda(\mathcal{P}_1)_i \cdot x_i\cr
 \end{aligned}
 $$
@@ -106,8 +106,8 @@ subject to $f(0) = x'_i$
 
 $$
 \begin{aligned}
-&\text{ka}_i \gets k'_i + a_i\cr
-&\text{xb}_i \gets x'_i + b_i\cr
+&\text{ka}_i \gets k'_i + a'_i\cr
+&\text{xb}_i \gets x'_i + b'_i\cr
 \end{aligned}
 $$
 
@@ -140,7 +140,7 @@ $$
 $$
 
 12. Each $P_i$ sets: $R \gets \frac{1}{\text{kd}} \cdot D$.
-13. Each $P_i$ sets $\sigma_i \gets \text{ka} \cdot x_i + \text{xb} \cdot a_i + c_i$, which is already threshold shared.
+13. Each $P_i$ sets $\sigma_i \gets \text{ka} \cdot x_i - \text{xb} \cdot a_i + c_i$, which is already threshold shared.
 
 **Output:**
 The output is the presignature $(R, k, \sigma)$, with $k$ and $\sigma$
