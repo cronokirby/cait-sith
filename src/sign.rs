@@ -51,7 +51,9 @@ async fn do_sign(
     // Spec 1.3
     let m = compat::scalar_hash(&msg);
 
-    let s_i = m * k_i + sigma_i;
+
+    let r = compat::x_coordinate(&presignature.big_r);
+    let s_i = m * k_i + r * sigma_i;
 
     // Spec 1.4
     let wait0 = chan.next_waitpoint();
@@ -70,7 +72,6 @@ async fn do_sign(
     }
 
     // Spec 2.3
-    let r = compat::x_coordinate(&presignature.big_k);
     let sig = Signature::from_scalars(r, s).map_err(|e| ProtocolError::Other(Box::new(e)))?;
     let sig = sig.normalize_s().unwrap_or(sig);
 
@@ -82,7 +83,7 @@ async fn do_sign(
 
     // Spec 2.4
     Ok(FullSignature {
-        big_k: presignature.big_k,
+        big_k: presignature.big_r,
         sig,
     })
 }
@@ -146,8 +147,7 @@ mod test {
             let k = g.evaluate_zero();
             let big_k = (ProjectivePoint::GENERATOR * k.invert().unwrap()).to_affine();
 
-            let r = compat::x_coordinate(&big_k);
-            let sigma = r * k * x;
+            let sigma = k * x;
 
             let h = Polynomial::extend_random(&mut OsRng, threshold, &sigma);
 
@@ -157,7 +157,7 @@ mod test {
             for p in &participants {
                 let p_scalar = p.scalar();
                 let presignature = PresignOutput {
-                    big_k,
+                    big_r: big_k,
                     k: g.evaluate(&p_scalar),
                     sigma: h.evaluate(&p_scalar),
                 };

@@ -23,7 +23,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct PresignOutput {
     /// The public nonce commitment.
-    pub big_k: AffinePoint,
+    pub big_r: AffinePoint,
     /// Our share of the nonce value.
     pub k: Scalar,
     /// Our share of the sigma value.
@@ -52,369 +52,153 @@ async fn do_presign(
     args: PresignArguments,
 ) -> Result<PresignOutput, ProtocolError> {
     let mut rng = OsRng;
-    let mut transcript = Transcript::new(b"cait-sith v0.1.0 presign");
+
+    // Spec 1.2 + 1.3
+    let big_k = args.triple0.1.big_a.to_curve();
+    let big_d = args.triple0.1.big_b;
+    let big_kd = args.triple0.1.big_c;
 
     let big_x = args.keygen_out.public_key.to_curve();
 
-    let big_a0 = args.triple0.1.big_a;
-    let big_b0 = args.triple0.1.big_b;
-    let big_c0 = args.triple0.1.big_c;
-    let big_a1 = args.triple1.1.big_a;
-    let big_b1 = args.triple1.1.big_b;
-    let big_c1 = args.triple1.1.big_c;
+    let big_a = args.triple1.1.big_a.to_curve();
+    let big_b = args.triple1.1.big_b.to_curve();
 
-    // Spec 1.2
-    transcript.message(
-        b"original threshold",
-        &u64::try_from(args.original_threshold)
-            .unwrap()
-            .to_be_bytes(),
-    );
-    // Deviate slightly from the spec to make encoding the triples easier.
-    transcript.message(b"triple0 public", &encode(&args.triple0.1));
-    transcript.message(b"triple1 public", &encode(&args.triple1.1));
-    transcript.message(b"participants", &encode(&participants));
-    transcript.message(
-        b"threshold",
-        &u64::try_from(args.threshold).unwrap().to_be_bytes(),
-    );
-
-    // Spec 1.3
     let lambda = participants.lagrange(me);
-    let x_i = lambda * args.keygen_out.private_share;
+
+    let k_i = args.triple0.0.a;
+    let k_prime_i = lambda * k_i;
+    let kd_i = lambda * args.triple0.0.c;
+
+    let a_i = args.triple1.0.a;
+    let b_i = args.triple1.0.b;
+    let c_i = args.triple1.0.c;
+    let a_prime_i = lambda * a_i;
+    let b_prime_i = lambda * b_i;
+
+    let x_prime_i = lambda * args.keygen_out.private_share;
 
     // Spec 1.4
-    let a0_i = lambda * args.triple0.0.a;
-    let b0_i = lambda * args.triple0.0.b;
-    let c0_i = lambda * args.triple0.0.c;
-    let a1_i = lambda * args.triple1.0.a;
-    let b1_i = lambda * args.triple1.0.b;
-    let c1_i = lambda * args.triple1.0.c;
+    let f = Polynomial::extend_random(&mut rng, args.threshold, &x_prime_i);
 
     // Spec 1.5
-    let f = Polynomial::random(&mut rng, args.threshold);
-
-    // Spec 1.6
     let big_f_i = f.commit();
 
+    // Spec 1.6
+    let wait0 = chan.next_waitpoint();
+    chan.send_many(wait0, &big_f_i).await;
+
     // Spec 1.7
-    let d_i = Scalar::generate_biased(&mut rng);
-    let big_d_i = AffinePoint::GENERATOR * d_i;
+    let wait1 = chan.next_waitpoint();
+    for p in participants.others(me) {
+        let x_i_j = f.evaluate(&p.scalar());
+        chan.send_private(wait1, p, &x_i_j).await;
+    }
+    let mut x_i = f.evaluate(&me.scalar());
 
     // Spec 1.8
-    let com_i = commit(&(&big_f_i, big_d_i.to_affine()));
+    let wait2 = chan.next_waitpoint();
+    chan.send_many(wait2, &kd_i).await;
 
     // Spec 1.9
-    let wait0 = chan.next_waitpoint();
-    chan.send_many(wait0, &com_i).await;
+    let ka_i = k_prime_i + a_prime_i;
+    let xb_i = x_prime_i + b_prime_i;
 
-    // Spec 2.1
-    let mut all_commitments = ParticipantMap::new(&participants);
-    all_commitments.put(me, com_i);
-    while !all_commitments.full() {
-        let (from, commitment) = chan.recv(wait0).await?;
-        all_commitments.put(from, commitment);
-    }
-
-    // Spec 2.2
-    let my_confirmation = commit(&all_commitments);
-
-    // Spec 2.3
-    transcript.message(b"confirmation", my_confirmation.as_ref());
-
-    // Spec 2.4
-    let wait1 = chan.next_waitpoint();
-    chan.send_many(wait1, &my_confirmation).await;
-
-    // Spec 2.5
-    let pi_i = dlog::prove(
-        &mut rng,
-        &mut transcript.forked(b"dlog0", &me.bytes()),
-        dlog::Statement {
-            public: &big_f_i.evaluate_zero(),
-        },
-        dlog::Witness {
-            x: &f.evaluate_zero(),
-        },
-    );
-    let pi_prime_i = dlog::prove(
-        &mut rng,
-        &mut transcript.forked(b"dlog1", &me.bytes()),
-        dlog::Statement { public: &big_d_i },
-        dlog::Witness { x: &d_i },
-    );
-
-    // Spec 2.6
-    let wait2 = chan.next_waitpoint();
-    chan.send_many(wait2, &(&big_f_i, pi_i, big_d_i.to_affine(), pi_prime_i))
-        .await;
-
-    // Spec 2.7
+    // Spec 1.10
     let wait3 = chan.next_waitpoint();
-    for p in participants.others(me) {
-        let k_i_j = f.evaluate(&p.scalar());
-        chan.send_private(wait3, p, &k_i_j).await;
-    }
-    let mut k_i = f.evaluate(&me.scalar());
+    chan.send_many(wait3, &(ka_i, xb_i)).await;
 
-    // Spec 2.8
-    let ka_i = f.evaluate_zero() + a0_i;
-    let db_i = d_i + b0_i;
-    let xa_i = x_i + a1_i;
-    let kb_i = f.evaluate_zero() + b1_i;
-
-    // Spec 2.9
-    let wait4 = chan.next_waitpoint();
-    chan.send_many(wait4, &(ka_i, db_i, xa_i, kb_i)).await;
-
-    // Spec 3.1 + 3.2
+    // Spec 2.1, 2.2, along with the summation of F from 2.4
+    let mut big_f = big_f_i;
     let mut seen = ParticipantCounter::new(&participants);
     seen.put(me);
     while !seen.full() {
-        let (from, confirmation): (_, Commitment) = chan.recv(wait1).await?;
+        let (from, big_f_j): (_, GroupPolynomial) = chan.recv(wait0).await?;
         if !seen.put(from) {
             continue;
         }
-        if confirmation != my_confirmation {
-            return Err(ProtocolError::AssertionFailed(format!(
-                "confirmation from {from:?} did not match expectation"
-            )));
-        }
-    }
-
-    let mut big_f = big_f_i;
-    let mut big_d = big_d_i;
-
-    // Spec 3.3 + 3.4, and summing for 3.6 and D of 3.10
-    seen.clear();
-    seen.put(me);
-    while !seen.full() {
-        let (from, (big_f_j, pi_j, big_d_j, pi_prime_j)): (
-            _,
-            (GroupPolynomial, _, AffinePoint, _),
-        ) = chan.recv(wait2).await?;
-        if !seen.put(from) {
-            continue;
-        }
-
         if big_f_j.len() != args.threshold {
             return Err(ProtocolError::AssertionFailed(format!(
                 "polynomial from {from:?} has the wrong length"
             )));
         }
-
-        let com_j = commit(&(&big_f_j, big_d_j));
-        if com_j != all_commitments[from] {
-            return Err(ProtocolError::AssertionFailed(format!(
-                "commitment from {from:?} did not match revealed F_j and D_j"
-            )));
-        }
-
-        let big_d_j = big_d_j.to_curve();
-        if !dlog::verify(
-            &mut transcript.forked(b"dlog0", &from.bytes()),
-            dlog::Statement {
-                public: &big_f_j.evaluate_zero(),
-            },
-            &pi_j,
-        ) {
-            return Err(ProtocolError::AssertionFailed(format!(
-                "dlog proof from {from:?} failed to verify"
-            )));
-        }
-        if !dlog::verify(
-            &mut transcript.forked(b"dlog1", &from.bytes()),
-            dlog::Statement { public: &big_d_j },
-            &pi_prime_j,
-        ) {
-            return Err(ProtocolError::AssertionFailed(format!(
-                "dlog proof from {from:?} failed to verify"
-            )));
-        }
         big_f += big_f_j;
-        big_d += big_d_j;
     }
 
-    // Spec 3.5 + 3.6
+    // Spec 2.3, along with the summation of x_i from 2.4
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, k_i_j): (_, Scalar) = chan.recv(wait3).await?;
+        let (from, x_j_i): (_, Scalar) = chan.recv(wait1).await?;
         if !seen.put(from) {
             continue;
         }
-        k_i += k_i_j;
+        x_i += x_j_i;
     }
 
-    // Spec 3.7
-    if big_f.evaluate(&me.scalar()) != ProjectivePoint::GENERATOR * k_i {
+    // Spec 2.5
+    if big_f.evaluate_zero() != big_x {
         return Err(ProtocolError::AssertionFailed(
-            "received bad private share of k".to_string(),
+            "polynomial was not a valid resharing of the private key".to_string(),
+        ));
+    }
+    if big_f.evaluate(&me.scalar()) != ProjectivePoint::GENERATOR * x_i {
+        return Err(ProtocolError::AssertionFailed(
+            "received bad private share of x".to_string(),
         ));
     }
 
-    // Spec 3.8
-    let big_k = big_f.evaluate_zero();
-
-    // Spec 3.9
-    let mut ka = ka_i;
-    let mut db = db_i;
-    let mut xa = xa_i;
-    let mut kb = kb_i;
-
-    // Spec 3.10
-    seen.clear();
-    seen.put(me);
-    while !seen.full() {
-        let (from, (ka_j, db_j, xa_j, kb_j)): (_, (Scalar, Scalar, Scalar, Scalar)) =
-            chan.recv(wait4).await?;
-        if !seen.put(from) {
-            continue;
-        }
-        ka += ka_j;
-        db += db_j;
-        xa += xa_j;
-        kb += kb_j;
-    }
-
-    // Spec 3.11
-    if (ProjectivePoint::GENERATOR * ka != big_k + big_a0)
-        || (ProjectivePoint::GENERATOR * db != big_d + big_b0)
-        || (ProjectivePoint::GENERATOR * xa != big_x + big_a1)
-        || (ProjectivePoint::GENERATOR * kb != big_k + big_b1)
-    {
-        return Err(ProtocolError::AssertionFailed(
-            "received incorrect shares of additive triple phase.".to_string(),
-        ));
-    }
-
-    // Spec 3.12
-    let kd_i = ka * d_i - db * a0_i + c0_i;
-    let l0 = xa * f.evaluate_zero() - kb * a1_i + c1_i;
-
-    // Spec 3.13
-    let wait5 = chan.next_waitpoint();
-    chan.send_many(wait5, &kd_i).await;
-
-    // Spec 3.14
-    let l = Polynomial::extend_random(&mut rng, args.threshold, &l0);
-
-    // Spec 3.15
-    let big_l_i = l.commit();
-
-    // Spec 3.16
-    let pi_i = dlog::prove(
-        &mut rng,
-        &mut transcript.forked(b"dlog2", &me.bytes()),
-        dlog::Statement {
-            public: &big_l_i.evaluate_zero(),
-        },
-        dlog::Witness {
-            x: &l.evaluate_zero(),
-        },
-    );
-
-    // Spec 3.17
-    let wait6 = chan.next_waitpoint();
-    chan.send_many(wait6, &(&big_l_i, pi_i)).await;
-
-    // Spec 3.18
-    let wait7 = chan.next_waitpoint();
-    for p in participants.others(me) {
-        let kx_i_j = l.evaluate(&p.scalar());
-        chan.send_private(wait7, p, &kx_i_j).await;
-    }
-    let kx_i_i = l.evaluate(&me.scalar());
-
-    // Spec 4.1 + 4.2
+    // Spec 2.6 and 2.7
     let mut kd = kd_i;
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, kd_j): (_, Scalar) = chan.recv(wait5).await?;
+        let (from, kd_j): (_, Scalar) = chan.recv(wait2).await?;
         if !seen.put(from) {
             continue;
         }
         kd += kd_j;
     }
 
-    // Spec 4.3
-    if ProjectivePoint::GENERATOR * kd != big_d * ka - big_a0 * db + big_c0 {
+    // Spec 2.8
+    if big_kd != ProjectivePoint::GENERATOR * kd {
         return Err(ProtocolError::AssertionFailed(
-            "kd is not k * d".to_string(),
+            "received incorrect shares of kd".to_string(),
         ));
     }
 
-    // Spec 4.4 + 4.5, and the summation of L from 4.7
+    // Spec 2.9 and 2.10
+    let mut ka = ka_i;
+    let mut xb = xb_i;
     seen.clear();
     seen.put(me);
-    let mut big_l = big_l_i;
     while !seen.full() {
-        let (from, (big_l_j, pi_j)): (_, (GroupPolynomial, dlog::Proof)) = chan.recv(wait6).await?;
+        let (from, (ka_j, xb_j)): (_, (Scalar, Scalar)) = chan.recv(wait3).await?;
         if !seen.put(from) {
             continue;
         }
-        if big_l_j.len() != args.threshold {
-            return Err(ProtocolError::AssertionFailed(format!(
-                "polynomial from {from:?} has the wrong length"
-            )));
-        }
-        if !dlog::verify(
-            &mut transcript.forked(b"dlog2", &from.bytes()),
-            dlog::Statement {
-                public: &big_l_j.evaluate_zero(),
-            },
-            &pi_j,
-        ) {
-            return Err(ProtocolError::AssertionFailed(format!(
-                "dlog proof from {from:?} failed to verify"
-            )));
-        }
-        big_l += big_l_j;
+        ka += ka_j;
+        xb += xb_j;
     }
 
-    // Spec 4.6 + 4.7
-    seen.clear();
-    seen.put(me);
-    let mut kx_i = kx_i_i;
-    while !seen.full() {
-        let (from, kx_i_j): (_, Scalar) = chan.recv(wait7).await?;
-        if !seen.put(from) {
-            continue;
-        }
-        kx_i += kx_i_j;
-    }
-
-    // Spec 4.8
-    if big_l.evaluate(&me.scalar()) != ProjectivePoint::GENERATOR * kx_i {
+    // Spec 2.11
+    if (ProjectivePoint::GENERATOR * ka != big_k + big_a)
+        || (ProjectivePoint::GENERATOR * xb != big_x + big_b)
+    {
         return Err(ProtocolError::AssertionFailed(
-            "received bad private share of kx".to_string(),
+            "received incorrect shares of additive triple phase.".to_string(),
         ));
     }
 
-    // Spec 4.9
-    if big_l.evaluate_zero() != big_k * xa - big_a1 * kb + big_c1 {
-        return Err(ProtocolError::AssertionFailed(
-            "kx is not k * x".to_string(),
-        ));
-    }
+    // Spec 2.12
+    let kd_inv = Into::<Option<Scalar>>::into(kd.invert())
+        .ok_or_else(|| ProtocolError::AssertionFailed("failed to invert kd".to_string()))?;
+    let big_r = (big_d * kd_inv).to_affine();
 
-    // Spec 4.10
-    let big_k = match Option::<Scalar>::from(kd.invert()) {
-        Some(r) => (big_d * r).to_affine(),
-        None => {
-            return Err(ProtocolError::AssertionFailed(
-                "kd is not invertible".to_string(),
-            ))
-        }
-    };
-
-    // Spec 4.11
-    let r = <Scalar as Reduce<U256>>::from_be_bytes_reduced(big_k.x());
-    let sigma_i = r * kx_i;
+    // Spec 2.13
+    let sigma_i = ka * x_i - xb * a_i + c_i;
 
     Ok(PresignOutput {
-        big_k,
+        big_r,
         k: k_i,
         sigma: sigma_i,
     })
@@ -447,9 +231,9 @@ pub fn presign(
     // in order to have shares.
 
     // Also check that we have enough participants to reconstruct shares.
-    if participants.len() < args.triple0.1.threshold.max(args.triple1.1.threshold) {
+    if args.threshold != args.triple0.1.threshold || args.threshold != args.triple1.1.threshold {
         return Err(InitializationError::BadParameters(
-            "not enough participants to reconstruct triple values".to_string(),
+            "New threshold must match the threshold of both triples".to_string(),
         ));
     }
 
@@ -520,10 +304,10 @@ mod test {
         let result = result.unwrap();
 
         assert!(result.len() == 3);
-        assert_eq!(result[0].1.big_k, result[1].1.big_k);
-        assert_eq!(result[1].1.big_k, result[2].1.big_k);
+        assert_eq!(result[0].1.big_r, result[1].1.big_r);
+        assert_eq!(result[1].1.big_r, result[2].1.big_r);
 
-        let big_k = result[2].1.big_k;
+        let big_k = result[2].1.big_r;
 
         let participants = vec![result[0].0, result[1].0];
         let k_shares = vec![result[0].1.k, result[1].1.k];
@@ -534,7 +318,6 @@ mod test {
         assert_eq!(ProjectivePoint::GENERATOR * k.invert().unwrap(), big_k);
         let sigma = p_list.lagrange(participants[0]) * sigma_shares[0]
             + p_list.lagrange(participants[1]) * sigma_shares[1];
-        let r = <Scalar as Reduce<U256>>::from_be_bytes_reduced(big_k.x());
-        assert_eq!(sigma, r * k * f.evaluate_zero());
+        assert_eq!(sigma, k * f.evaluate_zero());
     }
 }
