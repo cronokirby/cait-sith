@@ -115,22 +115,22 @@ $$
 
 **Round 2:**
 
-11. $\bullet$ Each $P_i$ waits to receive $F_j$ from each other $P_j$.
-12. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_ 1$:
+1. $\bullet$ Each $P_i$ waits to receive $F_j$ from each other $P_j$.
+2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_ 1$:
 
 $$
 \text{deg}(F_ j) = t_0 - 1
 $$
 
-13. $\bullet$ Each $P_i$ waits to receive $x_j^i$ from each other party $P_j$.
-14. Each $P_i$ sets $x_ i \gets \sum_{P_ j \in \mathcal{P}_ 1} x^i_ j$ and $F \gets \sum_ {P_ j \in \mathcal{P}_ 1} F_ j$.
-15. $\blacktriangle$ Each $P_i$ *asserts* that $x_i \cdot G = F(i)$ and $F(0) = X$.
-16. $\bullet$ Each $P_i$ waits to receive $\text{kd}_j$ from each other $P_j$.
-17. Each $P_i$ sets $\text{kd} \gets \sum_j \text{kd}_j$.
-18. $\blacktriangle$ Each $P_i$ *asserts* that $\text{kd} \cdot G = \text{KD}$.
-19. $\bullet$ Each $P_i$ waits to receive $\text{ka}_j$ and $\text{xb}_j$ from from every other party $P_j$.
-20. Each $P_i$ sets $\text{ka} \gets \sum_j \text{ka}_j$ and $\text{xb} \gets \sum_j \text{xb}_j$.
-21. $\blacktriangle$ Each $P_i$ asserts that:
+3. $\bullet$ Each $P_i$ waits to receive $x_j^i$ from each other party $P_j$.
+4. Each $P_i$ sets $x_ i \gets \sum_{P_ j \in \mathcal{P}_ 1} x^i_ j$ and $F \gets \sum_ {P_ j \in \mathcal{P}_ 1} F_ j$.
+5. $\blacktriangle$ Each $P_i$ *asserts* that $x_i \cdot G = F(i)$ and $F(0) = X$.
+6. $\bullet$ Each $P_i$ waits to receive $\text{kd}_j$ from each other $P_j$.
+7. Each $P_i$ sets $\text{kd} \gets \sum_j \text{kd}_j$.
+8. $\blacktriangle$ Each $P_i$ *asserts* that $\text{kd} \cdot G = \text{KD}$.
+9. $\bullet$ Each $P_i$ waits to receive $\text{ka}_j$ and $\text{xb}_j$ from from every other party $P_j$.
+10. Each $P_i$ sets $\text{ka} \gets \sum_j \text{ka}_j$ and $\text{xb} \gets \sum_j \text{xb}_j$.
+11. $\blacktriangle$ Each $P_i$ asserts that:
 
 $$
 \begin{aligned}
@@ -139,8 +139,8 @@ $$
 \end{aligned}
 $$
 
-22. Each $P_i$ sets: $R \gets \frac{1}{\text{kd}} \cdot D$.
-23. Each $P_i$ sets $\sigma_i \gets \text{ka} \cdot x_i + \text{xb} \cdot a_i + c_i$, which is already threshold shared.
+12. Each $P_i$ sets: $R \gets \frac{1}{\text{kd}} \cdot D$.
+13. Each $P_i$ sets $\sigma_i \gets \text{ka} \cdot x_i + \text{xb} \cdot a_i + c_i$, which is already threshold shared.
 
 **Output:**
 The output is the presignature $(R, k, \sigma)$, with $k$ and $\sigma$
