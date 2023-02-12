@@ -93,10 +93,8 @@ The goal of the extended oblivious transfer protocol is for two parties
 to extend their joint setup, and use that setup to generate $\kappa$ oblivious
 transfers, using fast symmetric key primitives.
 
-We use the [KOS15](https://eprint.iacr.org/archive/2015/546/1433798896) protocol.
-Note that we use the "original" version of the paper,
-and not the amended version using SoftspokenOT, following
-the recent analysis of [Diamond22](https://eprint.iacr.org/2022/1371).
+We use the [KOS15](https://eprint.iacr.org/2015/546),
+specifically, the amended version using SoftspokenOT.
 
 ## Correlated OT Extension
 
@@ -149,31 +147,29 @@ $\Delta_i$ and $K_{ij}^{\Delta_i}$ from that same setup.
 
 This protocol is also parameterized by a unique session id $\text{sid}$
 
-1. $\mathcal{R}$ generates $s_ {\mathcal{R}} \xleftarrow{R} \mathbb{F}_ 2^\lambda$,
-and sets $\text{Com}_ {\mathcal{R}} \gets H(s_ {\mathcal{R}})$.
-2. $\mathcal{S}$ generates $s_ {\mathcal{S}} \xleftarrow{R} \mathbb{F}_ 2^\lambda$,
-and sets $\text{Com}_ {\mathcal{S}} \gets H(s_ {\mathcal{S}})$.
-3. $\star$ $\mathcal{R}$ sends $\text{Com}_ {\mathcal{R}}$ to $\mathcal{S}$,
-and $\mathcal{S}$ sends $\text{Com}_ {\mathcal{S}}$ to $\mathcal{R}$.
-4. $\bullet$ The parties wait to receive these values.
-5. $\mathcal{R}$ generates a random vector $b_ i \in \mathbb{F}_ 2$, with $i \in [\kappa']$, and sets $X_ {ij} \gets b_ i 1_ j$. Where $1_ j$ is a vector filled with $\lambda$ ones.
-6. $\mathcal{R}$ and $\mathcal{S}$ run `Correlated-OT-Extension`, with batch size $\kappa'$, and session id $\text{sid}$ with $\mathcal{R}$
+1. $\mathcal{R}$ generates a random vector $b_ i \in \mathbb{F}_ 2$, with $i \in [\kappa']$, and sets $X_ {ij} \gets b_ i 1_ j$. Where $1_ j$ is a vector filled with $\lambda$ ones.
+2. $\mathcal{R}$ and $\mathcal{S}$ run `Correlated-OT-Extension`, with batch size $\kappa'$, and session id $\text{sid}$ with $\mathcal{R}$
 using $X_{ij}$ as its input.
 The parties receive $T_{ij}$ and $Q_{ij}$ respectively.
-7. $\star$ Each party $P$ sends $s_{P}$ to the other party.
-8. $\bullet$ Each party waits to receive $s_{P}$, and checks
-that $\text{Com}_{P} = H(s_P)$.
-9. The parties set $s \gets s_{\mathcal{R}} + s_{\mathcal{S}}$, using a
-PRG, the parties set $\chi_0, \ldots, \chi_\kappa' \gets \text{PRG}(s)$,
+3. $\mathcal{S}$ samples $s \xleftarrow{R} \mathbb{F}_2^\lambda$.
+4. $\star$ $\mathcal{S}$ sends $s$ to $\mathcal{R}
+5. $\bullet$ $\mathcal{R}$ waits to receive $s$.
+6. Let $\mu \gets \lceil \kappa' / \lambda \rceil$,
+then, the parties set $\hat{T}_{ij}$, $\hat{b}_i$, $\hat{Q}_{ij}$,
+with $i \in [\mu]$, $j \in [\lambda]$ by grouping adjacent bits
+into elements of the field $\mathbb{F}_{2^\lambda}$.
+
+5. The parties use a
+PRG to set $\chi_1, \ldots, \chi_\mu \gets \text{PRG}(s)$,
 where $\chi_i \in \mathbb{F}_{2^\lambda}$.
-10. $\mathcal{R}$ computes $x \gets \langle b_j, \chi_j\rangle$,
-and $t \gets \langle \text{mul}(T_{i \bullet}, \chi_i), 1_i\rangle$.
-11. $\star$ $\mathcal{R}$ sends $x$ and $t$ to $\mathcal{S}$.
-12. $\mathcal{S}$ calculates $q \gets \langle \text{mul}(Q_{i\bullet}, \chi_i), 1_i \rangle$.
-12. $\bullet$ $\mathcal{S}$ waits to receive $x$ and $t$, and checks that
-$q = t + \text{mul}(x, \Delta)$.
-13. $\mathcal{S}$ sets $v^0_i \gets H_i(Q_{i\bullet})$ and $v^1_i \gets H_i(Q_{i \bullet} + \Delta_\bullet)$, for $i \in [\kappa]$
-14. $\mathcal{R}$ sets $v^{b_ i}_ i \gets H_ i(T_ {i\bullet})$, for $i \in [\kappa]$
+6. $\mathcal{R}$ computes $x \gets \langle \hat{b}_i, \chi_i\rangle$,
+and $t_j \gets \langle \text{mul}(T_{i j}, \chi_i), 1_i\rangle$.
+7. $\star$ $\mathcal{R}$ sends $x$ and $t_1, \ldots, t_{\lambda}$ to $\mathcal{S}$.
+8. $\mathcal{S}$ calculates $q_i \gets \langle \text{mul}(Q_{ij}, \chi_i), 1_i \rangle$.
+9. $\bullet$ $\mathcal{S}$ waits to receive $x$ and $t_j$, and checks that
+$q_j = t_j + \Delta_j \cdot x$.
+10. $\mathcal{S}$ sets $v^0_i \gets H_i(Q_{i\bullet})$ and $v^1_i \gets H_i(Q_{i \bullet} + \Delta_\bullet)$, for $i \in [\kappa]$
+11. $\mathcal{R}$ sets $v^{b_ i}_ i \gets H_ i(T_ {i\bullet})$, for $i \in [\kappa]$
 
 # Multiplicative to Additive Conversion
 
