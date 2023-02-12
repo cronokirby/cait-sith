@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::{
-    bits::{random_choices, BitMatrix, BitVector, DoubleBitVector, SquareBitMatrix},
+    bits::{BitMatrix, BitVector, ChoiceVector, DoubleBitVector, SquareBitMatrix},
     correlated_ot_extension::{correlated_ot_receiver, correlated_ot_sender, CorrelatedOtParams},
 };
 
@@ -149,10 +149,10 @@ pub async fn random_ot_extension_receiver(
     let adjusted_size = adjust_size(params.batch_size);
 
     // Step 5
-    let b = random_choices(&mut OsRng, adjusted_size);
+    let b = ChoiceVector::random(&mut OsRng, adjusted_size);
     let x: BitMatrix = b
-        .iter()
-        .map(|b_i| BitVector::conditional_select(&BitVector::zero(), &!BitVector::zero(), *b_i))
+        .bits()
+        .map(|b_i| BitVector::conditional_select(&BitVector::zero(), &!BitVector::zero(), b_i))
         .collect();
 
     // Step 6
@@ -193,8 +193,8 @@ pub async fn random_ot_extension_receiver(
 
     // Step 10
     let mut x = BitVector::zero();
-    for (b_j, chi_j) in b.iter().zip(chi.iter()) {
-        x.conditional_assign(&(x ^ chi_j), *b_j);
+    for (b_j, chi_j) in b.bits().zip(chi.iter()) {
+        x.conditional_assign(&(x ^ chi_j), b_j);
     }
     let mut small_t = DoubleBitVector::zero();
     for (t_j, chi_j) in t.rows().zip(chi.iter()) {
@@ -207,11 +207,11 @@ pub async fn random_ot_extension_receiver(
 
     // Step 15
     let out: Vec<_> = b
-        .iter()
+        .bits()
         .zip(t.rows())
         .take(params.batch_size)
         .enumerate()
-        .map(|(i, (b_i, t_i))| (*b_i, hash_to_scalar(i, t_i)))
+        .map(|(i, (b_i, t_i))| (b_i, hash_to_scalar(i, t_i)))
         .collect();
 
     Ok(out)

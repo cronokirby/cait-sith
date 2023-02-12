@@ -9,22 +9,6 @@ use crate::constants::SECURITY_PARAMETER;
 pub const SEC_PARAM_64: usize = (SECURITY_PARAMETER + 64 - 1) / 64;
 pub const SEC_PARAM_8: usize = (SECURITY_PARAMETER + 8 - 1) / 8;
 
-/// Create a random vector of choices, of a certain size.
-pub fn random_choices(rng: &mut impl CryptoRngCore, size: usize) -> Vec<Choice> {
-    let mut out = Vec::with_capacity(size);
-    let mut buf = 0u64;
-    let mut i = 64;
-    for _ in 0..size {
-        if i >= 64 {
-            buf = rng.next_u64();
-            i = 0;
-        }
-        out.push(Choice::from(((buf >> i) & 1) as u8));
-        i += 1;
-    }
-    out
-}
-
 /// Represents a vector of bits.
 ///
 /// This vector will have the size of our security parameter, which is useful
@@ -312,6 +296,39 @@ impl SquareBitMatrix {
         }
 
         out
+    }
+}
+
+/// A choice vector holds an arbitrary number of choice bits.
+///
+/// This vector must always be non-empty.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChoiceVector {
+    size: usize,
+    data: Vec<u64>,
+}
+
+impl ChoiceVector {
+    /// Generate a random vector with a certain number of bits.
+    pub fn random(rng: &mut impl CryptoRngCore, size: usize) -> Self {
+        assert!(size > 0);
+        let adjusted_size = (size + 64 - 1) / 64;
+
+        let data = (0..adjusted_size).map(|_| rng.next_u64()).collect();
+
+        Self { size, data }
+    }
+
+    /// Iterate over the bits in this vector.
+    pub fn bits(&self) -> impl Iterator<Item = Choice> + '_ {
+        let remaining = 64 - (64 * self.data.len() - self.size);
+        // Unwrapping is fine, because data is not empty.
+        let (last, start) = self.data.split_last().unwrap();
+        let start_bits = start
+            .iter()
+            .flat_map(|x| (0..64).map(move |i| Choice::from(((x >> i) & 1) as u8)));
+        let last_bits = (0..remaining).map(move |i| Choice::from(((last >> i) & 1) as u8));
+        start_bits.chain(last_bits)
     }
 }
 
