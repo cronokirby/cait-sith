@@ -165,7 +165,7 @@ where $\chi_i \in \mathbb{F}_{2^\lambda}$.
 8. $\mathcal{R}$ computes $x \gets \langle \hat{b}_ i, \chi_ i \rangle$,
 and $t_ j \gets \langle \text{mul}(\hat{T}_ {i j}, \chi_i), 1_ i\rangle$.
 9. $\star$ $\mathcal{R}$ sends $x$ and $t_ 1, \ldots, t_ {\lambda}$ to $\mathcal{S}$.
-10. $\mathcal{S}$ calculates $q_i \gets \langle \text{mul}(\hat{Q}_{ij}, \chi_i), 1_i \rangle$.
+10. $\mathcal{S}$ calculates $q_j \gets \langle \text{mul}(\hat{Q}_{ij}, \chi_i), 1_i \rangle$.
 11. $\bullet$ $\mathcal{S}$ waits to receive $x$ and $t_j$, and checks that
 $q_j = t_j + \Delta_j \cdot x$.
 12. $\mathcal{S}$ sets $v^0_i \gets H_i(Q_{i\bullet})$ and $v^1_i \gets H_i(Q_{i \bullet} + \Delta_\bullet)$, for $i \in [\kappa]$

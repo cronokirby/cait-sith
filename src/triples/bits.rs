@@ -30,6 +30,12 @@ impl BitVector {
         Self(out)
     }
 
+    /// Get a specific bit from the vector.
+    #[inline(always)]
+    pub fn bit(&self, j: usize) -> u64 {
+        (self.0[j / 64] >> (j % 64)) & 1
+    }
+
     pub fn from_bytes(bytes: &[u8; SEC_PARAM_8]) -> Self {
         let u64s = bytes
             .chunks_exact(8)
@@ -166,6 +172,16 @@ impl DoubleBitVector {
     }
 }
 
+impl ConditionallySelectable for DoubleBitVector {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+        let mut out = [0u64; 2 * SEC_PARAM_64];
+        for ((o_i, a_i), b_i) in out.iter_mut().zip(a.0.iter()).zip(b.0.iter()) {
+            *o_i = u64::conditional_select(a_i, b_i, choice);
+        }
+        Self(out)
+    }
+}
+
 impl ConstantTimeEq for DoubleBitVector {
     fn ct_eq(&self, other: &Self) -> Choice {
         let mut out = Choice::from(1);
@@ -192,8 +208,11 @@ const PRG_CTX: &[u8] = b"cait-sith v0.1.0 correlated OT PRG";
 pub struct BitMatrix(Vec<BitVector>);
 
 impl BitMatrix {
-    /// Create a random matrix of a certain height.
+    /// Create a random matrix of a certain chunk size.
+    ///
+    /// Each chunk will have a security parameter's worth of rows.
     pub fn random(rng: &mut impl CryptoRngCore, height: usize) -> Self {
+        assert!(height % SECURITY_PARAMETER == 0);
         Self((0..height).map(|_| BitVector::random(rng)).collect())
     }
 
@@ -210,6 +229,17 @@ impl BitMatrix {
     /// Iterate over the rows of this matrix.
     pub fn rows(&self) -> impl Iterator<Item = &BitVector> {
         self.0.iter()
+    }
+
+    /// Iterate over a given column in chunks.
+    pub fn column_chunks(&self, j: usize) -> impl Iterator<Item = BitVector> + '_ {
+        self.0.chunks_exact(SECURITY_PARAMETER).map(move |chunk| {
+            let mut out = BitVector::zero();
+            for (i, c_i) in chunk.iter().enumerate() {
+                out.0[i / 64] |= c_i.bit(j) << (i % 64);
+            }
+            out
+        })
     }
 
     /// Modify this matrix by xoring it with another.
@@ -258,7 +288,7 @@ impl TryFrom<BitMatrix> for SquareBitMatrix {
     type Error = ();
 
     fn try_from(matrix: BitMatrix) -> Result<Self, Self::Error> {
-        if matrix.0.len() != SECURITY_PARAMETER {
+        if matrix.height() != SECURITY_PARAMETER {
             return Err(());
         }
         Ok(Self { matrix })
@@ -266,9 +296,11 @@ impl TryFrom<BitMatrix> for SquareBitMatrix {
 }
 
 impl SquareBitMatrix {
-    /// Expand transpose expands each row to contain `rows` bits, and then transposes
+    /// Expand transpose expands each row to contain `chunks * SECURITY_PARAMETER` bits, and then transposes
     /// the resulting matrix.
     pub fn expand_transpose(&self, sid: &[u8], rows: usize) -> BitMatrix {
+        assert!(rows % SECURITY_PARAMETER == 0);
+
         let mut meow = Meow::new(PRG_CTX);
         meow.meta_ad(b"sid", false);
         meow.ad(sid, false);
@@ -303,32 +335,29 @@ impl SquareBitMatrix {
 ///
 /// This vector must always be non-empty.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ChoiceVector {
-    size: usize,
-    data: Vec<u64>,
-}
+pub struct ChoiceVector(Vec<BitVector>);
 
 impl ChoiceVector {
     /// Generate a random vector with a certain number of bits.
     pub fn random(rng: &mut impl CryptoRngCore, size: usize) -> Self {
-        assert!(size > 0);
-        let adjusted_size = (size + 64 - 1) / 64;
+        assert!(size > 0 && size % SECURITY_PARAMETER == 0);
 
-        let data = (0..adjusted_size).map(|_| rng.next_u64()).collect();
+        let data = (0..(size / SECURITY_PARAMETER)).map(|_| BitVector::random(rng)).collect();
 
-        Self { size, data }
+        Self(data)
     }
 
     /// Iterate over the bits in this vector.
     pub fn bits(&self) -> impl Iterator<Item = Choice> + '_ {
-        let remaining = 64 - (64 * self.data.len() - self.size);
-        // Unwrapping is fine, because data is not empty.
-        let (last, start) = self.data.split_last().unwrap();
-        let start_bits = start
-            .iter()
-            .flat_map(|x| (0..64).map(move |i| Choice::from(((x >> i) & 1) as u8)));
-        let last_bits = (0..remaining).map(move |i| Choice::from(((last >> i) & 1) as u8));
-        start_bits.chain(last_bits)
+        self.0.iter().flat_map(|v| v.bits())
+    }
+
+    /// Iterate over bitvector chunks from this vector.
+    ///
+    /// If the size of this vector is not evenly divided into chunks,
+    /// then the last bitvector will be padded with 0s up until the MSB.
+    pub fn chunks(&self) -> impl Iterator<Item = &BitVector> {
+        self.0.iter()
     }
 }
 
