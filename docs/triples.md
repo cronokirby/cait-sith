@@ -150,26 +150,26 @@ This protocol is also parameterized by a unique session id $\text{sid}$
 1. $\mathcal{R}$ generates a random vector $b_ i \in \mathbb{F}_ 2$, with $i \in [\kappa']$, and sets $X_ {ij} \gets b_ i 1_ j$. Where $1_ j$ is a vector filled with $\lambda$ ones.
 2. $\mathcal{R}$ and $\mathcal{S}$ run `Correlated-OT-Extension`, with batch size $\kappa'$, and session id $\text{sid}$ with $\mathcal{R}$
 using $X_{ij}$ as its input.
-The parties receive $T_{ij}$ and $Q_{ij}$ respectively.
+The parties receive $T_ {ij}$ and $Q_ {ij}$ respectively.
 3. $\mathcal{S}$ samples $s \xleftarrow{R} \mathbb{F}_2^\lambda$.
 4. $\star$ $\mathcal{S}$ sends $s$ to $\mathcal{R}
 5. $\bullet$ $\mathcal{R}$ waits to receive $s$.
 6. Let $\mu \gets \lceil \kappa' / \lambda \rceil$,
-then, the parties set $\hat{T}_{ij}$, $\hat{b}_i$, $\hat{Q}_{ij}$,
+then, the parties set $\hat{T}_ {ij}$, $\hat{b}_ i$, $\hat{Q}_ {ij}$,
 with $i \in [\mu]$, $j \in [\lambda]$ by grouping adjacent bits
-into elements of the field $\mathbb{F}_{2^\lambda}$.
+into elements of the field $\mathbb{F}_ {2^\lambda}$.
 
-5. The parties use a
+7. The parties use a
 PRG to set $\chi_1, \ldots, \chi_\mu \gets \text{PRG}(s)$,
 where $\chi_i \in \mathbb{F}_{2^\lambda}$.
-6. $\mathcal{R}$ computes $x \gets \langle \hat{b}_i, \chi_i\rangle$,
-and $t_j \gets \langle \text{mul}(T_{i j}, \chi_i), 1_i\rangle$.
-7. $\star$ $\mathcal{R}$ sends $x$ and $t_1, \ldots, t_{\lambda}$ to $\mathcal{S}$.
-8. $\mathcal{S}$ calculates $q_i \gets \langle \text{mul}(Q_{ij}, \chi_i), 1_i \rangle$.
-9. $\bullet$ $\mathcal{S}$ waits to receive $x$ and $t_j$, and checks that
+8. $\mathcal{R}$ computes $x \gets \langle \hat{b}_ i, \chi_ i \rangle$,
+and $t_ j \gets \langle \text{mul}(T_ {i j}, \chi_i), 1_ i\rangle$.
+9. $\star$ $\mathcal{R}$ sends $x$ and $t_ 1, \ldots, t_ {\lambda}$ to $\mathcal{S}$.
+10. $\mathcal{S}$ calculates $q_i \gets \langle \text{mul}(Q_{ij}, \chi_i), 1_i \rangle$.
+11. $\bullet$ $\mathcal{S}$ waits to receive $x$ and $t_j$, and checks that
 $q_j = t_j + \Delta_j \cdot x$.
-10. $\mathcal{S}$ sets $v^0_i \gets H_i(Q_{i\bullet})$ and $v^1_i \gets H_i(Q_{i \bullet} + \Delta_\bullet)$, for $i \in [\kappa]$
-11. $\mathcal{R}$ sets $v^{b_ i}_ i \gets H_ i(T_ {i\bullet})$, for $i \in [\kappa]$
+12. $\mathcal{S}$ sets $v^0_i \gets H_i(Q_{i\bullet})$ and $v^1_i \gets H_i(Q_{i \bullet} + \Delta_\bullet)$, for $i \in [\kappa]$
+13. $\mathcal{R}$ sets $v^{b_ i}_ i \gets H_ i(T_ {i\bullet})$, for $i \in [\kappa]$
 
 # Multiplicative to Additive Conversion
 
