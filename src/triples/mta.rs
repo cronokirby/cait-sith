@@ -1,6 +1,7 @@
 use k256::Scalar;
-use rand_core::OsRng;
-use subtle::Choice;
+use magikitten::MeowRng;
+use rand_core::{OsRng, RngCore};
+use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable};
 
 use crate::protocol::{
     internal::{make_protocol, Context, PrivateChannel},
@@ -13,13 +14,35 @@ pub async fn mta_sender(
     v: &[(Scalar, Scalar)],
     a: Scalar,
 ) -> Result<Scalar, ProtocolError> {
+    let size = v.len();
+
+    // Step 1
+    let delta: Vec<_> = (0..size)
+        .map(|_| Scalar::generate_biased(&mut OsRng))
+        .collect();
+
+    // Step 2
+    let c: Vec<_> = delta
+        .iter()
+        .zip(v.iter())
+        .map(|(delta_i, (v0_i, v1_i))| (v0_i + delta_i + a, v1_i + delta_i - a))
+        .collect();
     let wait0 = chan.next_waitpoint();
-    chan.send(wait0, &a).await;
+    chan.send(wait0, &c).await;
 
+    // Step 7
     let wait1 = chan.next_waitpoint();
-    let alpha: Scalar = chan.recv(wait1).await?;
+    let (chi1, seed): (Scalar, [u8; 32]) = chan.recv(wait1).await?;
 
-    Ok(alpha)
+    let mut alpha = delta[0] * chi1;
+
+    let mut prng = MeowRng::new(&seed);
+    for delta_i in &delta[1..] {
+        let chi_i = Scalar::generate_biased(&mut prng);
+        alpha += delta_i * &chi_i;
+    }
+
+    Ok(-alpha)
 }
 
 /// The receiver for multiplicative to additive conversion.
@@ -28,13 +51,45 @@ pub async fn mta_receiver(
     tv: &[(Choice, Scalar)],
     b: Scalar,
 ) -> Result<Scalar, ProtocolError> {
-    let wait0 = chan.next_waitpoint();
-    let a: Scalar = chan.recv(wait0).await?;
+    let size = tv.len();
 
-    let beta = Scalar::generate_biased(&mut OsRng);
-    let alpha = a * b - beta;
+    // Step 3
+    let wait0 = chan.next_waitpoint();
+    let c: Vec<(Scalar, Scalar)> = chan.recv(wait0).await?;
+    if c.len() != tv.len() {
+        return Err(ProtocolError::AssertionFailed(
+            "length of c was incorrect".to_owned(),
+        ));
+    }
+    let mut m = tv
+        .iter()
+        .zip(c.iter())
+        .map(|((t_i, v_i), (c0_i, c1_i))| Scalar::conditional_select(c0_i, c1_i, *t_i) - v_i);
+
+    // Step 4
+    let mut seed = [0u8; 32];
+    OsRng.fill_bytes(&mut seed);
+    let mut prng = MeowRng::new(&seed);
+    let chi: Vec<Scalar> = (1..size)
+        .map(|_| Scalar::generate_biased(&mut prng))
+        .collect();
+
+    let mut chi1 = Scalar::ZERO;
+    for ((t_i, _), chi_i) in tv.iter().skip(1).zip(chi.iter()) {
+        chi1 += Scalar::conditional_select(chi_i, &(-chi_i), *t_i);
+    }
+    chi1 = b - chi1;
+    chi1.conditional_negate(tv[0].0);
+
+    // Step 5
+    let mut beta = chi1 * m.next().unwrap();
+    for (chi_i, m_i) in chi.iter().zip(m) {
+        beta += chi_i * &m_i;
+    }
+
+    // Step 6
     let wait1 = chan.next_waitpoint();
-    chan.send(wait1, &alpha).await;
+    chan.send(wait1, &(chi1, seed)).await;
 
     Ok(beta)
 }
