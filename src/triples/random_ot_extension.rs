@@ -44,8 +44,8 @@ fn adjust_size(size: usize) -> usize {
 /// Parameters we need for random OT extension
 #[derive(Debug, Clone, Copy)]
 pub struct RandomOtExtensionParams<'sid> {
-    sid: &'sid [u8],
-    batch_size: usize,
+    pub sid: &'sid [u8],
+    pub batch_size: usize,
 }
 
 /// The result that the sender gets.

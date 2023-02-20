@@ -77,6 +77,7 @@ mod batch_random_ot;
 mod bits;
 mod correlated_ot_extension;
 mod random_ot_extension;
+mod multiplication;
 mod mta;
 mod triple_setup;
 

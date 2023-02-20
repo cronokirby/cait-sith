@@ -30,7 +30,7 @@ pub enum SingleSetup {
 /// This consists of a single setup for each other party in a list of participants.
 #[derive(Debug, Clone)]
 pub struct Setup {
-    setups: HashMap<Participant, SingleSetup>,
+    pub setups: HashMap<Participant, SingleSetup>,
 }
 
 impl Setup {

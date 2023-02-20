@@ -11,7 +11,7 @@ use crate::protocol::{
 /// The sender for multiplicative to additive conversion.
 pub async fn mta_sender(
     mut chan: PrivateChannel,
-    v: &[(Scalar, Scalar)],
+    v: Vec<(Scalar, Scalar)>,
     a: Scalar,
 ) -> Result<Scalar, ProtocolError> {
     let size = v.len();
@@ -48,7 +48,7 @@ pub async fn mta_sender(
 /// The receiver for multiplicative to additive conversion.
 pub async fn mta_receiver(
     mut chan: PrivateChannel,
-    tv: &[(Choice, Scalar)],
+    tv: Vec<(Choice, Scalar)>,
     b: Scalar,
 ) -> Result<Scalar, ProtocolError> {
     let size = tv.len();
@@ -96,8 +96,8 @@ pub async fn mta_receiver(
 
 /// Run the multiplicative to additive protocol
 pub(crate) fn run_mta(
-    (v, a): (&[(Scalar, Scalar)], Scalar),
-    (tv, b): (&[(Choice, Scalar)], Scalar),
+    (v, a): (Vec<(Scalar, Scalar)>, Scalar),
+    (tv, b): (Vec<(Choice, Scalar)>, Scalar),
 ) -> Result<(Scalar, Scalar), ProtocolError> {
     let s = Participant::from(0u32);
     let r = Participant::from(1u32);
@@ -148,7 +148,7 @@ mod test {
 
         let a = Scalar::generate_biased(&mut OsRng);
         let b = Scalar::generate_biased(&mut OsRng);
-        let (alpha, beta) = run_mta((&v, a), (&tv, b))?;
+        let (alpha, beta) = run_mta((v, a), (tv, b))?;
 
         assert_eq!(a * b, alpha + beta);
 
