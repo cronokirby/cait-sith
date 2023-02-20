@@ -9,7 +9,7 @@ use crate::{math::Polynomial, protocol::Participant};
 /// This contains commitments to each part of the triple.
 ///
 /// We also record who participated in the protocol,
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct TriplePub {
     pub big_a: AffinePoint,
     pub big_b: AffinePoint,
@@ -77,8 +77,10 @@ mod batch_random_ot;
 mod bits;
 mod correlated_ot_extension;
 mod random_ot_extension;
+mod generation;
 mod multiplication;
 mod mta;
 mod triple_setup;
 
 pub use triple_setup::{Setup, SingleSetup, setup};
+pub use generation::{generate_triple, TripleGenerationOutput};

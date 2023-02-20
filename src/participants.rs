@@ -83,6 +83,12 @@ impl ParticipantList {
     }
 }
 
+impl Into<Vec<Participant>> for ParticipantList {
+    fn into(self) -> Vec<Participant> {
+        self.participants
+    }
+}
+
 /// A map from participants to elements.
 ///
 /// The idea is that you have one element for each participant.

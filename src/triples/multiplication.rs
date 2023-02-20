@@ -3,6 +3,7 @@ use k256::{Scalar, Secp256k1};
 
 use crate::{
     constants::SECURITY_PARAMETER,
+    crypto::Commitment,
     participants::{self, ParticipantList},
     protocol::{
         internal::{Context, PrivateChannel},
@@ -24,7 +25,7 @@ const BATCH_SIZE: usize = <<Secp256k1 as Curve>::UInt as Encoding>::BIT_SIZE + S
 pub async fn multiplication_sender<'a>(
     ctx: Context<'a>,
     chan: PrivateChannel,
-    sid: &'a [u8],
+    sid: &[u8],
     delta: &BitVector,
     k: &SquareBitMatrix,
     a_i: &Scalar,
@@ -57,7 +58,7 @@ pub async fn multiplication_sender<'a>(
 pub async fn multiplication_receiver<'a>(
     ctx: Context<'a>,
     chan: PrivateChannel,
-    sid: &'a [u8],
+    sid: &[u8],
     k0: &SquareBitMatrix,
     k1: &SquareBitMatrix,
     a_i: &Scalar,
@@ -89,7 +90,7 @@ pub async fn multiplication_receiver<'a>(
 
 pub async fn multiplication<'a>(
     ctx: Context<'a>,
-    sid: &'a [u8],
+    sid: Commitment,
     me: Participant,
     setup: Setup,
     a_i: Scalar,
@@ -103,10 +104,10 @@ pub async fn multiplication<'a>(
             async move {
                 match single_setup {
                     super::SingleSetup::Sender(delta, k) => {
-                        multiplication_sender(ctx, chan, sid, &delta, &k, &a_i, &b_i).await
+                        multiplication_sender(ctx, chan, sid.as_ref(), &delta, &k, &a_i, &b_i).await
                     }
                     super::SingleSetup::Receiver(k0, k1) => {
-                        multiplication_receiver(ctx, chan, sid, &k0, &k1, &a_i, &b_i).await
+                        multiplication_receiver(ctx, chan, sid.as_ref(), &k0, &k1, &a_i, &b_i).await
                     }
                 }
             }
@@ -126,6 +127,7 @@ mod test {
     use rand_core::OsRng;
 
     use crate::{
+        crypto::{commit, Commitment},
         protocol::{
             internal::{make_protocol, Context},
             run_protocol, Participant, Protocol, ProtocolError,
@@ -173,9 +175,11 @@ mod test {
         let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = Scalar>>)> =
             Vec::with_capacity(prep.len());
 
+        let sid = commit(b"sid");
+
         for (p, setup, a_i, b_i) in prep {
             let ctx = Context::new();
-            let prot = make_protocol(ctx.clone(), multiplication(ctx, b"sid", p, setup, a_i, b_i));
+            let prot = make_protocol(ctx.clone(), multiplication(ctx, sid, p, setup, a_i, b_i));
             protocols.push((p, Box::new(prot)))
         }
 
