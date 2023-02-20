@@ -78,3 +78,4 @@ mod bits;
 mod correlated_ot_extension;
 mod random_ot_extension;
 mod mta;
+mod triple_setup;
