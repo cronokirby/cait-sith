@@ -4,12 +4,26 @@ use cait_sith::{
     keygen, presign,
     protocol::{run_protocol, Participant, Protocol},
     sign,
-    triples::{self, TriplePub, TripleShare},
+    triples::{self, setup, Setup, TriplePub, TripleShare},
     FullSignature, KeygenOutput, PresignArguments, PresignOutput,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use k256::AffinePoint;
 use rand_core::OsRng;
+
+fn run_setup(participants: Vec<Participant>) -> Vec<(Participant, Setup)> {
+    let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = Setup>>)> =
+        Vec::with_capacity(participants.len());
+
+    for p in participants.iter() {
+        let protocol = setup(&participants, *p);
+        assert!(protocol.is_ok());
+        let protocol = protocol.unwrap();
+        protocols.push((*p, Box::new(protocol)));
+    }
+
+    run_protocol(protocols).unwrap()
+}
 
 fn run_keygen(
     participants: Vec<Participant>,
@@ -95,6 +109,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         Participant::from(2u32),
     ];
     let t = 3;
+
+    c.bench_function("setup 3", |b| b.iter(|| run_setup(participants.clone())));
 
     c.bench_function("keygen (3,3)", |b| {
         b.iter(|| run_keygen(black_box(participants.clone()), black_box(t)))

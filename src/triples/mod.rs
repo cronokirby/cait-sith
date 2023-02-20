@@ -79,3 +79,5 @@ mod correlated_ot_extension;
 mod random_ot_extension;
 mod mta;
 mod triple_setup;
+
+pub use triple_setup::{Setup, SingleSetup, setup};

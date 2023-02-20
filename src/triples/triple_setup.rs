@@ -1,8 +1,17 @@
 use std::collections::HashMap;
 
-use crate::{participants::ParticipantList, protocol::Participant};
+use crate::{
+    participants::ParticipantList,
+    protocol::{
+        internal::{make_protocol, Context, PrivateChannel},
+        InitializationError, Participant, ProtocolError, Protocol,
+    },
+};
 
-use super::bits::{BitVector, SquareBitMatrix};
+use super::{
+    batch_random_ot::{batch_random_ot_receiver, batch_random_ot_sender},
+    bits::{BitVector, SquareBitMatrix},
+};
 
 /// Represents a single setup, allowing for random OT extensions later.
 ///
@@ -33,4 +42,70 @@ impl Setup {
             .others(me)
             .all(|p| self.setups.contains_key(&p))
     }
+}
+
+async fn do_sender(
+    ctx: Context<'_>,
+    mut chan: PrivateChannel,
+) -> Result<SingleSetup, ProtocolError> {
+    let (delta, k) = batch_random_ot_receiver(ctx, chan).await?;
+    Ok(SingleSetup::Sender(delta, k))
+}
+
+async fn do_receiver(
+    ctx: Context<'_>,
+    mut chan: PrivateChannel,
+) -> Result<SingleSetup, ProtocolError> {
+    let (k0, k1) = batch_random_ot_sender(ctx, chan).await?;
+    Ok(SingleSetup::Receiver(k0, k1))
+}
+
+async fn do_setup(
+    ctx: Context<'_>,
+    participants: ParticipantList,
+    me: Participant,
+) -> Result<Setup, ProtocolError> {
+    let mut tasks = Vec::with_capacity(participants.len() - 1);
+    for p in participants.others(me) {
+        let fut = {
+            let ctx = ctx.clone();
+            async move {
+                let chan = ctx.private_channel(me, p);
+                if me < p {
+                    do_sender(ctx, chan).await
+                } else {
+                    do_receiver(ctx, chan).await
+                }
+            }
+        };
+        tasks.push((p, ctx.spawn(fut)));
+    }
+    let mut setups = HashMap::new();
+    for (p, task) in tasks {
+        let setup = ctx.run(task).await?;
+        setups.insert(p, setup);
+    }
+    Ok(Setup { setups })
+}
+
+/// Runs a setup protocol among all participants, to prepare for triple generation later.
+/// 
+/// This only needs to be one once, in order to generate an arbitrary number of triples.
+pub fn setup(
+    participants: &[Participant],
+    me: Participant,
+) -> Result<impl Protocol<Output = Setup>, InitializationError> {
+    let participants = ParticipantList::new(participants).ok_or_else(|| {
+        InitializationError::BadParameters("participant list cannot contain duplicates".to_string())
+    })?;
+
+    if !participants.contains(me) {
+        return Err(InitializationError::BadParameters(
+            "participant list must contain this participant".to_string(),
+        ));
+    }
+
+    let ctx = Context::new();
+    let fut = do_setup(ctx.clone(), participants, me);
+    Ok(make_protocol(ctx, fut))
 }
