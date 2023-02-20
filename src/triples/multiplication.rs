@@ -91,22 +91,22 @@ pub async fn multiplication<'a>(
     ctx: Context<'a>,
     sid: &'a [u8],
     me: Participant,
-    setup: &'a Setup,
+    setup: Setup,
     a_i: Scalar,
     b_i: Scalar,
 ) -> Result<Scalar, ProtocolError> {
     let mut tasks = Vec::with_capacity(setup.setups.len());
-    for (p, single_setup) in setup.setups.iter() {
+    for (p, single_setup) in setup.setups.into_iter() {
         let fut = {
             let ctx = ctx.clone();
-            let chan = ctx.private_channel(me, *p);
+            let chan = ctx.private_channel(me, p);
             async move {
                 match single_setup {
                     super::SingleSetup::Sender(delta, k) => {
-                        multiplication_sender(ctx, chan, sid, delta, k, &a_i, &b_i).await
+                        multiplication_sender(ctx, chan, sid, &delta, &k, &a_i, &b_i).await
                     }
                     super::SingleSetup::Receiver(k0, k1) => {
-                        multiplication_receiver(ctx, chan, sid, k0, k1, &a_i, &b_i).await
+                        multiplication_receiver(ctx, chan, sid, &k0, &k1, &a_i, &b_i).await
                     }
                 }
             }
@@ -118,4 +118,74 @@ pub async fn multiplication<'a>(
         out += task.await?;
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod test {
+    use k256::Scalar;
+    use rand_core::OsRng;
+
+    use crate::{
+        protocol::{
+            internal::{make_protocol, Context},
+            run_protocol, Participant, Protocol, ProtocolError,
+        },
+        triples::{setup, Setup},
+    };
+
+    use super::multiplication;
+
+    #[test]
+    fn test_multiplication() -> Result<(), ProtocolError> {
+        let participants = vec![
+            Participant::from(0u32),
+            Participant::from(1u32),
+            Participant::from(2u32),
+        ];
+
+        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = Setup>>)> =
+            Vec::with_capacity(participants.len());
+
+        for p in participants.iter() {
+            let protocol = setup(&participants, *p);
+            assert!(protocol.is_ok());
+            let protocol = protocol.unwrap();
+            protocols.push((*p, Box::new(protocol)));
+        }
+
+        let result = run_protocol(protocols)?;
+
+        let prep: Vec<_> = result
+            .into_iter()
+            .map(|(p, setup)| {
+                let a_i = Scalar::generate_biased(&mut OsRng);
+                let b_i = Scalar::generate_biased(&mut OsRng);
+                (p, setup, a_i, b_i)
+            })
+            .collect();
+        let a = prep
+            .iter()
+            .fold(Scalar::ZERO, |acc, (_, _, a_i, _)| acc + a_i);
+        let b = prep
+            .iter()
+            .fold(Scalar::ZERO, |acc, (_, _, _, b_i)| acc + b_i);
+
+        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = Scalar>>)> =
+            Vec::with_capacity(prep.len());
+
+        for (p, setup, a_i, b_i) in prep {
+            let ctx = Context::new();
+            let prot = make_protocol(ctx.clone(), multiplication(ctx, b"sid", p, setup, a_i, b_i));
+            protocols.push((p, Box::new(prot)))
+        }
+
+        let result = run_protocol(protocols)?;
+        let c = result
+            .into_iter()
+            .fold(Scalar::ZERO, |acc, (_, c_i)| acc + c_i);
+
+        assert_eq!(a * b, c);
+
+        Ok(())
+    }
 }
