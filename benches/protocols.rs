@@ -4,7 +4,9 @@ use cait_sith::{
     keygen, presign,
     protocol::{run_protocol, Participant, Protocol},
     sign,
-    triples::{self, setup, Setup, TriplePub, TripleShare},
+    triples::{
+        self, generate_triple, setup, Setup, TripleGenerationOutput, TriplePub, TripleShare,
+    },
     FullSignature, KeygenOutput, PresignArguments, PresignOutput,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -20,6 +22,27 @@ fn run_setup(participants: Vec<Participant>) -> Vec<(Participant, Setup)> {
         assert!(protocol.is_ok());
         let protocol = protocol.unwrap();
         protocols.push((*p, Box::new(protocol)));
+    }
+
+    run_protocol(protocols).unwrap()
+}
+
+fn run_triple_generation(
+    participants: Vec<(Participant, Setup)>,
+    threshold: usize,
+) -> Vec<(Participant, TripleGenerationOutput)> {
+    let mut protocols: Vec<(
+        Participant,
+        Box<dyn Protocol<Output = TripleGenerationOutput>>,
+    )> = Vec::with_capacity(participants.len());
+
+    let just_participants: Vec<_> = participants.iter().map(|(p, _)| *p).collect();
+
+    for (p, setup) in participants.into_iter() {
+        let protocol = generate_triple(&just_participants, p, setup, threshold);
+        assert!(protocol.is_ok());
+        let protocol = protocol.unwrap();
+        protocols.push((p, Box::new(protocol)));
     }
 
     run_protocol(protocols).unwrap()
@@ -111,6 +134,13 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let t = 3;
 
     c.bench_function("setup 3", |b| b.iter(|| run_setup(participants.clone())));
+
+    let mut setup_result = run_setup(participants.clone());
+    setup_result.sort_by_key(|(p, _)| *p);
+
+    c.bench_function("triple generation (3, 3)", |b| {
+        b.iter(|| run_triple_generation(black_box(setup_result.clone()), t))
+    });
 
     c.bench_function("keygen (3,3)", |b| {
         b.iter(|| run_keygen(black_box(participants.clone()), black_box(t)))
