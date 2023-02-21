@@ -7,7 +7,6 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 use crate::{
     constants::SECURITY_PARAMETER,
-    crypto::{commit, Commitment},
     protocol::{
         internal::{make_protocol, Context, PrivateChannel},
         run_two_party_protocol, Participant, ProtocolError,
@@ -195,7 +194,8 @@ pub async fn random_ot_extension_receiver(
 }
 
 /// Run the random OT protocol between two parties.
-pub(crate) fn run_random_ot(
+#[allow(dead_code)]
+fn run_random_ot(
     (delta, k): (BitVector, &SquareBitMatrix),
     (k0, k1): (&SquareBitMatrix, &SquareBitMatrix),
     sid: &[u8],
@@ -213,11 +213,11 @@ pub(crate) fn run_random_ot(
         r,
         &mut make_protocol(
             ctx_s.clone(),
-            random_ot_extension_sender(ctx_s.private_channel(s, r), params, delta, &k),
+            random_ot_extension_sender(ctx_s.private_channel(s, r), params, delta, k),
         ),
         &mut make_protocol(
             ctx_r.clone(),
-            random_ot_extension_receiver(ctx_r.private_channel(r, s), params, &k0, &k1),
+            random_ot_extension_receiver(ctx_r.private_channel(r, s), params, k0, k1),
         ),
     )
 }

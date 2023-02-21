@@ -1,4 +1,4 @@
-use ecdsa::elliptic_curve::group::{prime::PrimeCurveAffine, Curve};
+use ecdsa::elliptic_curve::group::prime::PrimeCurveAffine;
 use k256::{AffinePoint, ProjectivePoint, Scalar};
 use magikitten::Transcript;
 use rand_core::OsRng;
@@ -7,10 +7,7 @@ use crate::{
     crypto::{commit, Commitment},
     math::{GroupPolynomial, Polynomial},
     participants::{ParticipantCounter, ParticipantList, ParticipantMap},
-    proofs::{
-        dlog::{self, Witness},
-        dlogeq,
-    },
+    proofs::{dlog, dlogeq},
     protocol::{
         internal::{make_protocol, Context},
         InitializationError, Participant, Protocol, ProtocolError,
@@ -393,7 +390,11 @@ pub fn generate_triple(
 mod test {
     use k256::ProjectivePoint;
 
-    use crate::{protocol::{Participant, Protocol, run_protocol, ProtocolError}, triples::{setup, Setup, generate_triple}, participants::ParticipantList};
+    use crate::{
+        participants::ParticipantList,
+        protocol::{run_protocol, Participant, Protocol, ProtocolError},
+        triples::{generate_triple, setup, Setup},
+    };
 
     use super::TripleGenerationOutput;
 
@@ -418,8 +419,10 @@ mod test {
 
         let result = run_protocol(protocols)?;
 
-        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = TripleGenerationOutput>>)> =
-            Vec::with_capacity(result.len());
+        let mut protocols: Vec<(
+            Participant,
+            Box<dyn Protocol<Output = TripleGenerationOutput>>,
+        )> = Vec::with_capacity(result.len());
 
         for (p, setup) in result {
             let protocol = generate_triple(&participants, p, setup, threshold);
@@ -431,16 +434,16 @@ mod test {
         let result = run_protocol(protocols)?;
 
         assert!(result.len() == participants.len());
-        assert_eq!(result[0].1.1, result[1].1.1);
-        assert_eq!(result[1].1.1, result[2].1.1);
+        assert_eq!(result[0].1 .1, result[1].1 .1);
+        assert_eq!(result[1].1 .1, result[2].1 .1);
 
-        let triple_pub = result[2].1.1.clone();
+        let triple_pub = result[2].1 .1.clone();
 
         let participants = vec![result[0].0, result[1].0, result[2].0];
         let triple_shares = vec![
-            result[0].1.0.clone(),
-            result[1].1.0.clone(),
-            result[2].1.0.clone(),
+            result[0].1 .0.clone(),
+            result[1].1 .0.clone(),
+            result[2].1 .0.clone(),
         ];
         let p_list = ParticipantList::new(&participants).unwrap();
 

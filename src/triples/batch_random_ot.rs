@@ -31,10 +31,12 @@ fn hash(i: usize, big_x_i: &AffinePoint, big_y: &AffinePoint, p: &ProjectivePoin
     BitVector::from_bytes(&bytes)
 }
 
+type BatchRandomOTOutputSender = (SquareBitMatrix, SquareBitMatrix);
+
 pub async fn batch_random_ot_sender(
     ctx: Context<'_>,
     mut chan: PrivateChannel,
-) -> Result<(SquareBitMatrix, SquareBitMatrix), ProtocolError> {
+) -> Result<BatchRandomOTOutputSender, ProtocolError> {
     // Spec 1
     let y = Scalar::generate_biased(&mut OsRng);
     let big_y = ProjectivePoint::GENERATOR * y;
@@ -65,10 +67,12 @@ pub async fn batch_random_ot_sender(
     Ok((big_k0.try_into().unwrap(), big_k1.try_into().unwrap()))
 }
 
+type BatchRandomOTOutputReceiver = (BitVector, SquareBitMatrix);
+
 pub async fn batch_random_ot_receiver(
     ctx: Context<'_>,
     mut chan: PrivateChannel,
-) -> Result<(BitVector, SquareBitMatrix), ProtocolError> {
+) -> Result<BatchRandomOTOutputReceiver, ProtocolError> {
     // Step 3
     let wait0 = chan.next_waitpoint();
     let big_y_affine: AffinePoint = chan.recv(wait0).await?;
@@ -100,13 +104,9 @@ pub async fn batch_random_ot_receiver(
 }
 
 /// Run the batch random OT protocol between two parties.
-pub(crate) fn run_batch_random_ot() -> Result<
-    (
-        (SquareBitMatrix, SquareBitMatrix),
-        (BitVector, SquareBitMatrix),
-    ),
-    ProtocolError,
-> {
+#[allow(dead_code)]
+pub(crate) fn run_batch_random_ot(
+) -> Result<(BatchRandomOTOutputSender, BatchRandomOTOutputReceiver), ProtocolError> {
     let s = Participant::from(0u32);
     let r = Participant::from(1u32);
     let ctx_s = Context::new();

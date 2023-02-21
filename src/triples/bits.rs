@@ -71,14 +71,14 @@ impl BitVector {
 
     /// Xor this vector with another.
     pub fn xor(&self, other: &Self) -> Self {
-        let mut out = self.clone();
+        let mut out = *self;
         out.xor_mut(other);
         out
     }
 
     /// Return the bitwise not of this vector.
     pub fn not(&self) -> Self {
-        let mut out = self.clone();
+        let mut out = *self;
         for out_i in &mut out.0 {
             *out_i = !*out_i;
         }
@@ -92,7 +92,7 @@ impl BitVector {
     }
 
     pub fn and(&self, other: &Self) -> Self {
-        let mut out = self.clone();
+        let mut out = *self;
         out.and_mut(other);
         out
     }
@@ -149,7 +149,8 @@ impl_op_ex!(!|u: &BitVector| -> BitVector { u.not() });
 /// A BitVector of double the size.
 ///
 /// This is useful because it's quicker to avoid reducing the result of GF multiplication.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct DoubleBitVector([u64; Self::SIZE]);
 
 impl DoubleBitVector {
@@ -166,7 +167,7 @@ impl DoubleBitVector {
     }
 
     pub fn xor(&self, other: &Self) -> Self {
-        let mut out = self.clone();
+        let mut out = *self;
         out.xor_mut(other);
         out
     }
@@ -204,7 +205,8 @@ const PRG_CTX: &[u8] = b"cait-sith v0.1.0 correlated OT PRG";
 /// rows.
 ///
 /// This is a fundamental object used for our OT extension protocol.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct BitMatrix(Vec<BitVector>);
 
 impl BitMatrix {
@@ -278,8 +280,8 @@ impl FromIterator<BitVector> for BitMatrix {
 impl_op_ex!(^ |u: &BitMatrix, v: &BitMatrix| -> BitMatrix { u.xor(v) });
 impl_op_ex!(^= |u: &mut BitMatrix, v: &BitMatrix| { u.xor_mut(v) });
 impl_op_ex!(&|u: &BitMatrix, v: &BitVector| -> BitMatrix { u.and_vec(v) });
-
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct SquareBitMatrix {
     pub matrix: BitMatrix,
 }
@@ -334,7 +336,7 @@ impl SquareBitMatrix {
 /// A choice vector holds an arbitrary number of choice bits.
 ///
 /// This vector must always be non-empty.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct ChoiceVector(Vec<BitVector>);
 
 impl ChoiceVector {

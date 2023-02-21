@@ -4,7 +4,6 @@ use k256::{Scalar, Secp256k1};
 use crate::{
     constants::SECURITY_PARAMETER,
     crypto::Commitment,
-    participants::{self, ParticipantList},
     protocol::{
         internal::{Context, PrivateChannel},
         Participant, ProtocolError,
@@ -13,7 +12,7 @@ use crate::{
 
 use super::{
     bits::{BitVector, SquareBitMatrix},
-    mta::{mta_receiver, mta_sender, run_mta},
+    mta::{mta_receiver, mta_sender},
     random_ot_extension::{
         random_ot_extension_receiver, random_ot_extension_sender, RandomOtExtensionParams,
     },
@@ -88,8 +87,8 @@ pub async fn multiplication_receiver<'a>(
     Ok(gamma0 + gamma1)
 }
 
-pub async fn multiplication<'a>(
-    ctx: Context<'a>,
+pub async fn multiplication(
+    ctx: Context<'_>,
     sid: Commitment,
     me: Participant,
     setup: Setup,
@@ -127,7 +126,7 @@ mod test {
     use rand_core::OsRng;
 
     use crate::{
-        crypto::{commit, Commitment},
+        crypto::commit,
         protocol::{
             internal::{make_protocol, Context},
             run_protocol, Participant, Protocol, ProtocolError,

@@ -83,9 +83,9 @@ impl ParticipantList {
     }
 }
 
-impl Into<Vec<Participant>> for ParticipantList {
-    fn into(self) -> Vec<Participant> {
-        self.participants
+impl From<ParticipantList> for Vec<Participant> {
+    fn from(val: ParticipantList) -> Self {
+        val.participants
     }
 }
 

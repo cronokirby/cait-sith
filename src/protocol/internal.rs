@@ -57,33 +57,6 @@ use crate::serde::{decode, encode_with_tag};
 
 use super::{Action, MessageData, Participant, Protocol, ProtocolError};
 
-/// BaseChannel is the starting point for identifying a channel.
-///
-/// This arises because we want to be able to give each two-party channel in
-/// a protocol a unique name. The easiest way to do this is to identify
-/// the channel by an unordered pair of parties. This is why the enum should
-/// be created with [`BaseChannel::private()`], which takes care of this sorting.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Hash)]
-enum BaseChannel {
-    Shared,
-    Private(Participant, Participant),
-}
-
-impl BaseChannel {
-    /// Create a shared base channel.
-    fn shared() -> Self {
-        Self::Shared
-    }
-
-    /// Create a private base channel from participants.
-    ///
-    /// This will sort the participants, creating a unique channel
-    /// for each unordered pair.
-    fn private(p0: Participant, p1: Participant) -> Self {
-        Self::Private(p0.min(p1), p0.max(p1))
-    }
-}
-
 /// The domain for our use of meow here.
 const MEOW_DOMAIN: &[u8] = b"cait-sith channel tags";
 
@@ -140,21 +113,6 @@ impl ChannelTag {
         meow.prf(&mut out, false);
         Self(out)
     }
-
-    /// Get a named child from this tag.
-    ///
-    /// Each name will give a different child, and each child has its own namespace, like with
-    /// indexed children.
-    fn named_child(&self, name: &[u8]) -> Self {
-        let mut meow = Meow::new(MEOW_DOMAIN);
-        meow.meta_ad(b"parent", false);
-        meow.ad(&self.0, false);
-        meow.meta_ad(b"name", false);
-        meow.ad(name, false);
-        let mut out = [0u8; Self::SIZE];
-        meow.prf(&mut out, false);
-        Self(out)
-    }
 }
 
 /// A waitpoint inside of a channel.
@@ -182,7 +140,7 @@ impl MessageHeader {
         }
     }
 
-    fn to_bytes(&self) -> [u8; Self::LEN] {
+    fn to_bytes(self) -> [u8; Self::LEN] {
         let mut out = [0u8; Self::LEN];
 
         out[..ChannelTag::SIZE].copy_from_slice(&self.channel.0);
@@ -197,8 +155,7 @@ impl MessageHeader {
         }
         // Unwrapping is fine because we checked the length already.
         let channel = ChannelTag(bytes[..ChannelTag::SIZE].try_into().unwrap());
-        let waitpoint =
-            u64::from_le_bytes(bytes[ChannelTag::SIZE..Self::LEN].try_into().unwrap()).into();
+        let waitpoint = u64::from_le_bytes(bytes[ChannelTag::SIZE..Self::LEN].try_into().unwrap());
 
         Some(Self { channel, waitpoint })
     }
@@ -224,14 +181,9 @@ impl MessageHeader {
             waitpoint: 0,
         }
     }
-
-    fn named_child(&self, name: &[u8]) -> Self {
-        Self {
-            channel: self.channel.named_child(name),
-            waitpoint: 0,
-        }
-    }
 }
+
+type SubMessageQueue = Vec<(Participant, MessageData)>;
 
 /// A message buffer is a concurrent data structure to buffer messages.
 ///
@@ -242,7 +194,7 @@ impl MessageHeader {
 /// until a message for that slot has arrived.
 #[derive(Clone)]
 struct MessageBuffer {
-    messages: Arc<Mutex<HashMap<MessageHeader, Vec<(Participant, MessageData)>>>>,
+    messages: Arc<Mutex<HashMap<MessageHeader, SubMessageQueue>>>,
     events: Arc<Mutex<HashMap<MessageHeader, Event>>>,
 }
 
@@ -380,20 +332,6 @@ impl SharedChannel {
         }
     }
 
-    pub fn child(&self, i: u64) -> Self {
-        Self {
-            comms: self.comms.clone(),
-            header: self.header.child(i),
-        }
-    }
-
-    pub fn named_child(&self, name: &[u8]) -> Self {
-        Self {
-            comms: self.comms.clone(),
-            header: self.header.named_child(name),
-        }
-    }
-
     /// Get the next available waitpoint on this channel.
     pub fn next_waitpoint(&mut self) -> Waitpoint {
         self.header.next_waitpoint()
@@ -447,14 +385,6 @@ impl PrivateChannel {
             comms: self.comms.clone(),
             to: self.to,
             header: self.header.child(i),
-        }
-    }
-
-    pub fn named_child(&self, name: &[u8]) -> Self {
-        Self {
-            comms: self.comms.clone(),
-            to: self.to,
-            header: self.header.named_child(name),
         }
     }
 

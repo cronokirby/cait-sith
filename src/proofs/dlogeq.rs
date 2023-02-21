@@ -1,4 +1,3 @@
-use ecdsa::elliptic_curve::group::Curve;
 use k256::{ProjectivePoint, Scalar};
 use magikitten::Transcript;
 use rand_core::CryptoRngCore;

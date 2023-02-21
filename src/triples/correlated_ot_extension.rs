@@ -1,5 +1,3 @@
-use rand_core::OsRng;
-
 use crate::protocol::{
     internal::{make_protocol, Context, PrivateChannel},
     run_two_party_protocol, Participant, ProtocolError,
@@ -63,7 +61,8 @@ pub async fn correlated_ot_receiver(
 }
 
 /// Run the correlated OT protocol between two parties.
-pub(crate) fn run_correlated_ot(
+#[allow(dead_code)]
+fn run_correlated_ot(
     (delta, k): (BitVector, &SquareBitMatrix),
     (k0, k1, x): (&SquareBitMatrix, &SquareBitMatrix, &BitMatrix),
     sid: &[u8],
@@ -81,11 +80,11 @@ pub(crate) fn run_correlated_ot(
         r,
         &mut make_protocol(
             ctx_s.clone(),
-            correlated_ot_sender(ctx_s.private_channel(s, r), params, delta, &k),
+            correlated_ot_sender(ctx_s.private_channel(s, r), params, delta, k),
         ),
         &mut make_protocol(ctx_r.clone(), async move {
             let out =
-                correlated_ot_receiver(ctx_r.private_channel(r, s), params, &k0, &k1, &x).await;
+                correlated_ot_receiver(ctx_r.private_channel(r, s), params, k0, k1, x).await;
             Ok(out)
         }),
     )
@@ -93,6 +92,8 @@ pub(crate) fn run_correlated_ot(
 
 #[cfg(test)]
 mod test {
+    use rand_core::OsRng;
+
     use crate::triples::batch_random_ot::run_batch_random_ot;
 
     use super::*;

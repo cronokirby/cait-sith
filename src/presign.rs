@@ -1,17 +1,11 @@
 use k256::elliptic_curve::group::prime::PrimeCurveAffine;
-use k256::elliptic_curve::ops::Reduce;
-use k256::elliptic_curve::AffineXCoordinate;
-use k256::{AffinePoint, ProjectivePoint, Scalar, U256};
-use magikitten::Transcript;
+use k256::{AffinePoint, ProjectivePoint, Scalar};
 use rand_core::OsRng;
 
-use crate::crypto::{commit, Commitment};
 use crate::math::{GroupPolynomial, Polynomial};
-use crate::participants::{ParticipantCounter, ParticipantMap};
-use crate::proofs::dlog;
+use crate::participants::ParticipantCounter;
 use crate::protocol::internal::{make_protocol, Context, SharedChannel};
 use crate::protocol::{InitializationError, Protocol};
-use crate::serde::encode;
 use crate::triples::{TriplePub, TripleShare};
 use crate::KeygenOutput;
 use crate::{

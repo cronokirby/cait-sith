@@ -95,7 +95,8 @@ pub async fn mta_receiver(
 }
 
 /// Run the multiplicative to additive protocol
-pub(crate) fn run_mta(
+#[allow(dead_code)]
+fn run_mta(
     (v, a): (Vec<(Scalar, Scalar)>, Scalar),
     (tv, b): (Vec<(Choice, Scalar)>, Scalar),
 ) -> Result<(Scalar, Scalar), ProtocolError> {

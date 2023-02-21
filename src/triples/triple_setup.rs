@@ -46,7 +46,7 @@ impl Setup {
 
 async fn do_sender(
     ctx: Context<'_>,
-    mut chan: PrivateChannel,
+    chan: PrivateChannel,
 ) -> Result<SingleSetup, ProtocolError> {
     let (delta, k) = batch_random_ot_receiver(ctx, chan).await?;
     Ok(SingleSetup::Sender(delta, k))
@@ -54,7 +54,7 @@ async fn do_sender(
 
 async fn do_receiver(
     ctx: Context<'_>,
-    mut chan: PrivateChannel,
+    chan: PrivateChannel,
 ) -> Result<SingleSetup, ProtocolError> {
     let (k0, k1) = batch_random_ot_sender(ctx, chan).await?;
     Ok(SingleSetup::Receiver(k0, k1))
