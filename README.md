@@ -37,10 +37,12 @@ but we'll also give a bit of detail here.
 
 The core of Cait-Sith's design involves a *committed* Beaver triple.
 These are of the form:
+
 $$
 ([a], [b], [c]), (A = a \cdot G, B = b \cdot G, C = c \cdot G)
 $$
-where $a, b, c$ are scalars such that $a * b = c$, and are
+
+where $a, b, c$ are scalars such that $a \cdot b = c$, and are
 secret shared among several participants, so that no one knows their actual value.
 Furthermore, unlike standard Beaver triples, we also have a public commitment
 to the these secret values, which helps the online protocol.
