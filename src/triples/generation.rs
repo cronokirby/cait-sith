@@ -352,6 +352,13 @@ async fn do_generation(
     ))
 }
 
+/// Generate a triple through a multi-party protocol.
+/// 
+/// This requires a setup phase to have been conducted with these parties
+/// previously.
+/// 
+/// The resulting triple will be threshold shared, according to the threshold
+/// provided to this function.
 pub fn generate_triple(
     participants: &[Participant],
     me: Participant,
