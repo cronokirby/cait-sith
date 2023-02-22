@@ -30,7 +30,7 @@
 //!
 //! The core of Cait-Sith's design involves a *committed* Beaver triple.
 //! These are of the form:
-//! ```
+//! ```ignore
 //! ([a], [b], [c]), (A = a * G, B = b * G, C = c * G)
 //! ```
 //! where `a, b, c` are scalars such that `a * b = c`, and are
@@ -62,7 +62,7 @@
 //! as many details as possible into a simple interface.
 //!
 //! This interface just has two methods:
-//! ```rust
+//! ```ignore
 //! pub trait Protocol {
 //!    type Output;
 //!
