@@ -1,3 +1,10 @@
+//! This module provides abstractions for working with protocols.
+//! 
+//! This library tries to abstract away as much of the internal machinery
+//! of protocols as much as possible. To use a protocol, you just need to be able
+//! to deliver messages to and from that protocol, and eventually it will produce
+//! a result, without you having to worry about how many rounds it has, or how
+//! to serialize the emssages it produces.
 use core::fmt;
 use std::{collections::HashMap, error};
 
@@ -138,6 +145,10 @@ pub trait Protocol {
 /// Run a protocol to completion, synchronously.
 ///
 /// This works by executing each participant in order.
+/// 
+/// The reason this function exists is as a convenient testing utility.
+/// In practice each protocol participant is likely running on a different machine,
+/// and so orchestrating the protocol would happen differently.
 pub fn run_protocol<T: std::fmt::Debug>(
     mut ps: Vec<(Participant, Box<dyn Protocol<Output = T>>)>,
 ) -> Result<Vec<(Participant, T)>, ProtocolError> {
