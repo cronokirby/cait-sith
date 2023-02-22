@@ -88,6 +88,12 @@ async fn do_sign(
     })
 }
 
+/// The signature protocol, allowing us to use a presignature to sign a message.
+/// 
+/// We intentionally take in the full message before hashing, rather than a hash,
+/// because it prevents potential API misuse. In particular, it's expected
+/// that each node participating in threshold signing verifies that they
+/// want to produce a signature on this message in particular.
 pub fn sign(
     participants: &[Participant],
     me: Participant,

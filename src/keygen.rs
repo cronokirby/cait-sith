@@ -10,6 +10,9 @@ use crate::protocol::internal::{make_protocol, Context, SharedChannel};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
 use crate::serde::encode;
 
+/// Represents the output of the key generation protocol.
+/// 
+/// This contains our share of the private key, along with the public key.
 #[derive(Debug, Clone)]
 pub struct KeygenOutput {
     pub private_share: Scalar,
@@ -165,6 +168,14 @@ async fn do_keygen(
     })
 }
 
+/// The key generation protocol, with a given threshold.
+/// 
+/// This produces a new key pair, such that any set of participants
+/// of size `>= threshold` can reconstruct the private key,
+/// but no smaller set can do the same.
+/// 
+/// This needs to be run once, before then being able to perform threshold
+/// signatures using the key.
 pub fn keygen(
     participants: &[Participant],
     me: Participant,
