@@ -1,11 +1,15 @@
-use std::{collections::HashMap, time::{Duration, Instant}};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 use cait_sith::{
     keygen,
-    protocol::{Action, Participant, Protocol},
+    protocol::{Action, MessageData, Participant, Protocol},
+    triples,
 };
 use easy_parallel::Parallel;
-use haisou_chan::{channel, ChannelSettings};
+use haisou_chan::{channel, Bandwidth};
 
 use structopt::StructOpt;
 
@@ -17,8 +21,6 @@ struct Args {
     latency_ms: u32,
     /// The bandwidth, in bytes per second.
     bandwidth: u32,
-    #[structopt(long = "runs", default_value = "10")]
-    runs: u32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -28,7 +30,8 @@ struct Stats {
 }
 
 fn run_protocol<T, F, P>(
-    settings: ChannelSettings,
+    latency: Duration,
+    bandwidth: Bandwidth,
     participants: &[Participant],
     f: F,
 ) -> Vec<(Participant, Stats, T)>
@@ -45,8 +48,10 @@ where
             if p >= q {
                 continue;
             }
-            let (sender0, receiver0) = channel(settings);
-            let (sender1, receiver1) = channel(settings);
+            let (sender0, mut receiver0) = channel();
+            let (sender1, mut receiver1) = channel();
+            receiver0.set_latency(latency);
+            receiver1.set_latency(latency);
             senders.get_mut(p).unwrap().insert(q, sender0);
             senders.get_mut(q).unwrap().insert(p, sender1);
             receivers.get_mut(p).unwrap().push((q, receiver1));
@@ -56,7 +61,23 @@ where
 
     let executor = smol::Executor::new();
 
-    let mut next_messages = HashMap::new();
+    let mut outgoing = HashMap::new();
+    for (p, mut senders) in senders {
+        let (mut bottleneck_s, bottleneck_r) = channel();
+        bottleneck_s.set_bandwidth(bandwidth);
+        executor.spawn(async move {
+            loop {
+                let (to, msg): (Participant, MessageData) = match bottleneck_r.recv().await {
+                    Ok(x) => x,
+                    Err(_) => return,
+                };
+                senders.get_mut(&to).unwrap().send(msg.len(), msg).await.unwrap();
+            }
+        }).detach();
+        outgoing.insert(p, bottleneck_s);
+    }
+
+    let mut incoming = HashMap::new();
     for (p, receivers) in receivers {
         let (sender, receiver) = smol::channel::unbounded();
         for (q, r) in receivers {
@@ -75,17 +96,17 @@ where
                 })
                 .detach();
         }
-        next_messages.insert(p, receiver);
+        incoming.insert(p, receiver);
     }
 
     let setup = participants.iter().map(|p| {
-        let next_message = next_messages.remove(p).unwrap();
-        let senders = senders.remove(p).unwrap();
-        (p, next_message, senders)
+        let incoming = incoming.remove(p).unwrap();
+        let outgoing = outgoing.remove(p).unwrap();
+        (p, outgoing, incoming)
     });
 
     let mut out = Parallel::new()
-        .each(setup, |(p, next_message, mut senders)| {
+        .each(setup, |(p, mut outgoing, incoming)| {
             smol::block_on(executor.run(async {
                 let mut prot = f(*p);
                 let mut stats = Stats {
@@ -98,19 +119,22 @@ where
                         match poked {
                             Action::Wait => break,
                             Action::SendMany(m) => {
-                                for sender in senders.values_mut() {
+                                for q in participants {
+                                    if p == q {
+                                        continue;
+                                    }
                                     stats.sent += m.len();
-                                    sender.send(m.clone()).await.unwrap();
+                                    outgoing.send(m.len(), (*q ,m.clone())).await.unwrap();
                                 }
                             }
                             Action::SendPrivate(q, m) => {
                                 stats.sent += m.len();
-                                senders.get_mut(&q).unwrap().send(m).await.unwrap();
+                                outgoing.send(m.len(), (q ,m.clone())).await.unwrap();
                             }
                             Action::Return(r) => return (*p, stats, r),
                         }
                     }
-                    let (from, m) = next_message.recv().await.unwrap();
+                    let (from, m) = incoming.recv().await.unwrap();
                     stats.received += m.len();
                     prot.message(from, m);
                 }
@@ -123,7 +147,10 @@ where
     out
 }
 
-fn report_stats<I>(iter: I) where I: Iterator<Item = Stats> {
+fn report_stats<I>(iter: I)
+where
+    I: Iterator<Item = Stats>,
+{
     let mut count = 0;
     let mut avg_up = 0;
     let mut avg_down = 0;
@@ -138,16 +165,30 @@ fn report_stats<I>(iter: I) where I: Iterator<Item = Stats> {
 
 fn main() {
     let args = Args::from_args();
-    let settings = ChannelSettings {
-        latency: Duration::from_millis(args.latency_ms as u64),
-        bandwidth: args.bandwidth,
-    };
+    let latency = Duration::from_millis(args.latency_ms as u64);
+    let bandwidth = args.bandwidth;
     let participants: Vec<_> = (0..args.parties)
         .map(|p| Participant::from(p as u32))
         .collect();
-    println!("Keygen ({}, {}) [{} ms, {} B/S]", args.parties, args.parties, args.latency_ms, args.bandwidth);
+
+    println!(
+        "Triple Setup {} [{} ms, {} B/S]",
+        args.parties, args.latency_ms, args.bandwidth
+    );
     let start = Instant::now();
-    let results = run_protocol(settings, &participants, |p| {
+    let results = run_protocol(latency, bandwidth, &participants, |p| {
+        triples::setup(&participants, p).unwrap()
+    });
+    let stop = Instant::now();
+    println!("time:\t{:#?}", stop.duration_since(start));
+    report_stats(results.iter().map(|(_, stats, _)| *stats));
+
+    println!(
+        "Keygen ({}, {}) [{} ms, {} B/S]",
+        args.parties, args.parties, args.latency_ms, args.bandwidth
+    );
+    let start = Instant::now();
+    let results = run_protocol(latency, bandwidth, &participants, |p| {
         keygen(&participants, p, args.parties as usize).unwrap()
     });
     let stop = Instant::now();
