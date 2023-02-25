@@ -4,13 +4,14 @@ use std::{
 };
 
 use cait_sith::{
-    keygen,
+    keygen, presign,
     protocol::{Action, MessageData, Participant, Protocol},
-    triples,
+    sign, triples, PresignArguments,
 };
 use easy_parallel::Parallel;
 use haisou_chan::{channel, Bandwidth};
 
+use rand_core::OsRng;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -65,15 +66,22 @@ where
     for (p, mut senders) in senders {
         let (mut bottleneck_s, bottleneck_r) = channel();
         bottleneck_s.set_bandwidth(bandwidth);
-        executor.spawn(async move {
-            loop {
-                let (to, msg): (Participant, MessageData) = match bottleneck_r.recv().await {
-                    Ok(x) => x,
-                    Err(_) => return,
-                };
-                senders.get_mut(&to).unwrap().send(msg.len(), msg).await.unwrap();
-            }
-        }).detach();
+        executor
+            .spawn(async move {
+                loop {
+                    let (to, msg): (Participant, MessageData) = match bottleneck_r.recv().await {
+                        Ok(x) => x,
+                        Err(_) => return,
+                    };
+                    senders
+                        .get_mut(&to)
+                        .unwrap()
+                        .send(msg.len(), msg)
+                        .await
+                        .unwrap();
+                }
+            })
+            .detach();
         outgoing.insert(p, bottleneck_s);
     }
 
@@ -124,12 +132,12 @@ where
                                         continue;
                                     }
                                     stats.sent += m.len();
-                                    outgoing.send(m.len(), (*q ,m.clone())).await.unwrap();
+                                    outgoing.send(m.len(), (*q, m.clone())).await.unwrap();
                                 }
                             }
                             Action::SendPrivate(q, m) => {
                                 stats.sent += m.len();
-                                outgoing.send(m.len(), (q ,m.clone())).await.unwrap();
+                                outgoing.send(m.len(), (q, m.clone())).await.unwrap();
                             }
                             Action::Return(r) => return (*p, stats, r),
                         }
@@ -183,6 +191,31 @@ fn main() {
     println!("time:\t{:#?}", stop.duration_since(start));
     report_stats(results.iter().map(|(_, stats, _)| *stats));
 
+    let setups: HashMap<_, _> = results
+        .into_iter()
+        .map(|(p, _, setup)| (p, setup))
+        .collect();
+
+    println!(
+        "Triple Gen {} [{} ms, {} B/S]",
+        args.parties, args.latency_ms, args.bandwidth
+    );
+    let start = Instant::now();
+    let results = run_protocol(latency, bandwidth, &participants, |p| {
+        triples::generate_triple(
+            &participants,
+            p,
+            setups.get(&p).unwrap().clone(),
+            args.parties as usize,
+        )
+        .unwrap()
+    });
+    let stop = Instant::now();
+    println!("time:\t{:#?}", stop.duration_since(start));
+    report_stats(results.iter().map(|(_, stats, _)| *stats));
+
+    let triples: HashMap<_, _> = results.into_iter().map(|(p, _, out)| (p, out)).collect();
+
     println!(
         "Keygen ({}, {}) [{} ms, {} B/S]",
         args.parties, args.parties, args.latency_ms, args.bandwidth
@@ -190,6 +223,60 @@ fn main() {
     let start = Instant::now();
     let results = run_protocol(latency, bandwidth, &participants, |p| {
         keygen(&participants, p, args.parties as usize).unwrap()
+    });
+    let stop = Instant::now();
+    println!("time:\t{:#?}", stop.duration_since(start));
+    report_stats(results.iter().map(|(_, stats, _)| *stats));
+
+    let shares: HashMap<_, _> = results.into_iter().map(|(p, _, out)| (p, out)).collect();
+
+    let (other_triples_pub, other_triples_share) =
+        triples::deal(&mut OsRng, &participants, args.parties as usize);
+    let other_triples: HashMap<_, _> = participants
+        .iter()
+        .zip(other_triples_share)
+        .map(|(p, share)| (p, (share, other_triples_pub.clone())))
+        .collect();
+
+    println!(
+        "Presign ({}, {}) [{} ms, {} B/S]",
+        args.parties, args.parties, args.latency_ms, args.bandwidth
+    );
+    let start = Instant::now();
+    let results = run_protocol(latency, bandwidth, &participants, |p| {
+        presign(
+            &participants,
+            p,
+            PresignArguments {
+                original_threshold: args.parties as usize,
+                triple0: triples[&p].clone(),
+                triple1: other_triples[&p].clone(),
+                keygen_out: shares[&p].clone(),
+                threshold: args.parties as usize,
+            },
+        )
+        .unwrap()
+    });
+    let stop = Instant::now();
+    println!("time:\t{:#?}", stop.duration_since(start));
+    report_stats(results.iter().map(|(_, stats, _)| *stats));
+
+    let presignatures: HashMap<_, _> = results.into_iter().map(|(p, _, out)| (p, out)).collect();
+
+    println!(
+        "Sign ({}, {}) [{} ms, {} B/S]",
+        args.parties, args.parties, args.latency_ms, args.bandwidth
+    );
+    let start = Instant::now();
+    let results = run_protocol(latency, bandwidth, &participants, |p| {
+        sign(
+            &participants,
+            p,
+            shares[&p].public_key,
+            presignatures[&p].clone(),
+            b"hello world",
+        )
+        .unwrap()
     });
     let stop = Instant::now();
     println!("time:\t{:#?}", stop.duration_since(start));
