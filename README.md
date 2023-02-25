@@ -129,6 +129,79 @@ in advance, and independent of the key.
 Thus, the cost of presigning + signing should be considered instead.
 This cost is low enough to be bottlenecked by network performance, most likely.
 
+## Networked Benchmarks
+
+The library also has an example which runs a benchmark simulating
+network latency and bandwidth constraints.
+Note that in these examples, multiple threads are used, so better
+reflect the fact that computation is parallelized across each node.
+However, the CPU I ran these benchmarks on only had 4 cores,
+so take the large party benchmarks with a grain of salt.
+
+Here's an example with 3 parties, with 100ms latency between them,
+and a 10 MB/s outgoing link each.
+
+```
+> cargo run --release --example network-benches -- 3 100 10000000  
+
+Triple Setup 3 [100 ms, 10000000 B/S]
+time:   304.884093ms
+up:      10322 B
+down:    10322 B
+
+Triple Gen 3 [100 ms, 10000000 B/S]
+time:   740.041888ms
+up:      106202 B
+down:    106202 B
+
+Keygen (3, 3) [100 ms, 10000000 B/S]
+time:   207.137969ms
+up:      1068 B
+down:    1068 B
+
+Presign (3, 3) [100 ms, 10000000 B/S]
+time:   104.090877ms
+up:      961 B
+down:    961 B
+
+Sign (3, 3) [100 ms, 10000000 B/S]
+time:   100.606562ms
+up:      151 B
+down:    151 B
+```
+
+Here's an extreme case, with 100 parties, 300ms of latency between them,
+and an outgoing 1 MB/s link each:
+
+```
+> cargo run --release --example network-benches -- 100 300 1000000
+
+Triple Setup 100 [300 ms, 1000000 B/S]
+time:   51.269278194s
+up:      510843 B
+down:    510843 B
+
+Triple Gen 100 [300 ms, 1000000 B/S]
+time:   32.959644915s
+up:      6765025 B
+down:    6765025 B
+
+Keygen (100, 100) [300 ms, 1000000 B/S]
+time:   5.871460998s
+up:      551527 B
+down:    551527 B
+
+Presign (100, 100) [300 ms, 1000000 B/S]
+time:   2.891458487s
+up:      546835 B
+down:    546835 B
+
+Sign (100, 100) [300 ms, 1000000 B/S]
+time:   359.795393ms
+up:      7859 B
+down:    7859 B
+```
+
 # Shortcomings
 
 The protocol and its implementation do have a few known disadvantages at the moment:

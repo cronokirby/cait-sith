@@ -41,6 +41,8 @@ where
     P: Protocol<Output = T>,
     T: Send + std::fmt::Debug,
 {
+    // We create a link between each pair of parties, with a set amount of latency,
+    // but no bandwidth constraints.
     let mut senders: HashMap<_, _> = participants.iter().map(|p| (p, HashMap::new())).collect();
     let mut receivers: HashMap<_, _> = participants.iter().map(|p| (p, Vec::new())).collect();
 
@@ -62,6 +64,8 @@ where
 
     let executor = smol::Executor::new();
 
+    // Next, we create a bottleneck link which every outgoing message passes through,
+    // which limits how fast data can be transmitted away from the node.
     let mut outgoing = HashMap::new();
     for (p, mut senders) in senders {
         let (mut bottleneck_s, bottleneck_r) = channel();
@@ -85,6 +89,8 @@ where
         outgoing.insert(p, bottleneck_s);
     }
 
+    // For convenience, we create a channel in order to receive the first
+    // available message across any of the parties.
     let mut incoming = HashMap::new();
     for (p, receivers) in receivers {
         let (sender, receiver) = smol::channel::unbounded();
@@ -113,6 +119,7 @@ where
         (p, outgoing, incoming)
     });
 
+    // Now we run all of the protocols in parallel, on a different thread.
     let mut out = Parallel::new()
         .each(setup, |(p, mut outgoing, incoming)| {
             smol::block_on(executor.run(async {
@@ -199,7 +206,7 @@ fn main() {
         .collect();
 
     println!(
-        "Triple Gen {} [{} ms, {} B/S]",
+        "\nTriple Gen {} [{} ms, {} B/S]",
         args.parties, args.latency_ms, args.bandwidth
     );
     let start = Instant::now();
@@ -219,7 +226,7 @@ fn main() {
     let triples: HashMap<_, _> = results.into_iter().map(|(p, _, out)| (p, out)).collect();
 
     println!(
-        "Keygen ({}, {}) [{} ms, {} B/S]",
+        "\nKeygen ({}, {}) [{} ms, {} B/S]",
         args.parties, args.parties, args.latency_ms, args.bandwidth
     );
     let start = Instant::now();
@@ -241,7 +248,7 @@ fn main() {
         .collect();
 
     println!(
-        "Presign ({}, {}) [{} ms, {} B/S]",
+        "\nPresign ({}, {}) [{} ms, {} B/S]",
         args.parties, args.parties, args.latency_ms, args.bandwidth
     );
     let start = Instant::now();
@@ -266,7 +273,7 @@ fn main() {
     let presignatures: HashMap<_, _> = results.into_iter().map(|(p, _, out)| (p, out)).collect();
 
     println!(
-        "Sign ({}, {}) [{} ms, {} B/S]",
+        "\nSign ({}, {}) [{} ms, {} B/S]",
         args.parties, args.parties, args.latency_ms, args.bandwidth
     );
     let start = Instant::now();
