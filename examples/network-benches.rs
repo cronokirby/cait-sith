@@ -167,6 +167,8 @@ where
         avg_up += stats.sent;
         avg_down += stats.received;
     });
+    avg_up /= count;
+    avg_down /= count;
     println!("up:\t {} B", avg_up);
     println!("down:\t {} B", avg_down);
 }
