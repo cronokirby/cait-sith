@@ -22,6 +22,9 @@ subtle = "2.4.1"
 
 [dev-dependencies]
 criterion = "0.4"
+easy-parallel = "3.2.0"
+haisou-chan = { git = "https://github.com/cronokirby/haisou-chan", rev = "d0d8cb259d4047f4901d5a97c8d588d3098d8cd0" }
+structopt = "0.3.26"
 
 [[bench]]
 name = "protocols"
