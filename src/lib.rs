@@ -102,7 +102,7 @@
 mod compat;
 mod constants;
 mod crypto;
-mod keygen;
+mod keyshare;
 mod math;
 mod participants;
 mod presign;
@@ -114,6 +114,6 @@ mod sign;
 mod test;
 pub mod triples;
 
-pub use keygen::{keygen, KeygenOutput};
+pub use keyshare::{keygen, KeygenOutput};
 pub use presign::{presign, PresignArguments, PresignOutput};
 pub use sign::{sign, FullSignature};

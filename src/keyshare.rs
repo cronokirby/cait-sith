@@ -11,7 +11,7 @@ use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError}
 use crate::serde::encode;
 
 /// Represents the output of the key generation protocol.
-/// 
+///
 /// This contains our share of the private key, along with the public key.
 #[derive(Debug, Clone)]
 pub struct KeygenOutput {
@@ -19,12 +19,14 @@ pub struct KeygenOutput {
     pub public_key: AffinePoint,
 }
 
-async fn do_keygen(
+async fn do_keyshare(
     mut chan: SharedChannel,
     participants: ParticipantList,
     me: Participant,
     threshold: usize,
-) -> Result<KeygenOutput, ProtocolError> {
+    s_i: Scalar,
+    big_s: Option<ProjectivePoint>,
+) -> Result<(Scalar, AffinePoint), ProtocolError> {
     let mut rng = OsRng;
     let mut transcript = Transcript::new(b"cait-sith v0.1.0 keygen");
 
@@ -37,7 +39,7 @@ async fn do_keygen(
     );
 
     // Spec 1.3
-    let f = Polynomial::random(&mut rng, threshold);
+    let f = Polynomial::extend_random(&mut rng, threshold, &s_i);
 
     // Spec 1.4
     let mut big_f = f.commit();
@@ -162,18 +164,41 @@ async fn do_keygen(
     }
 
     // Spec 3.8
+    let big_x = big_f.evaluate_zero();
+    match big_s {
+        Some(big_s) if big_s != big_x => {
+            return Err(ProtocolError::AssertionFailed(
+                "new public key does not match old public key".to_string(),
+            ))
+        }
+        _ => {}
+    };
+
+    // Spec 3.9
+    Ok((x_i, big_x.to_affine()))
+}
+
+async fn do_keygen(
+    chan: SharedChannel,
+    participants: ParticipantList,
+    me: Participant,
+    threshold: usize,
+) -> Result<KeygenOutput, ProtocolError> {
+    let s_i = Scalar::generate_biased(&mut OsRng);
+    let (private_share, public_key) =
+        do_keyshare(chan, participants, me, threshold, s_i, None).await?;
     Ok(KeygenOutput {
-        private_share: x_i,
-        public_key: big_f.evaluate_zero().to_affine(),
+        private_share,
+        public_key,
     })
 }
 
 /// The key generation protocol, with a given threshold.
-/// 
+///
 /// This produces a new key pair, such that any set of participants
 /// of size `>= threshold` can reconstruct the private key,
 /// but no smaller set can do the same.
-/// 
+///
 /// This needs to be run once, before then being able to perform threshold
 /// signatures using the key.
 pub fn keygen(
