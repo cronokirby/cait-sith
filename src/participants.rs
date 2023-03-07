@@ -24,23 +24,31 @@ pub struct ParticipantList {
 }
 
 impl ParticipantList {
-    /// Create a participant list from a slice of participants.
-    ///
-    /// This will return None if the participants have duplicates.
-    pub fn new(participants: &[Participant]) -> Option<Self> {
-        let mut out = participants.to_owned();
-        out.sort();
+    // For optimization reasons, another method needs this.
+    fn new_vec(mut participants: Vec<Participant>) -> Option<Self> {
+        participants.sort();
 
-        let indices: HashMap<_, _> = out.iter().enumerate().map(|(p, x)| (*x, p)).collect();
+        let indices: HashMap<_, _> = participants
+            .iter()
+            .enumerate()
+            .map(|(p, x)| (*x, p))
+            .collect();
 
-        if indices.len() < out.len() {
+        if indices.len() < participants.len() {
             return None;
         }
 
         Some(Self {
-            participants: out,
+            participants,
             indices,
         })
+    }
+
+    /// Create a participant list from a slice of participants.
+    ///
+    /// This will return None if the participants have duplicates.
+    pub fn new(participants: &[Participant]) -> Option<Self> {
+        Self::new_vec(participants.to_owned())
     }
 
     pub fn len(&self) -> usize {
@@ -80,6 +88,18 @@ impl ParticipantList {
         }
 
         top * bot.invert().unwrap()
+    }
+
+    /// Return the intersection of this list with another list.
+    pub fn intersection(&self, others: &ParticipantList) -> Self {
+        let mut out = Vec::new();
+        for &p in &self.participants {
+            if others.contains(p) {
+                out.push(p);
+            }
+        }
+        // We know that no duplicates will be created, so unwrapping is safe
+        Self::new_vec(out).unwrap()
     }
 }
 

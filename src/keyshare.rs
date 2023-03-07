@@ -1,3 +1,4 @@
+use ecdsa::elliptic_curve::group::prime::PrimeCurveAffine;
 use k256::{AffinePoint, ProjectivePoint, Scalar};
 use magikitten::Transcript;
 use rand_core::OsRng;
@@ -9,15 +10,6 @@ use crate::proofs::dlog;
 use crate::protocol::internal::{make_protocol, Context, SharedChannel};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
 use crate::serde::encode;
-
-/// Represents the output of the key generation protocol.
-///
-/// This contains our share of the private key, along with the public key.
-#[derive(Debug, Clone)]
-pub struct KeygenOutput {
-    pub private_share: Scalar,
-    pub public_key: AffinePoint,
-}
 
 async fn do_keyshare(
     mut chan: SharedChannel,
@@ -178,6 +170,15 @@ async fn do_keyshare(
     Ok((x_i, big_x.to_affine()))
 }
 
+/// Represents the output of the key generation protocol.
+///
+/// This contains our share of the private key, along with the public key.
+#[derive(Debug, Clone)]
+pub struct KeygenOutput {
+    pub private_share: Scalar,
+    pub public_key: AffinePoint,
+}
+
 async fn do_keygen(
     chan: SharedChannel,
     participants: ParticipantList,
@@ -232,6 +233,122 @@ pub fn keygen(
     let ctx = Context::new();
     let fut = do_keygen(ctx.shared_channel(), participants, me, threshold);
     Ok(make_protocol(ctx, fut))
+}
+
+async fn do_reshare(
+    chan: SharedChannel,
+    participants: ParticipantList,
+    old_subset: ParticipantList,
+    me: Participant,
+    threshold: usize,
+    my_share: Option<Scalar>,
+    public_key: AffinePoint,
+) -> Result<Scalar, ProtocolError> {
+    let s_i = my_share
+        .map(|x_i| old_subset.lagrange(me) * x_i)
+        .unwrap_or(Scalar::ZERO);
+    let big_s = public_key.to_curve();
+    let (private_share, _) =
+        do_keyshare(chan, participants, me, threshold, s_i, Some(big_s)).await?;
+    Ok(private_share)
+}
+
+/// The resharing protocol.
+///
+/// The purpose of this protocol is to take a key generated with one set of participants,
+/// and transfer it to another set of participants, potentially with a new threshold.
+///
+/// Not all participants must be present in the new set, but enough need to be present
+/// so that the old key can be reconstructed.
+///
+/// This protocol creates fresh shares for every party, without revealing the key,
+/// of course. The output of the protocol is the new share for this party.
+pub fn reshare(
+    old_participants: &[Participant],
+    old_threshold: usize,
+    new_participants: &[Participant],
+    new_threshold: usize,
+    me: Participant,
+    my_share: Option<Scalar>,
+    public_key: AffinePoint,
+) -> Result<impl Protocol<Output = Scalar>, InitializationError> {
+    if new_participants.len() < 2 {
+        return Err(InitializationError::BadParameters(format!(
+            "participant count cannot be < 2, found: {}",
+            new_participants.len()
+        )));
+    };
+    // Spec 1.1
+    if new_threshold > new_participants.len() {
+        return Err(InitializationError::BadParameters(
+            "threshold must be <= participant count".to_string(),
+        ));
+    }
+
+    let new_participants = ParticipantList::new(new_participants).ok_or_else(|| {
+        InitializationError::BadParameters(
+            "new participant list cannot contain duplicates".to_string(),
+        )
+    })?;
+
+    if !new_participants.contains(me) {
+        return Err(InitializationError::BadParameters(
+            "new participant list must contain this participant".to_string(),
+        ));
+    }
+
+    let old_participants = ParticipantList::new(old_participants).ok_or_else(|| {
+        InitializationError::BadParameters(
+            "old participant list cannot contain duplicates".to_string(),
+        )
+    })?;
+
+    let old_subset = old_participants.intersection(&new_participants);
+    if old_subset.len() < old_threshold {
+        return Err(InitializationError::BadParameters(
+            "not enough old participants to reconstruct private key for resharing".to_string(),
+        ));
+    }
+
+    if old_subset.contains(me) && my_share.is_none() {
+        return Err(InitializationError::BadParameters(
+            "this party is present in the old participant list but provided no share".to_string(),
+        ));
+    }
+
+    let ctx = Context::new();
+    let fut = do_reshare(
+        ctx.shared_channel(),
+        new_participants,
+        old_subset,
+        me,
+        new_threshold,
+        my_share,
+        public_key,
+    );
+    Ok(make_protocol(ctx, fut))
+}
+
+/// The refresh protocol.
+///
+/// This is like resharing, but with extra constraints to ensure that the set
+/// of participants and threshold do not change.
+pub fn refresh(
+    participants: &[Participant],
+    threshold: usize,
+    me: Participant,
+    my_share: Scalar,
+    public_key: AffinePoint,
+) -> Result<impl Protocol<Output = Scalar>, InitializationError> {
+    reshare(
+        participants,
+        threshold,
+        participants,
+        threshold,
+        me,
+        Some(my_share),
+        public_key,
+    )
 }
 
 #[cfg(test)]
