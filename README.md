@@ -65,6 +65,18 @@ before knowing the message to sign.
 
 It's important that presignatures and triples are **never** reused.
 
+### Refresh and Resharing
+
+In addition to key generation, cait-sith also supports key *refresh*,
+and key *resharing*.
+
+Key refresh generates new shares for each party, while keeping the same list
+of participants and threshold.
+
+Key resharing does the same, but also allows changing the threshold,
+and the list of participants (as long as enough old participants are present
+to meet the old threshold).
+
 ## API Design
 
 Internally, the API tries to be as simple as possible abstracting away
