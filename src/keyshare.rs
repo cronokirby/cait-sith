@@ -353,11 +353,29 @@ pub fn refresh(
 
 #[cfg(test)]
 mod test {
+    use std::error::Error;
+
     use super::*;
     use crate::protocol::{run_protocol, Participant};
 
+    fn do_keygen(participants: &[Participant], threshold: usize) -> Result<Vec<(Participant, KeygenOutput)>, Box<dyn Error>>{
+        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = KeygenOutput>>)> =
+            Vec::with_capacity(participants.len());
+
+        for p in participants.iter() {
+            let protocol = keygen(participants, *p, threshold);
+            assert!(protocol.is_ok());
+            let protocol = protocol.unwrap();
+            protocols.push((*p, Box::new(protocol)));
+        }
+
+        let result = run_protocol(protocols)?;
+        Ok(result)
+    }
+
+
     #[test]
-    fn test_keygen() {
+    fn test_keygen() -> Result<(), Box<dyn Error>>{
         let participants = vec![
             Participant::from(0u32),
             Participant::from(1u32),
@@ -365,19 +383,7 @@ mod test {
         ];
         let threshold = 3;
 
-        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = KeygenOutput>>)> =
-            Vec::with_capacity(participants.len());
-
-        for p in participants.iter() {
-            let protocol = keygen(&participants, *p, threshold);
-            assert!(protocol.is_ok());
-            let protocol = protocol.unwrap();
-            protocols.push((*p, Box::new(protocol)));
-        }
-
-        let result = run_protocol(protocols);
-        assert!(result.is_ok());
-        let result = result.unwrap();
+        let result = do_keygen(&participants, threshold)?;
         assert!(result.len() == participants.len());
         assert_eq!(result[0].1.public_key, result[1].1.public_key);
         assert_eq!(result[1].1.public_key, result[2].1.public_key);
@@ -395,5 +401,50 @@ mod test {
             + p_list.lagrange(participants[1]) * shares[1]
             + p_list.lagrange(participants[2]) * shares[2];
         assert_eq!(ProjectivePoint::GENERATOR * x, pub_key);
+
+        Ok(())
+    }
+
+
+    #[test]
+    fn test_refresh() -> Result<(), Box<dyn Error>>{
+        let participants = vec![
+            Participant::from(0u32),
+            Participant::from(1u32),
+            Participant::from(2u32),
+        ];
+        let threshold = 3;
+
+        let result0 = do_keygen(&participants, threshold)?;
+
+        let pub_key = result0[2].1.public_key;
+
+        // Refresh
+
+        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = Scalar>>)> =
+            Vec::with_capacity(participants.len());
+
+        for (p, out) in result0.iter() {
+            let protocol = refresh(&participants, threshold, *p, out.private_share, out.public_key);
+            assert!(protocol.is_ok());
+            let protocol = protocol.unwrap();
+            protocols.push((*p, Box::new(protocol)));
+        }
+
+        let result1 = run_protocol(protocols)?;
+
+        let participants = vec![result1[0].0, result1[1].0, result1[2].0];
+        let shares = vec![
+            result1[0].1,
+            result1[1].1,
+            result1[2].1,
+        ];
+        let p_list = ParticipantList::new(&participants).unwrap();
+        let x = p_list.lagrange(participants[0]) * shares[0]
+            + p_list.lagrange(participants[1]) * shares[1]
+            + p_list.lagrange(participants[2]) * shares[2];
+        assert_eq!(ProjectivePoint::GENERATOR * x, pub_key);
+
+        Ok(())
     }
 }
