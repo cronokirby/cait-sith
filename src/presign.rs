@@ -1,5 +1,5 @@
 use k256::elliptic_curve::group::prime::PrimeCurveAffine;
-use k256::{AffinePoint, ProjectivePoint, Scalar};
+use k256::{AffinePoint, ProjectivePoint, Scalar, Secp256k1};
 use rand_core::OsRng;
 
 use crate::math::{GroupPolynomial, Polynomial};
@@ -109,7 +109,7 @@ async fn do_presign(
     let mut seen = ParticipantCounter::new(&participants);
     seen.put(me);
     while !seen.full() {
-        let (from, big_f_j): (_, GroupPolynomial) = chan.recv(wait0).await?;
+        let (from, big_f_j): (_, GroupPolynomial<Secp256k1>) = chan.recv(wait0).await?;
         if !seen.put(from) {
             continue;
         }
@@ -118,7 +118,7 @@ async fn do_presign(
                 "polynomial from {from:?} has the wrong length"
             )));
         }
-        big_f += big_f_j;
+        big_f += &big_f_j;
     }
 
     // Spec 2.3, along with the summation of x_i from 2.4
@@ -266,7 +266,7 @@ mod test {
             Participant::from(3u32),
         ];
         let original_threshold = 2;
-        let f = Polynomial::random(&mut OsRng, original_threshold);
+        let f = Polynomial::<Secp256k1>::random(&mut OsRng, original_threshold);
         let big_x = (ProjectivePoint::GENERATOR * f.evaluate_zero()).to_affine();
         let threshold = 2;
 

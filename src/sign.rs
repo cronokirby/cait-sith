@@ -129,7 +129,7 @@ pub fn sign(
 
 #[cfg(test)]
 mod test {
-    use k256::ProjectivePoint;
+    use k256::{ProjectivePoint, Secp256k1};
     use rand_core::OsRng;
 
     use crate::{math::Polynomial, protocol::run_protocol};
@@ -143,18 +143,18 @@ mod test {
 
         // Run 4 times for flakiness reasons
         for _ in 0..4 {
-            let f = Polynomial::random(&mut OsRng, threshold);
+            let f = Polynomial::<Secp256k1>::random(&mut OsRng, threshold);
             let x = f.evaluate_zero();
             let public_key = (ProjectivePoint::GENERATOR * x).to_affine();
 
-            let g = Polynomial::random(&mut OsRng, threshold);
+            let g = Polynomial::<Secp256k1>::random(&mut OsRng, threshold);
 
-            let k = g.evaluate_zero();
+            let k: Scalar = g.evaluate_zero();
             let big_k = (ProjectivePoint::GENERATOR * k.invert().unwrap()).to_affine();
 
             let sigma = k * x;
 
-            let h = Polynomial::extend_random(&mut OsRng, threshold, &sigma);
+            let h = Polynomial::<Secp256k1>::extend_random(&mut OsRng, threshold, &sigma);
 
             let participants = vec![Participant::from(0u32), Participant::from(1u32)];
             let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = FullSignature>>)> =

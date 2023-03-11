@@ -1,4 +1,4 @@
-use k256::{ProjectivePoint, Scalar};
+use k256::{ProjectivePoint, Scalar, Secp256k1};
 use magikitten::Transcript;
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
@@ -17,7 +17,7 @@ const CHALLENGE_LABEL: &[u8] = b"dlog proof challenge";
 /// This statement claims knowledge of the discrete logarithm of some point.
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct Statement<'a> {
-    #[serde(serialize_with = "serialize_projective_point")]
+    #[serde(serialize_with = "serialize_projective_point::<Secp256k1, _>")]
     pub public: &'a ProjectivePoint,
 }
 

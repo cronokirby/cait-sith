@@ -1,7 +1,4 @@
-use ecdsa::elliptic_curve::{
-    bigint::{Bounded, Encoding},
-    Curve,
-};
+use ecdsa::elliptic_curve::{bigint::Bounded, Curve};
 use k256::{Scalar, Secp256k1};
 
 use crate::{
