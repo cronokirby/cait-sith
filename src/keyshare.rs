@@ -3,13 +3,15 @@ use k256::{AffinePoint, ProjectivePoint, Scalar};
 use magikitten::Transcript;
 use rand_core::OsRng;
 
-use crate::crypto::{commit, Commitment};
+use crate::crypto::{commit, hash, Digest};
 use crate::math::{GroupPolynomial, Polynomial};
 use crate::participants::{ParticipantCounter, ParticipantList, ParticipantMap};
 use crate::proofs::dlog;
 use crate::protocol::internal::{make_protocol, Context, SharedChannel};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
 use crate::serde::encode;
+
+const LABEL: &[u8] = b"cait-sith v0.1.0 keygen";
 
 async fn do_keyshare(
     mut chan: SharedChannel,
@@ -20,7 +22,7 @@ async fn do_keyshare(
     big_s: Option<ProjectivePoint>,
 ) -> Result<(Scalar, AffinePoint), ProtocolError> {
     let mut rng = OsRng;
-    let mut transcript = Transcript::new(b"cait-sith v0.1.0 keygen");
+    let mut transcript = Transcript::new(LABEL);
 
     // Spec 1.2
     transcript.message(b"participants", &encode(&participants));
@@ -37,7 +39,7 @@ async fn do_keyshare(
     let mut big_f = f.commit();
 
     // Spec 1.5
-    let my_commitment = commit(&big_f);
+    let (my_commitment, my_randomizer) = commit(&mut rng, &big_f);
 
     // Spec 1.6
     let wait0 = chan.next_waitpoint();
@@ -52,7 +54,7 @@ async fn do_keyshare(
     }
 
     // Spec 2.2
-    let my_confirmation = commit(&all_commitments);
+    let my_confirmation = hash(&all_commitments);
 
     // Spec 2.3
     transcript.message(b"confirmation", my_confirmation.as_ref());
@@ -77,7 +79,8 @@ async fn do_keyshare(
 
     // Spec 2.6
     let wait2 = chan.next_waitpoint();
-    chan.send_many(wait2, &(&big_f, my_phi_proof)).await;
+    chan.send_many(wait2, &(&big_f, &my_randomizer, my_phi_proof))
+        .await;
 
     // Spec 2.7
     let wait3 = chan.next_waitpoint();
@@ -91,7 +94,7 @@ async fn do_keyshare(
     let mut seen = ParticipantCounter::new(&participants);
     seen.put(me);
     while !seen.full() {
-        let (from, confirmation): (_, Commitment) = chan.recv(wait1).await?;
+        let (from, confirmation): (_, Digest) = chan.recv(wait1).await?;
         if !seen.put(from) {
             continue;
         }
@@ -106,7 +109,7 @@ async fn do_keyshare(
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, (their_big_f, their_phi_proof)): (_, (GroupPolynomial, _)) =
+        let (from, (their_big_f, their_randomizer, their_phi_proof)): (_, (GroupPolynomial, _, _)) =
             chan.recv(wait2).await?;
         if !seen.put(from) {
             continue;
@@ -117,7 +120,7 @@ async fn do_keyshare(
                 "polynomial from {from:?} has the wrong length"
             )));
         }
-        if commit(&their_big_f) != all_commitments[from] {
+        if !all_commitments[from].check(&their_big_f, &their_randomizer) {
             return Err(ProtocolError::AssertionFailed(format!(
                 "commitment from {from:?} did not match revealed F"
             )));

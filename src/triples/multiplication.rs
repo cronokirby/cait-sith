@@ -3,7 +3,7 @@ use k256::{Scalar, Secp256k1};
 
 use crate::{
     constants::SECURITY_PARAMETER,
-    crypto::Commitment,
+    crypto::Digest,
     protocol::{
         internal::{Context, PrivateChannel},
         Participant, ProtocolError,
@@ -89,7 +89,7 @@ pub async fn multiplication_receiver<'a>(
 
 pub async fn multiplication(
     ctx: Context<'_>,
-    sid: Commitment,
+    sid: Digest,
     me: Participant,
     setup: Setup,
     a_i: Scalar,
@@ -126,7 +126,7 @@ mod test {
     use rand_core::OsRng;
 
     use crate::{
-        crypto::commit,
+        crypto::hash,
         protocol::{
             internal::{make_protocol, Context},
             run_protocol, Participant, Protocol, ProtocolError,
@@ -174,7 +174,7 @@ mod test {
         let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = Scalar>>)> =
             Vec::with_capacity(prep.len());
 
-        let sid = commit(b"sid");
+        let sid = hash(b"sid");
 
         for (p, setup, a_i, b_i) in prep {
             let ctx = Context::new();

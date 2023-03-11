@@ -14,7 +14,7 @@ use crate::{
 };
 
 /// The output of the presigning protocol.
-/// 
+///
 /// This output is basically all the parts of the signature that we can perform
 /// without knowing the message.
 #[derive(Debug, Clone)]
@@ -202,10 +202,10 @@ async fn do_presign(
 }
 
 /// The presignature protocol.
-/// 
+///
 /// This is the first phase of performing a signature, in which we perform
 /// all the work we can do without yet knowing the message to be signed.
-/// 
+///
 /// This work does depend on the private key though, and it's crucial
 /// that a presignature is never used.
 pub fn presign(

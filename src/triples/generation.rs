@@ -4,7 +4,7 @@ use magikitten::Transcript;
 use rand_core::OsRng;
 
 use crate::{
-    crypto::{commit, Commitment},
+    crypto::{commit, hash, Digest},
     math::{GroupPolynomial, Polynomial},
     participants::{ParticipantCounter, ParticipantList, ParticipantMap},
     proofs::{dlog, dlogeq},
@@ -20,6 +20,8 @@ use super::{multiplication::multiplication, Setup, TriplePub, TripleShare};
 /// The output of running the triple generation protocol.
 pub type TripleGenerationOutput = (TripleShare, TriplePub);
 
+const LABEL: &[u8] = b"cait-sith v0.1.0 triple generation";
+
 async fn do_generation(
     ctx: Context<'_>,
     setup: Setup,
@@ -29,7 +31,7 @@ async fn do_generation(
 ) -> Result<TripleGenerationOutput, ProtocolError> {
     let mut rng = OsRng;
     let mut chan = ctx.shared_channel();
-    let mut transcript = Transcript::new(b"cait-sith v0.1.0 triple generation");
+    let mut transcript = Transcript::new(LABEL);
 
     // Spec 1.1
     transcript.message(b"participants", &encode(&participants));
@@ -48,7 +50,7 @@ async fn do_generation(
     let big_f_i = f.commit();
 
     // Spec 1.4
-    let my_commitment = commit(&(&big_e_i, &big_f_i));
+    let (my_commitment, my_randomizer) = commit(&mut rng, &(&big_e_i, &big_f_i));
 
     // Spec 1.5
     let wait0 = chan.next_waitpoint();
@@ -63,7 +65,7 @@ async fn do_generation(
     }
 
     // Spec 2.2
-    let my_confirmation = commit(&all_commitments);
+    let my_confirmation = hash(&all_commitments);
 
     // Spec 2.3
     transcript.message(b"confirmation", my_confirmation.as_ref());
@@ -97,7 +99,7 @@ async fn do_generation(
 
     // Spec 2.7
     let wait2 = chan.next_waitpoint();
-    chan.send_many(wait2, &(&big_e_i, &big_f_i, my_phi_proof))
+    chan.send_many(wait2, &(&big_e_i, &big_f_i, my_randomizer, my_phi_proof))
         .await;
 
     // Spec 2.8
@@ -114,7 +116,7 @@ async fn do_generation(
     let mut seen = ParticipantCounter::new(&participants);
     seen.put(me);
     while !seen.full() {
-        let (from, confirmation): (_, Commitment) = chan.recv(wait1).await?;
+        let (from, confirmation): (_, Digest) = chan.recv(wait1).await?;
         if !seen.put(from) {
             continue;
         }
@@ -132,9 +134,9 @@ async fn do_generation(
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, (their_big_e, their_big_f, their_phi_proof)): (
+        let (from, (their_big_e, their_big_f, their_randomizer, their_phi_proof)): (
             _,
-            (GroupPolynomial, GroupPolynomial, _),
+            (GroupPolynomial, GroupPolynomial, _, _),
         ) = chan.recv(wait2).await?;
         if !seen.put(from) {
             continue;
@@ -145,7 +147,7 @@ async fn do_generation(
                 "polynomial from {from:?} has the wrong length"
             )));
         }
-        if commit(&(&their_big_e, &their_big_f)) != all_commitments[from] {
+        if !all_commitments[from].check(&(&their_big_e, &their_big_f), &their_randomizer) {
             return Err(ProtocolError::AssertionFailed(format!(
                 "commitment from {from:?} did not match revealed F"
             )));
@@ -353,10 +355,10 @@ async fn do_generation(
 }
 
 /// Generate a triple through a multi-party protocol.
-/// 
+///
 /// This requires a setup phase to have been conducted with these parties
 /// previously.
-/// 
+///
 /// The resulting triple will be threshold shared, according to the threshold
 /// provided to this function.
 pub fn generate_triple(

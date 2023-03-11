@@ -83,8 +83,7 @@ fn run_correlated_ot(
             correlated_ot_sender(ctx_s.private_channel(s, r), params, delta, k),
         ),
         &mut make_protocol(ctx_r.clone(), async move {
-            let out =
-                correlated_ot_receiver(ctx_r.private_channel(r, s), params, k0, k1, x).await;
+            let out = correlated_ot_receiver(ctx_r.private_channel(r, s), params, k0, k1, x).await;
             Ok(out)
         }),
     )

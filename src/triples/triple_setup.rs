@@ -4,7 +4,7 @@ use crate::{
     participants::ParticipantList,
     protocol::{
         internal::{make_protocol, Context, PrivateChannel},
-        InitializationError, Participant, ProtocolError, Protocol,
+        InitializationError, Participant, Protocol, ProtocolError,
     },
 };
 
@@ -44,18 +44,12 @@ impl Setup {
     }
 }
 
-async fn do_sender(
-    ctx: Context<'_>,
-    chan: PrivateChannel,
-) -> Result<SingleSetup, ProtocolError> {
+async fn do_sender(ctx: Context<'_>, chan: PrivateChannel) -> Result<SingleSetup, ProtocolError> {
     let (delta, k) = batch_random_ot_receiver(ctx, chan).await?;
     Ok(SingleSetup::Sender(delta, k))
 }
 
-async fn do_receiver(
-    ctx: Context<'_>,
-    chan: PrivateChannel,
-) -> Result<SingleSetup, ProtocolError> {
+async fn do_receiver(ctx: Context<'_>, chan: PrivateChannel) -> Result<SingleSetup, ProtocolError> {
     let (k0, k1) = batch_random_ot_sender(ctx, chan).await?;
     Ok(SingleSetup::Receiver(k0, k1))
 }
@@ -89,7 +83,7 @@ async fn do_setup(
 }
 
 /// Runs a setup protocol among all participants, to prepare for triple generation later.
-/// 
+///
 /// This only needs to be one once, in order to generate an arbitrary number of triples.
 pub fn setup(
     participants: &[Participant],

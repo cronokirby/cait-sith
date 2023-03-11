@@ -51,7 +51,6 @@ async fn do_sign(
     // Spec 1.3
     let m = compat::scalar_hash(&msg);
 
-
     let r = compat::x_coordinate(&presignature.big_r);
     let s_i = m * k_i + r * sigma_i;
 
@@ -89,7 +88,7 @@ async fn do_sign(
 }
 
 /// The signature protocol, allowing us to use a presignature to sign a message.
-/// 
+///
 /// We intentionally take in the full message before hashing, rather than a hash,
 /// because it prevents potential API misuse. In particular, it's expected
 /// that each node participating in threshold signing verifies that they
