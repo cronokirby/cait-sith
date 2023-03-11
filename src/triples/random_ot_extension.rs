@@ -1,3 +1,5 @@
+use ck_meow::Meow;
+use elliptic_curve::Field;
 use magikitten::MeowRng;
 use rand_core::{OsRng, RngCore};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
@@ -16,15 +18,17 @@ use super::{
     correlated_ot_extension::{correlated_ot_receiver, correlated_ot_sender, CorrelatedOtParams},
 };
 
-const OT_CTX: &[u8] = b"Random OT Extension Hash";
+const MEOW_CTX: &[u8] = b"Random OT Extension Hash";
 
 fn hash_to_scalar<C: CSCurve>(i: usize, v: &BitVector) -> C::Scalar {
-    let mut message = Vec::new();
-    message.extend_from_slice(OT_CTX);
+    let mut meow = Meow::new(MEOW_CTX);
     let i64 = u64::try_from(i).expect("failed to convert usize to u64");
-    message.extend_from_slice(&i64.to_be_bytes());
-    message.extend_from_slice(&v.bytes());
-    C::scalar_hash(&message)
+    meow.meta_ad(&i64.to_le_bytes(), false);
+    meow.ad(&v.bytes(), false);
+    // A bit inefficient, but no better generic way I could find
+    let mut seed = [0u8; 32];
+    meow.prf(&mut seed, false);
+    C::Scalar::random(&mut MeowRng::new(&seed))
 }
 
 fn adjust_size(size: usize) -> usize {

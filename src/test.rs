@@ -2,6 +2,7 @@ use k256::{AffinePoint, Secp256k1};
 use rand_core::OsRng;
 
 use crate::{
+    compat::scalar_hash,
     keygen, presign,
     protocol::{run_protocol, Participant, Protocol},
     sign,
@@ -83,7 +84,13 @@ fn run_sign(
     let participant_list: Vec<Participant> = participants.iter().map(|(p, _)| *p).collect();
 
     for (p, presign_out) in participants.into_iter() {
-        let protocol = sign(&participant_list, p, public_key, presign_out, msg);
+        let protocol = sign(
+            &participant_list,
+            p,
+            public_key,
+            presign_out,
+            scalar_hash(msg),
+        );
         assert!(protocol.is_ok());
         let protocol = protocol.unwrap();
         protocols.push((p, Box::new(protocol)));
