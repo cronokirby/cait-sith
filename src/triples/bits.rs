@@ -344,7 +344,9 @@ impl ChoiceVector {
     pub fn random(rng: &mut impl CryptoRngCore, size: usize) -> Self {
         assert!(size > 0 && size % SECURITY_PARAMETER == 0);
 
-        let data = (0..(size / SECURITY_PARAMETER)).map(|_| BitVector::random(rng)).collect();
+        let data = (0..(size / SECURITY_PARAMETER))
+            .map(|_| BitVector::random(rng))
+            .collect();
 
         Self(data)
     }

@@ -1,5 +1,5 @@
 //! This module provides abstractions for working with protocols.
-//! 
+//!
 //! This library tries to abstract away as much of the internal machinery
 //! of protocols as much as possible. To use a protocol, you just need to be able
 //! to deliver messages to and from that protocol, and eventually it will produce
@@ -145,7 +145,7 @@ pub trait Protocol {
 /// Run a protocol to completion, synchronously.
 ///
 /// This works by executing each participant in order.
-/// 
+///
 /// The reason this function exists is as a convenient testing utility.
 /// In practice each protocol participant is likely running on a different machine,
 /// and so orchestrating the protocol would happen differently.
