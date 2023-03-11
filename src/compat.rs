@@ -1,12 +1,11 @@
-use digest::{Digest, FixedOutput};
-use ecdsa::{hazmat::DigestPrimitive, PrimeCurve};
-use elliptic_curve::{ops::Reduce, point::AffineCoordinates, Curve, CurveArithmetic};
-use k256::{AffinePoint, FieldBytes, Scalar, Secp256k1};
+use elliptic_curve::{ops::Reduce, point::AffineCoordinates, Curve, CurveArithmetic, PrimeCurve};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Represents a curve suitable for use in cait-sith.
 pub trait CSCurve: PrimeCurve + CurveArithmetic {
     const NAME: &'static [u8];
+
+    const BITS: usize;
 
     /// Hash an arbitrary message in order to produce a scalar.
     fn scalar_hash(msg: &[u8]) -> Self::Scalar;
@@ -23,29 +22,41 @@ pub trait CSCurve: PrimeCurve + CurveArithmetic {
     ) -> Result<Self::AffinePoint, D::Error>;
 }
 
-impl CSCurve for Secp256k1 {
-    const NAME: &'static [u8] = b"Secp256k1-SHA-256";
+#[cfg(test)]
+mod test_curve {
+    use super::*;
 
-    fn scalar_hash(msg: &[u8]) -> Self::Scalar {
-        let digest = <Secp256k1 as DigestPrimitive>::Digest::new_with_prefix(msg);
-        let m_bytes: FieldBytes = digest.finalize_fixed();
-        <Scalar as Reduce<<Secp256k1 as Curve>::Uint>>::reduce_bytes(&m_bytes)
-    }
+    use digest::{Digest, FixedOutput};
+    use ecdsa::hazmat::DigestPrimitive;
+    use elliptic_curve::{bigint::Bounded, ops::Reduce, Curve};
+    use k256::{FieldBytes, Scalar, Secp256k1};
 
-    fn serialize_point<S: Serializer>(
-        point: &Self::AffinePoint,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
-        point.serialize(serializer)
-    }
+    impl CSCurve for Secp256k1 {
+        const NAME: &'static [u8] = b"Secp256k1-SHA-256";
+        const BITS: usize = <Self::Uint as Bounded>::BITS;
 
-    fn deserialize_point<'de, D: Deserializer<'de>>(
-        deserializer: D,
-    ) -> Result<Self::AffinePoint, D::Error> {
-        Self::AffinePoint::deserialize(deserializer)
+        fn scalar_hash(msg: &[u8]) -> Self::Scalar {
+            let digest = <Secp256k1 as DigestPrimitive>::Digest::new_with_prefix(msg);
+            let m_bytes: FieldBytes = digest.finalize_fixed();
+            <Scalar as Reduce<<Secp256k1 as Curve>::Uint>>::reduce_bytes(&m_bytes)
+        }
+
+        fn serialize_point<S: Serializer>(
+            point: &Self::AffinePoint,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error> {
+            point.serialize(serializer)
+        }
+
+        fn deserialize_point<'de, D: Deserializer<'de>>(
+            deserializer: D,
+        ) -> Result<Self::AffinePoint, D::Error> {
+            Self::AffinePoint::deserialize(deserializer)
+        }
     }
 }
 
+#[derive(Clone, Copy)]
 pub(crate) struct SerializablePoint<C: CSCurve>(C::AffinePoint);
 
 impl<C: CSCurve> SerializablePoint<C> {
@@ -76,12 +87,7 @@ impl<'de, C: CSCurve> Deserialize<'de> for SerializablePoint<C> {
     }
 }
 
-pub fn scalar_hash(msg: &[u8]) -> Scalar {
-    let digest = <Secp256k1 as DigestPrimitive>::Digest::new_with_prefix(msg);
-    let m_bytes: FieldBytes = digest.finalize_fixed();
-    <Scalar as Reduce<<Secp256k1 as Curve>::Uint>>::reduce_bytes(&m_bytes)
-}
-
-pub fn x_coordinate(point: &AffinePoint) -> Scalar {
-    <Scalar as Reduce<<Secp256k1 as Curve>::Uint>>::reduce_bytes(&point.x())
+/// Get the x coordinate of a point, as a scalar
+pub(crate) fn x_coordinate<C: CSCurve>(point: &C::AffinePoint) -> C::Scalar {
+    <C::Scalar as Reduce<<C as Curve>::Uint>>::reduce_bytes(&point.x())
 }

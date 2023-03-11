@@ -9,7 +9,8 @@ use core::fmt;
 use std::{collections::HashMap, error};
 
 use ::serde::Serialize;
-use k256::Scalar;
+
+use crate::compat::CSCurve;
 
 /// Represents an error which can happen when running a protocol.
 #[derive(Debug)]
@@ -73,8 +74,8 @@ impl Participant {
     }
 
     /// Return the scalar associated with this participant.
-    pub fn scalar(&self) -> Scalar {
-        Scalar::from(self.0 as u64 + 1)
+    pub fn scalar<C: CSCurve>(&self) -> C::Scalar {
+        C::Scalar::from(self.0 as u64 + 1)
     }
 }
 
@@ -149,7 +150,7 @@ pub trait Protocol {
 /// The reason this function exists is as a convenient testing utility.
 /// In practice each protocol participant is likely running on a different machine,
 /// and so orchestrating the protocol would happen differently.
-pub fn run_protocol<T: std::fmt::Debug>(
+pub fn run_protocol<T>(
     mut ps: Vec<(Participant, Box<dyn Protocol<Output = T>>)>,
 ) -> Result<Vec<(Participant, T)>, ProtocolError> {
     let indices: HashMap<Participant, usize> =

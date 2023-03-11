@@ -25,11 +25,11 @@
 //! This protocol requires a setup protocol to be one once beforehand.
 //! After this setup protocol has been run, an arbitarary number of triples can
 //! be generated.
-use k256::{AffinePoint, ProjectivePoint, Scalar, Secp256k1};
+use elliptic_curve::{Field, Group};
 use rand_core::CryptoRngCore;
 use serde::Serialize;
 
-use crate::{math::Polynomial, protocol::Participant};
+use crate::{compat::CSCurve, math::Polynomial, protocol::Participant};
 
 /// Represents the public part of a triple.
 ///
@@ -37,10 +37,10 @@ use crate::{math::Polynomial, protocol::Participant};
 ///
 /// We also record who participated in the protocol,
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
-pub struct TriplePub {
-    pub big_a: AffinePoint,
-    pub big_b: AffinePoint,
-    pub big_c: AffinePoint,
+pub struct TriplePub<C: CSCurve> {
+    pub big_a: C::AffinePoint,
+    pub big_b: C::AffinePoint,
+    pub big_c: C::AffinePoint,
     /// The participants in generating this triple.
     pub participants: Vec<Participant>,
     /// The threshold which will be able to reconstruct it.
@@ -53,35 +53,35 @@ pub struct TriplePub {
 ///
 /// i.e. we have a share of a, b, and c such that a * b = c.
 #[derive(Clone, Debug)]
-pub struct TripleShare {
-    pub a: Scalar,
-    pub b: Scalar,
-    pub c: Scalar,
+pub struct TripleShare<C: CSCurve> {
+    pub a: C::Scalar,
+    pub b: C::Scalar,
+    pub c: C::Scalar,
 }
 
 /// Create a new triple from scratch.
 ///
 /// This can be used to generate a triple if you then trust the person running
 /// this code to forget about the values they generated.
-pub fn deal(
+pub fn deal<C: CSCurve>(
     rng: &mut impl CryptoRngCore,
     participants: &[Participant],
     threshold: usize,
-) -> (TriplePub, Vec<TripleShare>) {
-    let a = Scalar::generate_biased(&mut *rng);
-    let b = Scalar::generate_biased(&mut *rng);
+) -> (TriplePub<C>, Vec<TripleShare<C>>) {
+    let a = C::Scalar::random(&mut *rng);
+    let b = C::Scalar::random(&mut *rng);
     let c = a * b;
 
-    let f_a = Polynomial::<Secp256k1>::extend_random(rng, threshold, &a);
-    let f_b = Polynomial::<Secp256k1>::extend_random(rng, threshold, &b);
-    let f_c = Polynomial::<Secp256k1>::extend_random(rng, threshold, &c);
+    let f_a = Polynomial::<C>::extend_random(rng, threshold, &a);
+    let f_b = Polynomial::<C>::extend_random(rng, threshold, &b);
+    let f_c = Polynomial::<C>::extend_random(rng, threshold, &c);
 
     let mut shares = Vec::with_capacity(participants.len());
     let mut participants_owned = Vec::with_capacity(participants.len());
 
     for p in participants {
         participants_owned.push(*p);
-        let p_scalar = p.scalar();
+        let p_scalar = p.scalar::<C>();
         shares.push(TripleShare {
             a: f_a.evaluate(&p_scalar),
             b: f_b.evaluate(&p_scalar),
@@ -90,9 +90,9 @@ pub fn deal(
     }
 
     let triple_pub = TriplePub {
-        big_a: (ProjectivePoint::GENERATOR * a).to_affine(),
-        big_b: (ProjectivePoint::GENERATOR * b).to_affine(),
-        big_c: (ProjectivePoint::GENERATOR * c).to_affine(),
+        big_a: (C::ProjectivePoint::generator() * a).into(),
+        big_b: (C::ProjectivePoint::generator() * b).into(),
+        big_c: (C::ProjectivePoint::generator() * c).into(),
         participants: participants_owned,
         threshold,
     };
