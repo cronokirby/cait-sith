@@ -118,7 +118,7 @@ fn run_mta(
 
 #[cfg(test)]
 mod test {
-    use ecdsa::elliptic_curve::{bigint::Encoding, Curve};
+    use ecdsa::elliptic_curve::{bigint::Bounded, Curve};
     use k256::Secp256k1;
     use rand_core::RngCore;
     use subtle::ConditionallySelectable;
@@ -129,7 +129,7 @@ mod test {
 
     #[test]
     fn test_mta() -> Result<(), ProtocolError> {
-        let batch_size = <<Secp256k1 as Curve>::UInt as Encoding>::BIT_SIZE + SECURITY_PARAMETER;
+        let batch_size = <<Secp256k1 as Curve>::Uint as Bounded>::BITS + SECURITY_PARAMETER;
 
         let v: Vec<_> = (0..batch_size)
             .map(|_| {

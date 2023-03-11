@@ -1,4 +1,7 @@
-use ecdsa::elliptic_curve::{bigint::Encoding, Curve};
+use ecdsa::elliptic_curve::{
+    bigint::{Bounded, Encoding},
+    Curve,
+};
 use k256::{Scalar, Secp256k1};
 
 use crate::{
@@ -19,7 +22,7 @@ use super::{
     Setup,
 };
 
-const BATCH_SIZE: usize = <<Secp256k1 as Curve>::UInt as Encoding>::BIT_SIZE + SECURITY_PARAMETER;
+const BATCH_SIZE: usize = <<Secp256k1 as Curve>::Uint as Bounded>::BITS + SECURITY_PARAMETER;
 
 pub async fn multiplication_sender<'a>(
     ctx: Context<'a>,
