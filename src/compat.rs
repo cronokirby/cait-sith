@@ -7,9 +7,6 @@ pub trait CSCurve: PrimeCurve + CurveArithmetic {
 
     const BITS: usize;
 
-    /// Hash an arbitrary message in order to produce a scalar.
-    fn scalar_hash(msg: &[u8]) -> Self::Scalar;
-
     /// Serialize a point with serde.
     fn serialize_point<S: Serializer>(
         point: &Self::AffinePoint,
@@ -22,7 +19,6 @@ pub trait CSCurve: PrimeCurve + CurveArithmetic {
     ) -> Result<Self::AffinePoint, D::Error>;
 }
 
-#[cfg(test)]
 mod test_curve {
     use super::*;
 
@@ -31,15 +27,23 @@ mod test_curve {
     use elliptic_curve::{bigint::Bounded, ops::Reduce, Curve};
     use k256::{FieldBytes, Scalar, Secp256k1};
 
+    pub(crate) fn scalar_hash(msg: &[u8]) -> <Secp256k1 as CurveArithmetic>::Scalar {
+        let digest = <Secp256k1 as DigestPrimitive>::Digest::new_with_prefix(msg);
+        let m_bytes: FieldBytes = digest.finalize_fixed();
+        <Scalar as Reduce<<Secp256k1 as Curve>::Uint>>::reduce_bytes(&m_bytes)
+    }
+
     impl CSCurve for Secp256k1 {
         const NAME: &'static [u8] = b"Secp256k1-SHA-256";
         const BITS: usize = <Self::Uint as Bounded>::BITS;
 
+        /*
         fn scalar_hash(msg: &[u8]) -> Self::Scalar {
             let digest = <Secp256k1 as DigestPrimitive>::Digest::new_with_prefix(msg);
             let m_bytes: FieldBytes = digest.finalize_fixed();
             <Scalar as Reduce<<Secp256k1 as Curve>::Uint>>::reduce_bytes(&m_bytes)
         }
+        */
 
         fn serialize_point<S: Serializer>(
             point: &Self::AffinePoint,
@@ -55,6 +59,9 @@ mod test_curve {
         }
     }
 }
+
+#[cfg(test)]
+pub(crate) use test_curve::scalar_hash;
 
 #[derive(Clone, Copy)]
 pub(crate) struct SerializablePoint<C: CSCurve>(C::AffinePoint);
@@ -77,6 +84,7 @@ impl<C: CSCurve> Serialize for SerializablePoint<C> {
         C::serialize_point(&self.0, serializer)
     }
 }
+
 impl<'de, C: CSCurve> Deserialize<'de> for SerializablePoint<C> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
