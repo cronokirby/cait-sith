@@ -250,7 +250,7 @@ async fn do_reshare(
     let s_i = my_share
         .map(|x_i| old_subset.lagrange(me) * x_i)
         .unwrap_or(Scalar::ZERO);
-    let big_s = public_key.to_curve();
+    let big_s = public_key.into();
     let (private_share, _) =
         do_keyshare(chan, participants, me, threshold, s_i, Some(big_s)).await?;
     Ok(private_share)

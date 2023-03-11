@@ -9,10 +9,10 @@ license = "MIT"
 [dependencies]
 auto_ops = "0.3.0"
 ck-meow = "0.1.0"
-digest = "0.10.5"
-ecdsa = { version = "0.15.1", features = ["digest", "hazmat"] }
+digest = "0.10.6"
+ecdsa = { version = "0.16.1", features = ["digest", "hazmat"] }
 event-listener = "2.5.3"
-k256 = { version = "0.12.0", features = ["sha256", "ecdsa", "serde"] }
+k256 = { version = "0.13.0", features = ["sha256", "ecdsa", "serde"] }
 magikitten = "0.2.0"
 rand_core = "0.6.4"
 rmp-serde = "1.1.1"

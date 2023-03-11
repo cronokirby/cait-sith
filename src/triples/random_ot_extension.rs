@@ -27,7 +27,7 @@ fn hash_to_scalar(i: usize, v: &BitVector) -> Scalar {
     meow.ad(&v.bytes(), false);
     let mut scalar_bytes = [0u8; 512 / 8];
     meow.prf(&mut scalar_bytes, false);
-    <Scalar as Reduce<U512>>::from_le_bytes_reduced(scalar_bytes.into())
+    <Scalar as Reduce<U512>>::reduce_bytes(&scalar_bytes.into())
 }
 
 fn adjust_size(size: usize) -> usize {
