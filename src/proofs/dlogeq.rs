@@ -1,4 +1,4 @@
-use k256::{ProjectivePoint, Scalar};
+use k256::{ProjectivePoint, Scalar, Secp256k1};
 use magikitten::Transcript;
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
@@ -18,11 +18,11 @@ const CHALLENGE_LABEL: &[u8] = b"dlogeq proof challenge";
 /// of one point under the standard generator, and of another point under an alternate generator.
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct Statement<'a> {
-    #[serde(serialize_with = "serialize_projective_point")]
+    #[serde(serialize_with = "serialize_projective_point::<Secp256k1, _>")]
     pub public0: &'a ProjectivePoint,
-    #[serde(serialize_with = "serialize_projective_point")]
+    #[serde(serialize_with = "serialize_projective_point::<Secp256k1, _>")]
     pub generator1: &'a ProjectivePoint,
-    #[serde(serialize_with = "serialize_projective_point")]
+    #[serde(serialize_with = "serialize_projective_point::<Secp256k1, _>")]
     pub public1: &'a ProjectivePoint,
 }
 

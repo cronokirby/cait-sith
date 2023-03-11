@@ -25,7 +25,7 @@
 //! This protocol requires a setup protocol to be one once beforehand.
 //! After this setup protocol has been run, an arbitarary number of triples can
 //! be generated.
-use k256::{AffinePoint, ProjectivePoint, Scalar};
+use k256::{AffinePoint, ProjectivePoint, Scalar, Secp256k1};
 use rand_core::CryptoRngCore;
 use serde::Serialize;
 
@@ -72,9 +72,9 @@ pub fn deal(
     let b = Scalar::generate_biased(&mut *rng);
     let c = a * b;
 
-    let f_a = Polynomial::extend_random(rng, threshold, &a);
-    let f_b = Polynomial::extend_random(rng, threshold, &b);
-    let f_c = Polynomial::extend_random(rng, threshold, &c);
+    let f_a = Polynomial::<Secp256k1>::extend_random(rng, threshold, &a);
+    let f_b = Polynomial::<Secp256k1>::extend_random(rng, threshold, &b);
+    let f_c = Polynomial::<Secp256k1>::extend_random(rng, threshold, &c);
 
     let mut shares = Vec::with_capacity(participants.len());
     let mut participants_owned = Vec::with_capacity(participants.len());

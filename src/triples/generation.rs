@@ -1,5 +1,5 @@
 use ecdsa::elliptic_curve::group::prime::PrimeCurveAffine;
-use k256::{AffinePoint, ProjectivePoint, Scalar};
+use k256::{AffinePoint, ProjectivePoint, Scalar, Secp256k1};
 use magikitten::Transcript;
 use rand_core::OsRng;
 
@@ -136,7 +136,7 @@ async fn do_generation(
     while !seen.full() {
         let (from, (their_big_e, their_big_f, their_randomizer, their_phi_proof)): (
             _,
-            (GroupPolynomial, GroupPolynomial, _, _),
+            (GroupPolynomial<Secp256k1>, GroupPolynomial<Secp256k1>, _, _),
         ) = chan.recv(wait2).await?;
         if !seen.put(from) {
             continue;
@@ -283,7 +283,7 @@ async fn do_generation(
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, (their_big_l, their_phi_proof)): (_, (GroupPolynomial, _)) =
+        let (from, (their_big_l, their_phi_proof)): (_, (GroupPolynomial<Secp256k1>, _)) =
             chan.recv(wait5).await?;
         if !seen.put(from) {
             continue;

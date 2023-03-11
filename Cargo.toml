@@ -11,6 +11,7 @@ auto_ops = "0.3.0"
 ck-meow = "0.1.0"
 digest = "0.10.6"
 ecdsa = { version = "0.16.1", features = ["digest", "hazmat"] }
+elliptic-curve = { version = "0.13.2", features = ["serde"] }
 event-listener = "2.5.3"
 k256 = { version = "0.13.0", features = ["sha256", "ecdsa", "serde"] }
 magikitten = "0.2.0"
