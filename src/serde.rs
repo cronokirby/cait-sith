@@ -72,6 +72,25 @@ pub fn serialize_projective_point<C: CSCurve, S: Serializer>(
     SerializablePoint::<C>::from_projective(data).serialize(serializer)
 }
 
+/// Serialize an arbitrary scalar.
+pub fn serialize_scalar<C: CSCurve, S: Serializer>(
+    data: &C::Scalar,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    let data: ScalarPrimitive<C> = (*data).into();
+    data.serialize(serializer)
+}
+
+/// Deserialize an arbitrary scalar.
+pub fn deserialize_scalar<'de, C, D>(deserializer: D) -> Result<C::Scalar, D::Error>
+where
+    C: CSCurve,
+    D: Deserializer<'de>,
+{
+    let out: ScalarPrimitive<C> = ScalarPrimitive::deserialize(deserializer)?;
+    Ok(out.into())
+}
+
 /// Decode an arbitrary value from a slice of bytes.
 pub fn decode<T: DeserializeOwned>(input: &[u8]) -> Result<T, rmp_serde::decode::Error> {
     rmp_serde::decode::from_slice(input)

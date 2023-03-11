@@ -5,7 +5,7 @@ use crate::{
     protocol::{
         internal::{make_protocol, Context, PrivateChannel},
         InitializationError, Participant, Protocol, ProtocolError,
-    },
+    }, compat::CSCurve,
 };
 
 use super::{
@@ -44,17 +44,17 @@ impl Setup {
     }
 }
 
-async fn do_sender(ctx: Context<'_>, chan: PrivateChannel) -> Result<SingleSetup, ProtocolError> {
-    let (delta, k) = batch_random_ot_receiver(ctx, chan).await?;
+async fn do_sender<C: CSCurve>(ctx: Context<'_>, chan: PrivateChannel) -> Result<SingleSetup, ProtocolError> {
+    let (delta, k) = batch_random_ot_receiver::<C>(ctx, chan).await?;
     Ok(SingleSetup::Sender(delta, k))
 }
 
-async fn do_receiver(ctx: Context<'_>, chan: PrivateChannel) -> Result<SingleSetup, ProtocolError> {
-    let (k0, k1) = batch_random_ot_sender(ctx, chan).await?;
+async fn do_receiver<C: CSCurve>(ctx: Context<'_>, chan: PrivateChannel) -> Result<SingleSetup, ProtocolError> {
+    let (k0, k1) = batch_random_ot_sender::<C>(ctx, chan).await?;
     Ok(SingleSetup::Receiver(k0, k1))
 }
 
-async fn do_setup(
+async fn do_setup<C: CSCurve>(
     ctx: Context<'_>,
     participants: ParticipantList,
     me: Participant,
@@ -66,9 +66,9 @@ async fn do_setup(
             async move {
                 let chan = ctx.private_channel(me, p);
                 if me < p {
-                    do_sender(ctx, chan).await
+                    do_sender::<C>(ctx, chan).await
                 } else {
-                    do_receiver(ctx, chan).await
+                    do_receiver::<C>(ctx, chan).await
                 }
             }
         };
@@ -85,7 +85,7 @@ async fn do_setup(
 /// Runs a setup protocol among all participants, to prepare for triple generation later.
 ///
 /// This only needs to be one once, in order to generate an arbitrary number of triples.
-pub fn setup(
+pub fn setup<C: CSCurve>(
     participants: &[Participant],
     me: Participant,
 ) -> Result<impl Protocol<Output = Setup>, InitializationError> {
@@ -100,6 +100,6 @@ pub fn setup(
     }
 
     let ctx = Context::new();
-    let fut = do_setup(ctx.clone(), participants, me);
+    let fut = do_setup::<C>(ctx.clone(), participants, me);
     Ok(make_protocol(ctx, fut))
 }

@@ -6,10 +6,10 @@
 
 use std::{collections::HashMap, mem, ops::Index};
 
-use k256::Scalar;
+use elliptic_curve::Field;
 use serde::Serialize;
 
-use crate::protocol::Participant;
+use crate::{protocol::Participant, compat::CSCurve};
 
 /// Represents a sorted list of participants.
 ///
@@ -73,16 +73,16 @@ impl ParticipantList {
     }
 
     /// Get the lagrange coefficient for a participant, relative to this list.
-    pub fn lagrange(&self, p: Participant) -> Scalar {
-        let p_scalar = p.scalar();
+    pub fn lagrange<C: CSCurve>(&self, p: Participant) -> C::Scalar {
+        let p_scalar = p.scalar::<C>();
 
-        let mut top = Scalar::ONE;
-        let mut bot = Scalar::ONE;
+        let mut top = C::Scalar::ONE;
+        let mut bot = C::Scalar::ONE;
         for q in &self.participants {
             if p == *q {
                 continue;
             }
-            let q_scalar = q.scalar();
+            let q_scalar = q.scalar::<C>();
             top *= q_scalar;
             bot *= q_scalar - p_scalar;
         }

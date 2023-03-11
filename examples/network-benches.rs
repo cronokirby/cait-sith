@@ -6,13 +6,59 @@ use std::{
 use cait_sith::{
     keygen, presign,
     protocol::{Action, MessageData, Participant, Protocol},
-    sign, triples, PresignArguments,
+    sign, triples, CSCurve, PresignArguments,
 };
 use easy_parallel::Parallel;
+use elliptic_curve::{bigint::Bounded, Curve, CurveArithmetic, PrimeCurve, ScalarPrimitive};
 use haisou_chan::{channel, Bandwidth};
 
+use k256::Secp256k1;
 use rand_core::OsRng;
 use structopt::StructOpt;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+struct MyCurve;
+
+impl Curve for MyCurve {
+    type FieldBytesSize = <Secp256k1 as Curve>::FieldBytesSize;
+
+    type Uint = <Secp256k1 as Curve>::Uint;
+
+    const ORDER: Self::Uint = <Secp256k1 as Curve>::ORDER;
+}
+
+impl PrimeCurve for MyCurve {}
+
+impl CurveArithmetic for MyCurve {
+    type AffinePoint = <Secp256k1 as CurveArithmetic>::AffinePoint;
+
+    type ProjectivePoint = <Secp256k1 as CurveArithmetic>::ProjectivePoint;
+
+    type Scalar = <Secp256k1 as CurveArithmetic>::Scalar;
+}
+
+impl CSCurve for MyCurve {
+    const NAME: &'static [u8] = b"Secp256k1-SHA256";
+
+    const BITS: usize = <<Secp256k1 as Curve>::Uint as Bounded>::BITS;
+
+    fn scalar_hash(msg: &[u8]) -> Self::Scalar {
+        todo!()
+    }
+
+    fn serialize_point<S: serde::Serializer>(
+        point: &Self::AffinePoint,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        todo!()
+    }
+
+    fn deserialize_point<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Self::AffinePoint, D::Error> {
+        todo!()
+    }
+}
 
 #[derive(Debug, StructOpt)]
 struct Args {
@@ -39,7 +85,7 @@ fn run_protocol<T, F, P>(
 where
     F: Fn(Participant) -> P + Send + Sync,
     P: Protocol<Output = T>,
-    T: Send + std::fmt::Debug,
+    T: Send,
 {
     // We create a link between each pair of parties, with a set amount of latency,
     // but no bandwidth constraints.

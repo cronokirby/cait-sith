@@ -96,10 +96,11 @@ mod test {
     use crate::triples::batch_random_ot::run_batch_random_ot;
 
     use super::*;
+    use k256::Secp256k1;
 
     #[test]
     fn test_correlated_ot() -> Result<(), ProtocolError> {
-        let ((k0, k1), (delta, k)) = run_batch_random_ot()?;
+        let ((k0, k1), (delta, k)) = run_batch_random_ot::<Secp256k1>()?;
         let batch_size = 256;
         let x = BitMatrix::random(&mut OsRng, batch_size);
         let (q, t) = run_correlated_ot((delta, &k), (&k0, &k1, &x), b"test sid", batch_size)?;

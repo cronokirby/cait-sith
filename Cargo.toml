@@ -13,7 +13,6 @@ digest = "0.10.6"
 ecdsa = { version = "0.16.1", features = ["digest", "hazmat"] }
 elliptic-curve = { version = "0.13.2", features = ["serde"] }
 event-listener = "2.5.3"
-k256 = { version = "0.13.0", features = ["sha256", "ecdsa", "serde"] }
 magikitten = "0.2.0"
 rand_core = "0.6.4"
 rmp-serde = "1.1.1"
@@ -24,6 +23,7 @@ subtle = "2.4.1"
 [dev-dependencies]
 criterion = "0.4"
 easy-parallel = "3.2.0"
+k256 = { version = "0.13.0", features = ["sha256", "ecdsa", "serde"] }
 haisou-chan = { git = "https://github.com/cronokirby/haisou-chan", rev = "d28c46e51acfcb818236caae293f6e56dff41ad2" }
 structopt = "0.3.26"
 

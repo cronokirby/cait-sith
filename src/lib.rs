@@ -117,3 +117,4 @@ pub mod triples;
 pub use keyshare::{keygen, refresh, reshare, KeygenOutput};
 pub use presign::{presign, PresignArguments, PresignOutput};
 pub use sign::{sign, FullSignature};
+pub use compat::CSCurve;
