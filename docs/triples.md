@@ -152,7 +152,7 @@ This protocol is also parameterized by a unique session id $\text{sid}$
 using $X_{ij}$ as its input.
 The parties receive $T_ {ij}$ and $Q_ {ij}$ respectively.
 3. $\mathcal{S}$ samples $s \xleftarrow{R} \mathbb{F}_2^\lambda$.
-4. $\star$ $\mathcal{S}$ sends $s$ to $\mathcal{R}
+4. $\star$ $\mathcal{S}$ sends $s$ to $\mathcal{R}$.
 5. $\bullet$ $\mathcal{R}$ waits to receive $s$.
 6. Let $\mu \gets \lceil \kappa' / \lambda \rceil$,
 then, the parties set $\hat{T}_ {ij}$, $\hat{b}_ i$, $\hat{Q}_ {ij}$,
@@ -285,7 +285,7 @@ which want to generate a triple with threshold $t$.
 1. $T.\text{Add}(\mathcal{P}, t)$
 2. Each $P_ i$ samples $e, f \xleftarrow{R} \mathbb{F}_ q[X]_ {\leq (t - 1)}$.
 3. Each $P_i$ sets $E_i \gets e \cdot G$, and $F_i \gets f \cdot G$.
-4. Each $P_i$ sets $\text{Com}_i \gets H(E_i, F_I)$.
+4. Each $P_i$ sets $(\text{Com}_i, r_i) \gets \text{Commit}((E_i, F_i))$.
 5. $\star$ Each $P_i$ sends $\text{Com}_i$ to all other parties.
 
 **Round 2:**
@@ -304,20 +304,20 @@ $$
 \end{aligned}
 $$
 
-7. $\star$ Each $P_i$ sends $(E_i, F_i, \pi_i)$ to every other party.
+7. $\star$ Each $P_i$ sends $(E_i, F_i, r_i, \pi_i)$ to every other party.
 7. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $a_i^j = e(j)$ and $b_i^j$ = $f(j)$ to every other party $P_j$.
 
 **Round 3:**
 
 1. $\bullet$ Each $P_i$ waits to receive $\text{Confirm}_j$ from each other $P_j$.
 2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j.\ \text{Confirm}_j = \text{Confirm}_i$.
-3. $\bullet$ Each $P_i$ waits to receive $(E_j, F_j, \pi_j)$ from each other $P_j$.
+3. $\bullet$ Each $P_i$ waits to receive $(E_j, F_j, r_i, \pi_j)$ from each other $P_j$.
 4. $\blacktriangle$ Each $P_i$ asserts that $\forall P_j$:
 
 $$
 \begin{aligned}
 &\text{deg}(E_j) = \text{deg}(F_j) = t - 1\cr
-&H(E_j, F_j) = \text{Com}_j\cr
+&\text{CheckCommit}(\text{Com}_j, (E_j, F_j), r_j)\cr
 &\text{Verify}(T.\text{Cloned}(\texttt{dlog0}, j), \pi_j, \text{Mau}(- \cdot G, F_j(0)))\cr
 \end{aligned}
 $$

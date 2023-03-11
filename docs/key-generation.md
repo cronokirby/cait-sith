@@ -28,7 +28,7 @@ if $S = \bot$.
 3. Each $P_i$ samples $f \xleftarrow{\\\$} \mathbb{F}_ q[X]_ {\leq t - 1}$,
 subject to the constraint that $f(0) = s_i$.
 4. Each $P_i$ sets $F_ i \gets f \cdot G$.
-5. Each $P_i$ sets $\text{Com}_i \gets H(F_i)$.
+5. Each $P_i$ sets $(\text{Com}_i, r_i) \gets \text{Commit}(F_i)$.
 6. $\star$ Each $P_i$ sends $\text{Com}_i$ to every other party.
 
 **Round 2:**
@@ -38,15 +38,15 @@ subject to the constraint that $f(0) = s_i$.
 3. $T.\text{Add}(\text{Confirm}_i)$
 4. $\star$ Each $P_i$ sends $\text{Confirm}_i$ to every other party.
 5. Each $P_i$ generates the proof $\pi_i \gets \text{Prove}(T.\text{Cloned}(\texttt{dlog0}, i), \text{Mau}(- \cdot G, F_{i}(0); f(0)))$.
-6. $\star$ Each $P_i$ sends $(F_i, \pi_i)$ to every other party.
+6. $\star$ Each $P_i$ sends $(F_i, r_i, \pi_i)$ to every other party.
 7. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $x_i^j := f(j)$ to each other party $P_j$, and saves $x_i^i$ for itself.
 
 **Round 3:**
 
 1. $\bullet$ Each $P_i$ waits to receive $\text{Confirm}_j$ from each other $P_j$.
 2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{Confirm}_j = \text{Confirm}_i$, aborting otherwise.
-3. $\bullet$ Each $P_i$ waits to receive $(F_j, \pi_j)$ from each other $P_j$.
-4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{deg}(F_ j) = t -1 \land H(F_j) = \text{Com}_j \land \text{Verify}(T.\text{Cloned}(\texttt{dlog0}, j), \pi_j, \text{Mau}({- \cdot G}, F_j(0)))$.
+3. $\bullet$ Each $P_i$ waits to receive $(F_j, r_j, \pi_j)$ from each other $P_j$.
+4. $\blacktriangle$ Each $P_i$ *asserts* that $\forall j \in [N].\ \text{deg}(F_ j) = t -1 \land \text{CheckCommit}(\text{Com}_j, F_j, r_j) \land \text{Verify}(T.\text{Cloned}(\texttt{dlog0}, j), \pi_j, \text{Mau}({- \cdot G}, F_j(0)))$.
 5. $\bullet$ Each $P_i$ waits to receive $x_j^i$ from each other $P_j$.
 6. Each $P_i$ sets $x_i \gets \sum_j x^i_j$ and $X \gets \sum_j F_j(0)$.
 7. $\blacktriangle$ Each $P_i$ asserts that $x_i \cdot G = (\sum_j F_j)(i)$.
