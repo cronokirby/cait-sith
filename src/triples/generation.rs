@@ -34,6 +34,7 @@ async fn do_generation<C: CSCurve>(
     let mut transcript = Transcript::new(LABEL);
 
     // Spec 1.1
+    transcript.message(b"group", C::NAME);
     transcript.message(b"participants", &encode(&participants));
     // To allow interop between platforms where usize is different
     transcript.message(
