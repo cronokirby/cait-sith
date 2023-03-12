@@ -6,13 +6,13 @@ use std::{
 use cait_sith::{
     keygen, presign,
     protocol::{Action, MessageData, Participant, Protocol},
-    sign, triples, CSCurve, PresignArguments,
+    sign, triples, PresignArguments,
 };
 use digest::{Digest, FixedOutput};
 use easy_parallel::Parallel;
 use ecdsa::hazmat::DigestPrimitive;
 use elliptic_curve::{
-    bigint::Bounded, ops::Reduce, Curve, CurveArithmetic, PrimeCurve, ScalarPrimitive,
+    ops::Reduce, Curve
 };
 use haisou_chan::{channel, Bandwidth};
 
