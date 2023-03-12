@@ -109,7 +109,7 @@ threads of execution internally for some of the more complicated ones.
 
 # Benchmarks
 
-Here are some benchmarks, performed on an Intel Core i5-4690K CPU.
+Here are some benchmarks, for the `Secp256k1` curve, performed on an Intel Core i5-4690K CPU.
 
 ```
 setup 3
@@ -214,14 +214,31 @@ up:      7859 B
 down:    7859 B
 ```
 
+# Generic Curves
+
+The library has support for generic curves and hashes.
+
+The support for generic curves is done through a custom `CSCurve` trait,
+which can be easily implemented for any curve from the
+RustCrypto [elliptic-curves](https://github.com/RustCrypto/elliptic-curves)
+suite of libraries.
+
+This crate also provides implementations of some existing curves behind features,
+as per the following table:
+
+| Curve | Feature |
+|-------|---------|
+|Secp256k1|`k256`|
+
+For supporting any message hash, the API requires the user to supply
+the hash of a message when signing as a scalar directly.
+
 # Shortcomings
 
 The protocol and its implementation do have a few known disadvantages at the moment:
 
 - The protocol does require generating triples in advance, but these can be generated without knowledge of the private key.
 - The protocol does not attempt to provide identifiable aborts.
-- At the moment, the library only supports Secp256k1 as the curve and SHA256 as the hash, but we plan on adding support for arbitrary curves and hashes.
-- The library also doesn't have an explicit refresh protocol, although we plan on adding this.
 
 We also don't really intend to add identifiable aborts to Cait-Sith itself.
 While these can be desirable in certain situations, we aren't satisfied
