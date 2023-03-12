@@ -112,6 +112,8 @@ threads of execution internally for some of the more complicated ones.
 Here are some benchmarks, for the `Secp256k1` curve, performed on an Intel Core i5-4690K CPU.
 
 ```
+> cargo bench -F k256
+
 setup 3
 time:   [94.689 ms 95.057 ms 95.449 ms]
 
@@ -154,7 +156,7 @@ Here's an example with 3 parties, with 100ms latency between them,
 and a 10 MB/s outgoing link each.
 
 ```
-> cargo run --release --example network-benches -- 3 100 10000000  
+> cargo run --release -F k256 --example network-benches -- 3 100 10000000  
 
 Triple Setup 3 [100 ms, 10000000 B/S]
 time:   304.884093ms

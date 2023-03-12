@@ -10,7 +10,7 @@ use cait_sith::{
     FullSignature, KeygenOutput, PresignArguments, PresignOutput,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use k256::AffinePoint;
+use k256::{AffinePoint, Secp256k1, Scalar};
 use rand_core::OsRng;
 
 fn run_setup(participants: Vec<Participant>) -> Vec<(Participant, Setup)> {
@@ -18,7 +18,7 @@ fn run_setup(participants: Vec<Participant>) -> Vec<(Participant, Setup)> {
         Vec::with_capacity(participants.len());
 
     for p in participants.iter() {
-        let protocol = setup(&participants, *p);
+        let protocol = setup::<Secp256k1>(&participants, *p);
         assert!(protocol.is_ok());
         let protocol = protocol.unwrap();
         protocols.push((*p, Box::new(protocol)));
@@ -30,10 +30,10 @@ fn run_setup(participants: Vec<Participant>) -> Vec<(Participant, Setup)> {
 fn run_triple_generation(
     participants: Vec<(Participant, Setup)>,
     threshold: usize,
-) -> Vec<(Participant, TripleGenerationOutput)> {
+) -> Vec<(Participant, TripleGenerationOutput<Secp256k1>)> {
     let mut protocols: Vec<(
         Participant,
-        Box<dyn Protocol<Output = TripleGenerationOutput>>,
+        Box<dyn Protocol<Output = TripleGenerationOutput<Secp256k1>>>,
     )> = Vec::with_capacity(participants.len());
 
     let just_participants: Vec<_> = participants.iter().map(|(p, _)| *p).collect();
@@ -51,8 +51,8 @@ fn run_triple_generation(
 fn run_keygen(
     participants: Vec<Participant>,
     threshold: usize,
-) -> Vec<(Participant, KeygenOutput)> {
-    let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = KeygenOutput>>)> =
+) -> Vec<(Participant, KeygenOutput<Secp256k1>)> {
+    let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = KeygenOutput<Secp256k1>>>)> =
         Vec::with_capacity(participants.len());
 
     for p in participants.iter() {
@@ -66,17 +66,17 @@ fn run_keygen(
 }
 
 fn run_presign(
-    participants: Vec<(Participant, KeygenOutput)>,
-    shares0: Vec<TripleShare>,
-    shares1: Vec<TripleShare>,
-    pub0: &TriplePub,
-    pub1: &TriplePub,
+    participants: Vec<(Participant, KeygenOutput<Secp256k1>)>,
+    shares0: Vec<TripleShare<Secp256k1>>,
+    shares1: Vec<TripleShare<Secp256k1>>,
+    pub0: &TriplePub<Secp256k1>,
+    pub1: &TriplePub<Secp256k1>,
     threshold: usize,
-) -> Vec<(Participant, PresignOutput)> {
+) -> Vec<(Participant, PresignOutput<Secp256k1>)> {
     assert!(participants.len() == shares0.len());
     assert!(participants.len() == shares1.len());
 
-    let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = PresignOutput>>)> =
+    let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = PresignOutput<Secp256k1>>>)> =
         Vec::with_capacity(participants.len());
 
     let participant_list: Vec<Participant> = participants.iter().map(|(p, _)| *p).collect();
@@ -106,11 +106,11 @@ fn run_presign(
 }
 
 fn run_sign(
-    participants: Vec<(Participant, PresignOutput)>,
+    participants: Vec<(Participant, PresignOutput<Secp256k1>)>,
     public_key: AffinePoint,
-    msg: &[u8],
-) -> Vec<(Participant, FullSignature)> {
-    let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = FullSignature>>)> =
+    msg: Scalar,
+) -> Vec<(Participant, FullSignature<Secp256k1>)> {
+    let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = FullSignature<Secp256k1>>>)> =
         Vec::with_capacity(participants.len());
 
     let participant_list: Vec<Participant> = participants.iter().map(|(p, _)| *p).collect();
@@ -170,7 +170,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let mut presign_result = run_presign(keygen_result, shares0, shares1, &pub0, &pub1, t);
     presign_result.sort_by_key(|(p, _)| *p);
 
-    let msg = b"hello world";
+    // DO NOT COPY THIS CODE FOR ACTUAL SIGNING
+    let msg = Scalar::ONE;
 
     c.bench_function("sign (3,3)", |b| {
         b.iter(|| {
