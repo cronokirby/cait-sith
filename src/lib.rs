@@ -85,6 +85,24 @@
 //! away, and all performed internally.
 //! In fact, the protocols aren't designed around "rounds", and can even have parallel
 //! threads of execution internally for some of the more complicated ones.
+//! # Generic Curves
+//!
+//! The library has support for generic curves and hashes.
+//!
+//! The support for generic curves is done through a custom `CSCurve` trait,
+//! which can be easily implemented for any curve from the
+//! RustCrypto [elliptic-curves](https://github.com/RustCrypto/elliptic-curves)
+//! suite of libraries.
+//!
+//! This crate also provides implementations of some existing curves behind features,
+//! as per the following table:
+//!
+//! | Curve | Feature |
+//! |-------|---------|
+//! |Secp256k1|`k256`|
+//!
+//! For supporting any message hash, the API requires the user to supply
+//! the hash of a message when signing as a scalar directly.
 //!
 //! # Shortcomings
 //!
@@ -92,8 +110,6 @@
 //!
 //! - The protocol does require generating triples in advance, but these can be generated without knowledge of the private key.
 //! - The protocol does not attempt to provide identifiable aborts.
-//! - At the moment, the library only supports Secp256k1 as the curve and SHA256 as the hash, but we plan on adding support for arbitrary curves and hashes.
-//! - The library also doesn't have an explicit refresh protocol, although we plan on adding this.
 //!
 //! We also don't really intend to add identifiable aborts to Cait-Sith itself.
 //! While these can be desirable in certain situations, we aren't satisfied
