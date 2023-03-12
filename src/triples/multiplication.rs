@@ -178,7 +178,10 @@ mod test {
 
         for (p, setup, a_i, b_i) in prep {
             let ctx = Context::new();
-            let prot = make_protocol(ctx.clone(), multiplication::<Secp256k1>(ctx, sid, p, setup, a_i, b_i));
+            let prot = make_protocol(
+                ctx.clone(),
+                multiplication::<Secp256k1>(ctx, sid, p, setup, a_i, b_i),
+            );
             protocols.push((p, Box::new(prot)))
         }
 

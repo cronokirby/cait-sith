@@ -198,7 +198,7 @@ async fn do_presign<C: CSCurve>(
     let kd_inv: Option<C::Scalar> = kd.invert().into();
     let kd_inv =
         kd_inv.ok_or_else(|| ProtocolError::AssertionFailed("failed to invert kd".to_string()))?;
-    let big_r = (C::ProjectivePoint::from(big_d) * &kd_inv).into();
+    let big_r = (C::ProjectivePoint::from(big_d) * kd_inv).into();
 
     // Spec 2.13
     let sigma_i = ka * x_i - xb * a_i + c_i;
@@ -286,6 +286,7 @@ mod test {
         let (triple1_pub, triple1_shares) =
             triples::deal(&mut OsRng, &participants, original_threshold);
 
+        #[allow(clippy::type_complexity)]
         let mut protocols: Vec<(
             Participant,
             Box<dyn Protocol<Output = PresignOutput<Secp256k1>>>,

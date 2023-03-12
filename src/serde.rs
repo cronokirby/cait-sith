@@ -23,27 +23,6 @@ pub fn encode_with_tag<T: Serialize>(tag: &[u8], val: &T) -> Vec<u8> {
     out
 }
 
-/// Serialize a vector of scalars.
-pub fn serialize_scalars<C: CSCurve, S: Serializer>(
-    data: &[C::Scalar],
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
-    serializer.collect_seq(data.iter().map(|&x| {
-        let prim: ScalarPrimitive<C> = x.into();
-        prim
-    }))
-}
-
-/// Deserialize a vector of scalars.
-pub fn deserialize_scalars<'de, C, D>(deserializer: D) -> Result<Vec<C::Scalar>, D::Error>
-where
-    C: CSCurve,
-    D: Deserializer<'de>,
-{
-    let prims: Vec<ScalarPrimitive<C>> = Deserialize::deserialize(deserializer)?;
-    Ok(prims.into_iter().map(C::Scalar::from).collect())
-}
-
 /// Serialize a list of projective points.
 pub fn serialize_projective_points<C: CSCurve, S: Serializer>(
     data: &[C::ProjectivePoint],

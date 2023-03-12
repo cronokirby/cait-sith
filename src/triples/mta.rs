@@ -1,7 +1,7 @@
 use elliptic_curve::{Field, ScalarPrimitive};
 use magikitten::MeowRng;
 use rand_core::{OsRng, RngCore};
-use subtle::{Choice, ConditionallyNegatable, ConditionallySelectable};
+use subtle::{Choice, ConditionallySelectable};
 
 use crate::{
     compat::CSCurve,
@@ -35,12 +35,12 @@ pub async fn mta_sender<C: CSCurve>(
     let wait1 = chan.next_waitpoint();
     let (chi1, seed): (ScalarPrimitive<C>, [u8; 32]) = chan.recv(wait1).await?;
 
-    let mut alpha = delta[0] * &chi1.into();
+    let mut alpha = delta[0] * C::Scalar::from(chi1);
 
     let mut prng = MeowRng::new(&seed);
     for &delta_i in &delta[1..] {
         let chi_i = C::Scalar::random(&mut prng);
-        alpha += delta_i * &chi_i;
+        alpha += delta_i * chi_i;
     }
 
     Ok(-alpha)
@@ -83,7 +83,7 @@ pub async fn mta_receiver<C: CSCurve>(
     // Step 5
     let mut beta = chi1 * m.next().unwrap();
     for (&chi_i, m_i) in chi.iter().zip(m) {
-        beta += chi_i * &m_i;
+        beta += chi_i * m_i;
     }
 
     // Step 6
@@ -95,7 +95,7 @@ pub async fn mta_receiver<C: CSCurve>(
 }
 
 /// Run the multiplicative to additive protocol
-#[allow(dead_code)]
+#[allow(dead_code, clippy::type_complexity)]
 fn run_mta<C: CSCurve>(
     (v, a): (Vec<(C::Scalar, C::Scalar)>, C::Scalar),
     (tv, b): (Vec<(Choice, C::Scalar)>, C::Scalar),

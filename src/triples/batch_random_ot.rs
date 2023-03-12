@@ -28,7 +28,7 @@ fn hash<C: CSCurve>(
     meow.ad(&(i as u64).to_le_bytes(), false);
     meow.ad(&encode(&big_x_i), false);
     meow.ad(&encode(&big_y), false);
-    meow.ad(&encode(&SerializablePoint::<C>::from_projective(&p)), false);
+    meow.ad(&encode(&SerializablePoint::<C>::from_projective(p)), false);
 
     let mut bytes = [0u8; SEC_PARAM_8];
     meow.prf(&mut bytes, false);

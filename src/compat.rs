@@ -27,6 +27,7 @@ mod test_curve {
     use elliptic_curve::{bigint::Bounded, ops::Reduce, Curve};
     use k256::{FieldBytes, Scalar, Secp256k1};
 
+    #[cfg(test)]
     pub(crate) fn scalar_hash(msg: &[u8]) -> <Secp256k1 as CurveArithmetic>::Scalar {
         let digest = <Secp256k1 as DigestPrimitive>::Digest::new_with_prefix(msg);
         let m_bytes: FieldBytes = digest.finalize_fixed();
@@ -36,14 +37,6 @@ mod test_curve {
     impl CSCurve for Secp256k1 {
         const NAME: &'static [u8] = b"Secp256k1-SHA-256";
         const BITS: usize = <Self::Uint as Bounded>::BITS;
-
-        /*
-        fn scalar_hash(msg: &[u8]) -> Self::Scalar {
-            let digest = <Secp256k1 as DigestPrimitive>::Digest::new_with_prefix(msg);
-            let m_bytes: FieldBytes = digest.finalize_fixed();
-            <Scalar as Reduce<<Secp256k1 as Curve>::Uint>>::reduce_bytes(&m_bytes)
-        }
-        */
 
         fn serialize_point<S: Serializer>(
             point: &Self::AffinePoint,
@@ -67,7 +60,7 @@ pub(crate) use test_curve::scalar_hash;
 pub(crate) struct SerializablePoint<C: CSCurve>(C::AffinePoint);
 
 impl<C: CSCurve> SerializablePoint<C> {
-    pub fn to_projective(&self) -> C::ProjectivePoint {
+    pub fn to_projective(self) -> C::ProjectivePoint {
         self.0.into()
     }
 

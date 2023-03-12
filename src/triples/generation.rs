@@ -1,4 +1,4 @@
-use elliptic_curve::{Field, Group, ScalarPrimitive};
+use elliptic_curve::{Group, ScalarPrimitive};
 use magikitten::Transcript;
 use rand_core::OsRng;
 
@@ -18,7 +18,7 @@ use crate::{
 use super::{multiplication::multiplication, Setup, TriplePub, TripleShare};
 
 /// The output of running the triple generation protocol.
-pub type TripleGenerationOutput<C: CSCurve> = (TripleShare<C>, TriplePub<C>);
+pub type TripleGenerationOutput<C> = (TripleShare<C>, TriplePub<C>);
 
 const LABEL: &[u8] = b"cait-sith v0.1.0 triple generation";
 
@@ -438,6 +438,7 @@ mod test {
 
         let result = run_protocol(protocols)?;
 
+        #[allow(clippy::type_complexity)]
         let mut protocols: Vec<(
             Participant,
             Box<dyn Protocol<Output = TripleGenerationOutput<Secp256k1>>>,
