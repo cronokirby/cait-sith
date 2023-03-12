@@ -9,7 +9,7 @@ use std::{collections::HashMap, mem, ops::Index};
 use elliptic_curve::Field;
 use serde::Serialize;
 
-use crate::{protocol::Participant, compat::CSCurve};
+use crate::{compat::CSCurve, protocol::Participant};
 
 /// Represents a sorted list of participants.
 ///

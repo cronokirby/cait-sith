@@ -84,15 +84,15 @@ pub fn prove<'a, C: CSCurve>(
 ///
 /// We use a transcript in order to verify the Fiat-Shamir transformation.
 #[must_use]
-pub fn verify<'a, C: CSCurve>(
+pub fn verify<C: CSCurve>(
     transcript: &mut Transcript,
-    statement: Statement<'a, C>,
+    statement: Statement<'_, C>,
     proof: &Proof<C>,
 ) -> bool {
     let statement_data = encode(&statement);
     transcript.message(STATEMENT_LABEL, &statement_data);
 
-    let big_k: C::ProjectivePoint = statement.phi(&proof.s) - *statement.public * &proof.e;
+    let big_k: C::ProjectivePoint = statement.phi(&proof.s) - *statement.public * proof.e;
 
     transcript.message(
         COMMITMENT_LABEL,

@@ -1,5 +1,5 @@
 use ck_meow::Meow;
-use elliptic_curve::Field;
+use elliptic_curve::{CurveArithmetic, Field};
 use magikitten::MeowRng;
 use rand_core::{OsRng, RngCore};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
@@ -49,10 +49,13 @@ pub struct RandomOtExtensionParams<'sid> {
 }
 
 /// The result that the sender gets.
-pub type RandomOTExtensionSenderOut<C: CSCurve> = Vec<(C::Scalar, C::Scalar)>;
+pub type RandomOTExtensionSenderOut<C> = Vec<(
+    <C as CurveArithmetic>::Scalar,
+    <C as CurveArithmetic>::Scalar,
+)>;
 
 /// The result that the receiver gets.
-pub type RandomOTExtensionReceiverOut<C: CSCurve> = Vec<(Choice, C::Scalar)>;
+pub type RandomOTExtensionReceiverOut<C> = Vec<(Choice, <C as CurveArithmetic>::Scalar)>;
 
 pub async fn random_ot_extension_sender<C: CSCurve>(
     mut chan: PrivateChannel,

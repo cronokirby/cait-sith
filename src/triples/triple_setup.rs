@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
 use crate::{
+    compat::CSCurve,
     participants::ParticipantList,
     protocol::{
         internal::{make_protocol, Context, PrivateChannel},
         InitializationError, Participant, Protocol, ProtocolError,
-    }, compat::CSCurve,
+    },
 };
 
 use super::{
@@ -44,12 +45,18 @@ impl Setup {
     }
 }
 
-async fn do_sender<C: CSCurve>(ctx: Context<'_>, chan: PrivateChannel) -> Result<SingleSetup, ProtocolError> {
+async fn do_sender<C: CSCurve>(
+    ctx: Context<'_>,
+    chan: PrivateChannel,
+) -> Result<SingleSetup, ProtocolError> {
     let (delta, k) = batch_random_ot_receiver::<C>(ctx, chan).await?;
     Ok(SingleSetup::Sender(delta, k))
 }
 
-async fn do_receiver<C: CSCurve>(ctx: Context<'_>, chan: PrivateChannel) -> Result<SingleSetup, ProtocolError> {
+async fn do_receiver<C: CSCurve>(
+    ctx: Context<'_>,
+    chan: PrivateChannel,
+) -> Result<SingleSetup, ProtocolError> {
     let (k0, k1) = batch_random_ot_sender::<C>(ctx, chan).await?;
     Ok(SingleSetup::Receiver(k0, k1))
 }

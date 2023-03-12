@@ -1,4 +1,3 @@
-use ecdsa::{signature::Verifier, Signature};
 use elliptic_curve::{ops::Invert, scalar::IsHigh, Field, Group, ScalarPrimitive};
 use subtle::ConditionallySelectable;
 
@@ -139,10 +138,14 @@ pub fn sign<C: CSCurve>(
 mod test {
     use std::error::Error;
 
-    use k256::{ecdsa::VerifyingKey, ecdsa::signature::Verifier, ProjectivePoint, PublicKey, Scalar, Secp256k1};
+    use ecdsa::Signature;
+    use k256::{
+        ecdsa::signature::Verifier, ecdsa::VerifyingKey, ProjectivePoint, PublicKey, Scalar,
+        Secp256k1,
+    };
     use rand_core::OsRng;
 
-    use crate::{math::Polynomial, protocol::run_protocol, compat::scalar_hash};
+    use crate::{compat::scalar_hash, math::Polynomial, protocol::run_protocol};
 
     use super::*;
 
@@ -167,6 +170,7 @@ mod test {
             let h = Polynomial::<Secp256k1>::extend_random(&mut OsRng, threshold, &sigma);
 
             let participants = vec![Participant::from(0u32), Participant::from(1u32)];
+            #[allow(clippy::type_complexity)]
             let mut protocols: Vec<(
                 Participant,
                 Box<dyn Protocol<Output = FullSignature<Secp256k1>>>,
@@ -178,7 +182,13 @@ mod test {
                     k: g.evaluate(&p_scalar),
                     sigma: h.evaluate(&p_scalar),
                 };
-                let protocol = sign(&participants, *p, public_key, presignature, scalar_hash(msg))?;
+                let protocol = sign(
+                    &participants,
+                    *p,
+                    public_key,
+                    presignature,
+                    scalar_hash(msg),
+                )?;
                 protocols.push((*p, Box::new(protocol)));
             }
 

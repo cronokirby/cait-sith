@@ -250,7 +250,7 @@ async fn do_reshare<C: CSCurve>(
     public_key: C::AffinePoint,
 ) -> Result<C::Scalar, ProtocolError> {
     let s_i = my_share
-        .map(|x_i| old_subset.lagrange::<C>(me) * &x_i)
+        .map(|x_i| old_subset.lagrange::<C>(me) * x_i)
         .unwrap_or(C::Scalar::ZERO);
     let big_s: C::ProjectivePoint = public_key.into();
     let (private_share, _) =
@@ -365,6 +365,7 @@ mod test {
     use super::*;
     use crate::protocol::{run_protocol, Participant};
 
+    #[allow(clippy::type_complexity)]
     fn do_keygen(
         participants: &[Participant],
         threshold: usize,

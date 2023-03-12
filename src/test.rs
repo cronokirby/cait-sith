@@ -14,6 +14,7 @@ fn run_keygen(
     participants: Vec<Participant>,
     threshold: usize,
 ) -> Vec<(Participant, KeygenOutput<Secp256k1>)> {
+    #[allow(clippy::type_complexity)]
     let mut protocols: Vec<(
         Participant,
         Box<dyn Protocol<Output = KeygenOutput<Secp256k1>>>,
@@ -40,6 +41,7 @@ fn run_presign(
     assert!(participants.len() == shares0.len());
     assert!(participants.len() == shares1.len());
 
+    #[allow(clippy::type_complexity)]
     let mut protocols: Vec<(
         Participant,
         Box<dyn Protocol<Output = PresignOutput<Secp256k1>>>,
@@ -71,6 +73,7 @@ fn run_presign(
     run_protocol(protocols).unwrap()
 }
 
+#[allow(clippy::type_complexity)]
 fn run_sign(
     participants: Vec<(Participant, PresignOutput<Secp256k1>)>,
     public_key: AffinePoint,
