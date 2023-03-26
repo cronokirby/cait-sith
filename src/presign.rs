@@ -1,7 +1,7 @@
-use k256::elliptic_curve::group::prime::PrimeCurveAffine;
-use k256::{AffinePoint, ProjectivePoint, Scalar};
+use elliptic_curve::{Field, Group, ScalarPrimitive};
 use rand_core::OsRng;
 
+use crate::compat::CSCurve;
 use crate::math::{GroupPolynomial, Polynomial};
 use crate::participants::ParticipantCounter;
 use crate::protocol::internal::{make_protocol, Context, SharedChannel};
@@ -18,53 +18,53 @@ use crate::{
 /// This output is basically all the parts of the signature that we can perform
 /// without knowing the message.
 #[derive(Debug, Clone)]
-pub struct PresignOutput {
+pub struct PresignOutput<C: CSCurve> {
     /// The public nonce commitment.
-    pub big_r: AffinePoint,
+    pub big_r: C::AffinePoint,
     /// Our share of the nonce value.
-    pub k: Scalar,
+    pub k: C::Scalar,
     /// Our share of the sigma value.
-    pub sigma: Scalar,
+    pub sigma: C::Scalar,
 }
 
 /// The arguments needed to create a presignature.
 #[derive(Debug, Clone)]
-pub struct PresignArguments {
+pub struct PresignArguments<C: CSCurve> {
     /// The original threshold used for the shares of the secret key.
     pub original_threshold: usize,
     /// The first triple's public information, and our share.
-    pub triple0: (TripleShare, TriplePub),
+    pub triple0: (TripleShare<C>, TriplePub<C>),
     /// Ditto, for the second triple.
-    pub triple1: (TripleShare, TriplePub),
+    pub triple1: (TripleShare<C>, TriplePub<C>),
     /// The output of key generation, i.e. our share of the secret key, and the public key.
-    pub keygen_out: KeygenOutput,
+    pub keygen_out: KeygenOutput<C>,
     /// The desired threshold for the presignature.
     pub threshold: usize,
 }
 
-async fn do_presign(
+async fn do_presign<C: CSCurve>(
     mut chan: SharedChannel,
     participants: ParticipantList,
     me: Participant,
-    args: PresignArguments,
-) -> Result<PresignOutput, ProtocolError> {
+    args: PresignArguments<C>,
+) -> Result<PresignOutput<C>, ProtocolError> {
     let mut rng = OsRng;
 
     // Spec 1.2 + 1.3
-    let big_k = args.triple0.1.big_a.to_curve();
+    let big_k: C::ProjectivePoint = args.triple0.1.big_a.into();
     let big_d = args.triple0.1.big_b;
     let big_kd = args.triple0.1.big_c;
 
-    let big_x = args.keygen_out.public_key.to_curve();
+    let big_x = args.keygen_out.public_key.into();
 
-    let big_a = args.triple1.1.big_a.to_curve();
-    let big_b = args.triple1.1.big_b.to_curve();
+    let big_a: C::ProjectivePoint = args.triple1.1.big_a.into();
+    let big_b: C::ProjectivePoint = args.triple1.1.big_b.into();
 
-    let lambda = participants.lagrange(me);
+    let lambda = participants.lagrange::<C>(me);
 
     let k_i = args.triple0.0.a;
     let k_prime_i = lambda * k_i;
-    let kd_i = lambda * args.triple0.0.c;
+    let kd_i: C::Scalar = lambda * args.triple0.0.c;
 
     let a_i = args.triple1.0.a;
     let b_i = args.triple1.0.b;
@@ -75,7 +75,7 @@ async fn do_presign(
     let x_prime_i = lambda * args.keygen_out.private_share;
 
     // Spec 1.4
-    let f = Polynomial::extend_random(&mut rng, args.threshold, &x_prime_i);
+    let f: Polynomial<C> = Polynomial::extend_random(&mut rng, args.threshold, &x_prime_i);
 
     // Spec 1.5
     let big_f_i = f.commit();
@@ -87,29 +87,36 @@ async fn do_presign(
     // Spec 1.7
     let wait1 = chan.next_waitpoint();
     for p in participants.others(me) {
-        let x_i_j = f.evaluate(&p.scalar());
+        let x_i_j: ScalarPrimitive<C> = f.evaluate(&p.scalar::<C>()).into();
         chan.send_private(wait1, p, &x_i_j).await;
     }
-    let mut x_i = f.evaluate(&me.scalar());
+    let mut x_i = f.evaluate(&me.scalar::<C>());
 
     // Spec 1.8
     let wait2 = chan.next_waitpoint();
-    chan.send_many(wait2, &kd_i).await;
+    {
+        let kd_i: ScalarPrimitive<C> = kd_i.into();
+        chan.send_many(wait2, &kd_i).await;
+    }
 
     // Spec 1.9
-    let ka_i = k_prime_i + a_prime_i;
-    let xb_i = x_prime_i + b_prime_i;
+    let ka_i: C::Scalar = k_prime_i + a_prime_i;
+    let xb_i: C::Scalar = x_prime_i + b_prime_i;
 
     // Spec 1.10
     let wait3 = chan.next_waitpoint();
-    chan.send_many(wait3, &(ka_i, xb_i)).await;
+    {
+        let ka_i: ScalarPrimitive<C> = ka_i.into();
+        let xb_i: ScalarPrimitive<C> = xb_i.into();
+        chan.send_many(wait3, &(ka_i, xb_i)).await;
+    }
 
     // Spec 2.1, 2.2, along with the summation of F from 2.4
     let mut big_f = big_f_i;
     let mut seen = ParticipantCounter::new(&participants);
     seen.put(me);
     while !seen.full() {
-        let (from, big_f_j): (_, GroupPolynomial) = chan.recv(wait0).await?;
+        let (from, big_f_j): (_, GroupPolynomial<C>) = chan.recv(wait0).await?;
         if !seen.put(from) {
             continue;
         }
@@ -118,18 +125,18 @@ async fn do_presign(
                 "polynomial from {from:?} has the wrong length"
             )));
         }
-        big_f += big_f_j;
+        big_f += &big_f_j;
     }
 
     // Spec 2.3, along with the summation of x_i from 2.4
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, x_j_i): (_, Scalar) = chan.recv(wait1).await?;
+        let (from, x_j_i): (_, ScalarPrimitive<C>) = chan.recv(wait1).await?;
         if !seen.put(from) {
             continue;
         }
-        x_i += x_j_i;
+        x_i += C::Scalar::from(x_j_i);
     }
 
     // Spec 2.5
@@ -138,7 +145,7 @@ async fn do_presign(
             "polynomial was not a valid resharing of the private key".to_string(),
         ));
     }
-    if big_f.evaluate(&me.scalar()) != ProjectivePoint::GENERATOR * x_i {
+    if big_f.evaluate(&me.scalar::<C>()) != C::ProjectivePoint::generator() * x_i {
         return Err(ProtocolError::AssertionFailed(
             "received bad private share of x".to_string(),
         ));
@@ -149,15 +156,15 @@ async fn do_presign(
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, kd_j): (_, Scalar) = chan.recv(wait2).await?;
+        let (from, kd_j): (_, ScalarPrimitive<C>) = chan.recv(wait2).await?;
         if !seen.put(from) {
             continue;
         }
-        kd += kd_j;
+        kd += C::Scalar::from(kd_j);
     }
 
     // Spec 2.8
-    if big_kd != ProjectivePoint::GENERATOR * kd {
+    if big_kd != (C::ProjectivePoint::generator() * kd).into() {
         return Err(ProtocolError::AssertionFailed(
             "received incorrect shares of kd".to_string(),
         ));
@@ -169,17 +176,18 @@ async fn do_presign(
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, (ka_j, xb_j)): (_, (Scalar, Scalar)) = chan.recv(wait3).await?;
+        let (from, (ka_j, xb_j)): (_, (ScalarPrimitive<C>, ScalarPrimitive<C>)) =
+            chan.recv(wait3).await?;
         if !seen.put(from) {
             continue;
         }
-        ka += ka_j;
-        xb += xb_j;
+        ka += C::Scalar::from(ka_j);
+        xb += C::Scalar::from(xb_j);
     }
 
     // Spec 2.11
-    if (ProjectivePoint::GENERATOR * ka != big_k + big_a)
-        || (ProjectivePoint::GENERATOR * xb != big_x + big_b)
+    if (C::ProjectivePoint::generator() * ka != big_k + big_a)
+        || (C::ProjectivePoint::generator() * xb != big_x + big_b)
     {
         return Err(ProtocolError::AssertionFailed(
             "received incorrect shares of additive triple phase.".to_string(),
@@ -187,9 +195,10 @@ async fn do_presign(
     }
 
     // Spec 2.12
-    let kd_inv = Into::<Option<Scalar>>::into(kd.invert())
-        .ok_or_else(|| ProtocolError::AssertionFailed("failed to invert kd".to_string()))?;
-    let big_r = (big_d * kd_inv).to_affine();
+    let kd_inv: Option<C::Scalar> = kd.invert().into();
+    let kd_inv =
+        kd_inv.ok_or_else(|| ProtocolError::AssertionFailed("failed to invert kd".to_string()))?;
+    let big_r = (C::ProjectivePoint::from(big_d) * kd_inv).into();
 
     // Spec 2.13
     let sigma_i = ka * x_i - xb * a_i + c_i;
@@ -208,11 +217,11 @@ async fn do_presign(
 ///
 /// This work does depend on the private key though, and it's crucial
 /// that a presignature is never used.
-pub fn presign(
+pub fn presign<C: CSCurve>(
     participants: &[Participant],
     me: Participant,
-    args: PresignArguments,
-) -> Result<impl Protocol<Output = PresignOutput>, InitializationError> {
+    args: PresignArguments<C>,
+) -> Result<impl Protocol<Output = PresignOutput<C>>, InitializationError> {
     if participants.len() < 2 {
         return Err(InitializationError::BadParameters(format!(
             "participant count cannot be < 2, found: {}",
@@ -257,6 +266,8 @@ mod test {
 
     use crate::{protocol::run_protocol, triples};
 
+    use k256::{ProjectivePoint, Secp256k1};
+
     #[test]
     fn test_presign() {
         let participants = vec![
@@ -266,7 +277,7 @@ mod test {
             Participant::from(3u32),
         ];
         let original_threshold = 2;
-        let f = Polynomial::random(&mut OsRng, original_threshold);
+        let f = Polynomial::<Secp256k1>::random(&mut OsRng, original_threshold);
         let big_x = (ProjectivePoint::GENERATOR * f.evaluate_zero()).to_affine();
         let threshold = 2;
 
@@ -275,8 +286,11 @@ mod test {
         let (triple1_pub, triple1_shares) =
             triples::deal(&mut OsRng, &participants, original_threshold);
 
-        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = PresignOutput>>)> =
-            Vec::with_capacity(participants.len());
+        #[allow(clippy::type_complexity)]
+        let mut protocols: Vec<(
+            Participant,
+            Box<dyn Protocol<Output = PresignOutput<Secp256k1>>>,
+        )> = Vec::with_capacity(participants.len());
 
         for ((p, triple0), triple1) in participants
             .iter()
@@ -292,7 +306,7 @@ mod test {
                     triple0: (triple0, triple0_pub.clone()),
                     triple1: (triple1, triple1_pub.clone()),
                     keygen_out: KeygenOutput {
-                        private_share: f.evaluate(&p.scalar()),
+                        private_share: f.evaluate(&p.scalar::<Secp256k1>()),
                         public_key: big_x,
                     },
                     threshold,
@@ -317,11 +331,11 @@ mod test {
         let k_shares = vec![result[0].1.k, result[1].1.k];
         let sigma_shares = vec![result[0].1.sigma, result[1].1.sigma];
         let p_list = ParticipantList::new(&participants).unwrap();
-        let k = p_list.lagrange(participants[0]) * k_shares[0]
-            + p_list.lagrange(participants[1]) * k_shares[1];
+        let k = p_list.lagrange::<Secp256k1>(participants[0]) * k_shares[0]
+            + p_list.lagrange::<Secp256k1>(participants[1]) * k_shares[1];
         assert_eq!(ProjectivePoint::GENERATOR * k.invert().unwrap(), big_k);
-        let sigma = p_list.lagrange(participants[0]) * sigma_shares[0]
-            + p_list.lagrange(participants[1]) * sigma_shares[1];
+        let sigma = p_list.lagrange::<Secp256k1>(participants[0]) * sigma_shares[0]
+            + p_list.lagrange::<Secp256k1>(participants[1]) * sigma_shares[1];
         assert_eq!(sigma, k * f.evaluate_zero());
     }
 }

@@ -24,7 +24,7 @@ if $S = \bot$.
 **Round 1:**
 
 1. $\blacktriangle$ Each $P_i$ *asserts* that $|\mathcal{P}| \geq t$.
-2. $T.\text{Add}(\mathcal{P}, t)$
+2. $T.\text{Add}(\mathbb{G}, \mathcal{P}, t)$
 3. Each $P_i$ samples $f \xleftarrow{\\\$} \mathbb{F}_ q[X]_ {\leq t - 1}$,
 subject to the constraint that $f(0) = s_i$.
 4. Each $P_i$ sets $F_ i \gets f \cdot G$.

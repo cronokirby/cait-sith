@@ -282,7 +282,7 @@ which want to generate a triple with threshold $t$.
 
 **Round 1:**
 
-1. $T.\text{Add}(\mathcal{P}, t)$
+1. $T.\text{Add}(\mathbb{G}, \mathcal{P}, t)$
 2. Each $P_ i$ samples $e, f \xleftarrow{R} \mathbb{F}_ q[X]_ {\leq (t - 1)}$.
 3. Each $P_i$ sets $E_i \gets e \cdot G$, and $F_i \gets f \cdot G$.
 4. Each $P_i$ sets $(\text{Com}_i, r_i) \gets \text{Commit}((E_i, F_i))$.

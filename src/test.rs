@@ -1,7 +1,8 @@
-use k256::AffinePoint;
+use k256::{AffinePoint, Secp256k1};
 use rand_core::OsRng;
 
 use crate::{
+    compat::scalar_hash,
     keygen, presign,
     protocol::{run_protocol, Participant, Protocol},
     sign,
@@ -12,9 +13,12 @@ use crate::{
 fn run_keygen(
     participants: Vec<Participant>,
     threshold: usize,
-) -> Vec<(Participant, KeygenOutput)> {
-    let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = KeygenOutput>>)> =
-        Vec::with_capacity(participants.len());
+) -> Vec<(Participant, KeygenOutput<Secp256k1>)> {
+    #[allow(clippy::type_complexity)]
+    let mut protocols: Vec<(
+        Participant,
+        Box<dyn Protocol<Output = KeygenOutput<Secp256k1>>>,
+    )> = Vec::with_capacity(participants.len());
 
     for p in participants.iter() {
         let protocol = keygen(&participants, *p, threshold);
@@ -27,18 +31,21 @@ fn run_keygen(
 }
 
 fn run_presign(
-    participants: Vec<(Participant, KeygenOutput)>,
-    shares0: Vec<TripleShare>,
-    shares1: Vec<TripleShare>,
-    pub0: &TriplePub,
-    pub1: &TriplePub,
+    participants: Vec<(Participant, KeygenOutput<Secp256k1>)>,
+    shares0: Vec<TripleShare<Secp256k1>>,
+    shares1: Vec<TripleShare<Secp256k1>>,
+    pub0: &TriplePub<Secp256k1>,
+    pub1: &TriplePub<Secp256k1>,
     threshold: usize,
-) -> Vec<(Participant, PresignOutput)> {
+) -> Vec<(Participant, PresignOutput<Secp256k1>)> {
     assert!(participants.len() == shares0.len());
     assert!(participants.len() == shares1.len());
 
-    let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = PresignOutput>>)> =
-        Vec::with_capacity(participants.len());
+    #[allow(clippy::type_complexity)]
+    let mut protocols: Vec<(
+        Participant,
+        Box<dyn Protocol<Output = PresignOutput<Secp256k1>>>,
+    )> = Vec::with_capacity(participants.len());
 
     let participant_list: Vec<Participant> = participants.iter().map(|(p, _)| *p).collect();
 
@@ -66,18 +73,27 @@ fn run_presign(
     run_protocol(protocols).unwrap()
 }
 
+#[allow(clippy::type_complexity)]
 fn run_sign(
-    participants: Vec<(Participant, PresignOutput)>,
+    participants: Vec<(Participant, PresignOutput<Secp256k1>)>,
     public_key: AffinePoint,
     msg: &[u8],
-) -> Vec<(Participant, FullSignature)> {
-    let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = FullSignature>>)> =
-        Vec::with_capacity(participants.len());
+) -> Vec<(Participant, FullSignature<Secp256k1>)> {
+    let mut protocols: Vec<(
+        Participant,
+        Box<dyn Protocol<Output = FullSignature<Secp256k1>>>,
+    )> = Vec::with_capacity(participants.len());
 
     let participant_list: Vec<Participant> = participants.iter().map(|(p, _)| *p).collect();
 
     for (p, presign_out) in participants.into_iter() {
-        let protocol = sign(&participant_list, p, public_key, presign_out, msg);
+        let protocol = sign(
+            &participant_list,
+            p,
+            public_key,
+            presign_out,
+            scalar_hash(msg),
+        );
         assert!(protocol.is_ok());
         let protocol = protocol.unwrap();
         protocols.push((p, Box::new(protocol)));

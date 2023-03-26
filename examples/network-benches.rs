@@ -8,11 +8,23 @@ use cait_sith::{
     protocol::{Action, MessageData, Participant, Protocol},
     sign, triples, PresignArguments,
 };
+use digest::{Digest, FixedOutput};
 use easy_parallel::Parallel;
+use ecdsa::hazmat::DigestPrimitive;
+use elliptic_curve::{
+    ops::Reduce, Curve
+};
 use haisou_chan::{channel, Bandwidth};
 
+use k256::{FieldBytes, Scalar, Secp256k1};
 use rand_core::OsRng;
 use structopt::StructOpt;
+
+fn scalar_hash(msg: &[u8]) -> Scalar {
+    let digest = <Secp256k1 as DigestPrimitive>::Digest::new_with_prefix(msg);
+    let m_bytes: FieldBytes = digest.finalize_fixed();
+    <Scalar as Reduce<<Secp256k1 as Curve>::Uint>>::reduce_bytes(&m_bytes)
+}
 
 #[derive(Debug, StructOpt)]
 struct Args {
@@ -39,7 +51,7 @@ fn run_protocol<T, F, P>(
 where
     F: Fn(Participant) -> P + Send + Sync,
     P: Protocol<Output = T>,
-    T: Send + std::fmt::Debug,
+    T: Send,
 {
     // We create a link between each pair of parties, with a set amount of latency,
     // but no bandwidth constraints.
@@ -194,7 +206,7 @@ fn main() {
     );
     let start = Instant::now();
     let results = run_protocol(latency, bandwidth, &participants, |p| {
-        triples::setup(&participants, p).unwrap()
+        triples::setup::<Secp256k1>(&participants, p).unwrap()
     });
     let stop = Instant::now();
     println!("time:\t{:#?}", stop.duration_since(start));
@@ -211,7 +223,7 @@ fn main() {
     );
     let start = Instant::now();
     let results = run_protocol(latency, bandwidth, &participants, |p| {
-        triples::generate_triple(
+        triples::generate_triple::<Secp256k1>(
             &participants,
             p,
             setups.get(&p).unwrap().clone(),
@@ -283,7 +295,7 @@ fn main() {
             p,
             shares[&p].public_key,
             presignatures[&p].clone(),
-            b"hello world",
+            scalar_hash(b"hello world"),
         )
         .unwrap()
     });

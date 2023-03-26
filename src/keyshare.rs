@@ -1,8 +1,8 @@
-use ecdsa::elliptic_curve::group::prime::PrimeCurveAffine;
-use k256::{AffinePoint, ProjectivePoint, Scalar};
+use elliptic_curve::{Field, Group, ScalarPrimitive};
 use magikitten::Transcript;
 use rand_core::OsRng;
 
+use crate::compat::CSCurve;
 use crate::crypto::{commit, hash, Digest};
 use crate::math::{GroupPolynomial, Polynomial};
 use crate::participants::{ParticipantCounter, ParticipantList, ParticipantMap};
@@ -11,20 +11,21 @@ use crate::protocol::internal::{make_protocol, Context, SharedChannel};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
 use crate::serde::encode;
 
-const LABEL: &[u8] = b"cait-sith v0.1.0 keygen";
+const LABEL: &[u8] = b"cait-sith v0.5.0 keygen";
 
-async fn do_keyshare(
+async fn do_keyshare<C: CSCurve>(
     mut chan: SharedChannel,
     participants: ParticipantList,
     me: Participant,
     threshold: usize,
-    s_i: Scalar,
-    big_s: Option<ProjectivePoint>,
-) -> Result<(Scalar, AffinePoint), ProtocolError> {
+    s_i: C::Scalar,
+    big_s: Option<C::ProjectivePoint>,
+) -> Result<(C::Scalar, C::AffinePoint), ProtocolError> {
     let mut rng = OsRng;
     let mut transcript = Transcript::new(LABEL);
 
     // Spec 1.2
+    transcript.message(b"group", C::NAME);
     transcript.message(b"participants", &encode(&participants));
     // To allow interop between platforms where usize is different!
     transcript.message(
@@ -33,7 +34,7 @@ async fn do_keyshare(
     );
 
     // Spec 1.3
-    let f = Polynomial::extend_random(&mut rng, threshold, &s_i);
+    let f: Polynomial<C> = Polynomial::extend_random(&mut rng, threshold, &s_i);
 
     // Spec 1.4
     let mut big_f = f.commit();
@@ -64,10 +65,10 @@ async fn do_keyshare(
     chan.send_many(wait1, &my_confirmation).await;
 
     // Spec 2.5
-    let statement = dlog::Statement {
+    let statement = dlog::Statement::<C> {
         public: &big_f.evaluate_zero(),
     };
-    let witness = dlog::Witness {
+    let witness = dlog::Witness::<C> {
         x: &f.evaluate_zero(),
     };
     let my_phi_proof = dlog::prove(
@@ -85,10 +86,10 @@ async fn do_keyshare(
     // Spec 2.7
     let wait3 = chan.next_waitpoint();
     for p in participants.others(me) {
-        let x_i_j = f.evaluate(&p.scalar());
+        let x_i_j: ScalarPrimitive<C> = f.evaluate(&p.scalar::<C>()).into();
         chan.send_private(wait3, p, &x_i_j).await;
     }
-    let mut x_i = f.evaluate(&me.scalar());
+    let mut x_i = f.evaluate(&me.scalar::<C>());
 
     // Spec 3.1 + 3.2
     let mut seen = ParticipantCounter::new(&participants);
@@ -109,8 +110,10 @@ async fn do_keyshare(
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, (their_big_f, their_randomizer, their_phi_proof)): (_, (GroupPolynomial, _, _)) =
-            chan.recv(wait2).await?;
+        let (from, (their_big_f, their_randomizer, their_phi_proof)): (
+            _,
+            (GroupPolynomial<C>, _, _),
+        ) = chan.recv(wait2).await?;
         if !seen.put(from) {
             continue;
         }
@@ -125,7 +128,7 @@ async fn do_keyshare(
                 "commitment from {from:?} did not match revealed F"
             )));
         }
-        let statement = dlog::Statement {
+        let statement = dlog::Statement::<C> {
             public: &their_big_f.evaluate_zero(),
         };
         if !dlog::verify(
@@ -144,15 +147,15 @@ async fn do_keyshare(
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, x_j_i): (_, Scalar) = chan.recv(wait3).await?;
+        let (from, x_j_i): (_, ScalarPrimitive<C>) = chan.recv(wait3).await?;
         if !seen.put(from) {
             continue;
         }
-        x_i += x_j_i;
+        x_i += C::Scalar::from(x_j_i);
     }
 
     // Spec 3.7
-    if big_f.evaluate(&me.scalar()) != ProjectivePoint::GENERATOR * x_i {
+    if big_f.evaluate(&me.scalar::<C>()) != C::ProjectivePoint::generator() * x_i {
         return Err(ProtocolError::AssertionFailed(
             "received bad private share".to_string(),
         ));
@@ -170,27 +173,27 @@ async fn do_keyshare(
     };
 
     // Spec 3.9
-    Ok((x_i, big_x.to_affine()))
+    Ok((x_i, big_x.into()))
 }
 
 /// Represents the output of the key generation protocol.
 ///
 /// This contains our share of the private key, along with the public key.
 #[derive(Debug, Clone)]
-pub struct KeygenOutput {
-    pub private_share: Scalar,
-    pub public_key: AffinePoint,
+pub struct KeygenOutput<C: CSCurve> {
+    pub private_share: C::Scalar,
+    pub public_key: C::AffinePoint,
 }
 
-async fn do_keygen(
+async fn do_keygen<C: CSCurve>(
     chan: SharedChannel,
     participants: ParticipantList,
     me: Participant,
     threshold: usize,
-) -> Result<KeygenOutput, ProtocolError> {
-    let s_i = Scalar::generate_biased(&mut OsRng);
+) -> Result<KeygenOutput<C>, ProtocolError> {
+    let s_i = C::Scalar::random(&mut OsRng);
     let (private_share, public_key) =
-        do_keyshare(chan, participants, me, threshold, s_i, None).await?;
+        do_keyshare::<C>(chan, participants, me, threshold, s_i, None).await?;
     Ok(KeygenOutput {
         private_share,
         public_key,
@@ -205,11 +208,11 @@ async fn do_keygen(
 ///
 /// This needs to be run once, before then being able to perform threshold
 /// signatures using the key.
-pub fn keygen(
+pub fn keygen<C: CSCurve>(
     participants: &[Participant],
     me: Participant,
     threshold: usize,
-) -> Result<impl Protocol<Output = KeygenOutput>, InitializationError> {
+) -> Result<impl Protocol<Output = KeygenOutput<C>>, InitializationError> {
     if participants.len() < 2 {
         return Err(InitializationError::BadParameters(format!(
             "participant count cannot be < 2, found: {}",
@@ -238,21 +241,21 @@ pub fn keygen(
     Ok(make_protocol(ctx, fut))
 }
 
-async fn do_reshare(
+async fn do_reshare<C: CSCurve>(
     chan: SharedChannel,
     participants: ParticipantList,
     old_subset: ParticipantList,
     me: Participant,
     threshold: usize,
-    my_share: Option<Scalar>,
-    public_key: AffinePoint,
-) -> Result<Scalar, ProtocolError> {
+    my_share: Option<C::Scalar>,
+    public_key: C::AffinePoint,
+) -> Result<C::Scalar, ProtocolError> {
     let s_i = my_share
-        .map(|x_i| old_subset.lagrange(me) * x_i)
-        .unwrap_or(Scalar::ZERO);
-    let big_s = public_key.to_curve();
+        .map(|x_i| old_subset.lagrange::<C>(me) * x_i)
+        .unwrap_or(C::Scalar::ZERO);
+    let big_s: C::ProjectivePoint = public_key.into();
     let (private_share, _) =
-        do_keyshare(chan, participants, me, threshold, s_i, Some(big_s)).await?;
+        do_keyshare::<C>(chan, participants, me, threshold, s_i, Some(big_s)).await?;
     Ok(private_share)
 }
 
@@ -266,15 +269,15 @@ async fn do_reshare(
 ///
 /// This protocol creates fresh shares for every party, without revealing the key,
 /// of course. The output of the protocol is the new share for this party.
-pub fn reshare(
+pub fn reshare<C: CSCurve>(
     old_participants: &[Participant],
     old_threshold: usize,
     new_participants: &[Participant],
     new_threshold: usize,
     me: Participant,
-    my_share: Option<Scalar>,
-    public_key: AffinePoint,
-) -> Result<impl Protocol<Output = Scalar>, InitializationError> {
+    my_share: Option<C::Scalar>,
+    public_key: C::AffinePoint,
+) -> Result<impl Protocol<Output = C::Scalar>, InitializationError> {
     if new_participants.len() < 2 {
         return Err(InitializationError::BadParameters(format!(
             "participant count cannot be < 2, found: {}",
@@ -320,7 +323,7 @@ pub fn reshare(
     }
 
     let ctx = Context::new();
-    let fut = do_reshare(
+    let fut = do_reshare::<C>(
         ctx.shared_channel(),
         new_participants,
         old_subset,
@@ -336,14 +339,14 @@ pub fn reshare(
 ///
 /// This is like resharing, but with extra constraints to ensure that the set
 /// of participants and threshold do not change.
-pub fn refresh(
+pub fn refresh<C: CSCurve>(
     participants: &[Participant],
     threshold: usize,
     me: Participant,
-    my_share: Scalar,
-    public_key: AffinePoint,
-) -> Result<impl Protocol<Output = Scalar>, InitializationError> {
-    reshare(
+    my_share: C::Scalar,
+    public_key: C::AffinePoint,
+) -> Result<impl Protocol<Output = C::Scalar>, InitializationError> {
+    reshare::<C>(
         participants,
         threshold,
         participants,
@@ -358,15 +361,20 @@ pub fn refresh(
 mod test {
     use std::error::Error;
 
+    use k256::{ProjectivePoint, Scalar, Secp256k1};
+
     use super::*;
     use crate::protocol::{run_protocol, Participant};
 
+    #[allow(clippy::type_complexity)]
     fn do_keygen(
         participants: &[Participant],
         threshold: usize,
-    ) -> Result<Vec<(Participant, KeygenOutput)>, Box<dyn Error>> {
-        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = KeygenOutput>>)> =
-            Vec::with_capacity(participants.len());
+    ) -> Result<Vec<(Participant, KeygenOutput<Secp256k1>)>, Box<dyn Error>> {
+        let mut protocols: Vec<(
+            Participant,
+            Box<dyn Protocol<Output = KeygenOutput<Secp256k1>>>,
+        )> = Vec::with_capacity(participants.len());
 
         for p in participants.iter() {
             let protocol = keygen(participants, *p, threshold)?;
@@ -400,9 +408,9 @@ mod test {
             result[2].1.private_share,
         ];
         let p_list = ParticipantList::new(&participants).unwrap();
-        let x = p_list.lagrange(participants[0]) * shares[0]
-            + p_list.lagrange(participants[1]) * shares[1]
-            + p_list.lagrange(participants[2]) * shares[2];
+        let x = p_list.lagrange::<Secp256k1>(participants[0]) * shares[0]
+            + p_list.lagrange::<Secp256k1>(participants[1]) * shares[1]
+            + p_list.lagrange::<Secp256k1>(participants[2]) * shares[2];
         assert_eq!(ProjectivePoint::GENERATOR * x, pub_key);
 
         Ok(())
@@ -426,7 +434,7 @@ mod test {
             Vec::with_capacity(participants.len());
 
         for (p, out) in result0.iter() {
-            let protocol = refresh(
+            let protocol = refresh::<Secp256k1>(
                 &participants,
                 threshold,
                 *p,
@@ -441,9 +449,9 @@ mod test {
         let participants = vec![result1[0].0, result1[1].0, result1[2].0];
         let shares = vec![result1[0].1, result1[1].1, result1[2].1];
         let p_list = ParticipantList::new(&participants).unwrap();
-        let x = p_list.lagrange(participants[0]) * shares[0]
-            + p_list.lagrange(participants[1]) * shares[1]
-            + p_list.lagrange(participants[2]) * shares[2];
+        let x = p_list.lagrange::<Secp256k1>(participants[0]) * shares[0]
+            + p_list.lagrange::<Secp256k1>(participants[1]) * shares[1]
+            + p_list.lagrange::<Secp256k1>(participants[2]) * shares[2];
         assert_eq!(ProjectivePoint::GENERATOR * x, pub_key);
 
         Ok(())
@@ -475,7 +483,7 @@ mod test {
             Vec::with_capacity(participants.len());
 
         for (p, out) in setup.iter() {
-            let protocol = reshare(
+            let protocol = reshare::<Secp256k1>(
                 &participants[..3],
                 threshold0,
                 &participants,
@@ -492,10 +500,10 @@ mod test {
         let participants = vec![result1[0].0, result1[1].0, result1[2].0, result1[3].0];
         let shares = vec![result1[0].1, result1[1].1, result1[2].1, result1[3].1];
         let p_list = ParticipantList::new(&participants).unwrap();
-        let x = p_list.lagrange(participants[0]) * shares[0]
-            + p_list.lagrange(participants[1]) * shares[1]
-            + p_list.lagrange(participants[2]) * shares[2]
-            + p_list.lagrange(participants[3]) * shares[3];
+        let x = p_list.lagrange::<Secp256k1>(participants[0]) * shares[0]
+            + p_list.lagrange::<Secp256k1>(participants[1]) * shares[1]
+            + p_list.lagrange::<Secp256k1>(participants[2]) * shares[2]
+            + p_list.lagrange::<Secp256k1>(participants[3]) * shares[3];
         assert_eq!(ProjectivePoint::GENERATOR * x, pub_key);
 
         Ok(())
