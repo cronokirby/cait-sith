@@ -32,7 +32,7 @@ pub struct FullSignature<C: CSCurve> {
 
 impl<C: CSCurve> FullSignature<C> {
     #[must_use]
-    fn verify(&self, public_key: &C::AffinePoint, msg_hash: &C::Scalar) -> bool {
+    pub fn verify(&self, public_key: &C::AffinePoint, msg_hash: &C::Scalar) -> bool {
         let r: C::Scalar = compat::x_coordinate::<C>(&self.big_r);
         if r.is_zero().into() || self.s.is_zero().into() {
             return false;
@@ -87,6 +87,58 @@ async fn do_sign<C: CSCurve>(
     s.conditional_assign(&(-s), s.is_high());
     let sig = FullSignature {
         big_r: presignature.big_r,
+        s,
+    };
+    if !sig.verify(&public_key, &msg_hash) {
+        return Err(ProtocolError::AssertionFailed(
+            "signature failed to verify".to_string(),
+        ));
+    }
+
+    // Spec 2.4
+    Ok(sig)
+}
+
+pub fn signature_share<C: CSCurve>(
+    participants: Vec<Participant>,
+    me: Participant,
+    // public_key: C::AffinePoint,
+    presignature: PresignOutput<C>,
+    msg_hash: C::Scalar,
+) -> Result<C::Scalar, ProtocolError> {
+    let p_list = ParticipantList::new(&participants).unwrap();
+    // Spec 1.1
+    let lambda = p_list.lagrange::<C>(me);
+    let k_i = lambda * presignature.k;
+
+    // Spec 1.2
+    let sigma_i = lambda * presignature.sigma;
+
+    // Spec 1.3
+    let r = compat::x_coordinate::<C>(&presignature.big_r);
+    let s_i: C::Scalar = msg_hash * k_i + r * sigma_i;
+
+    Ok(s_i)
+}
+
+pub async fn combine_signature_shares<C: CSCurve>(
+    shares: Vec<C::Scalar>,
+    public_key: C::AffinePoint,
+    // presignature: PresignOutput<C>,
+    presignature_big_r: C::AffinePoint,
+    msg_hash: C::Scalar,
+) -> Result<FullSignature<C>, ProtocolError> {
+    let mut s: C::Scalar = shares[0].into();
+    for s_j in shares.iter().skip(1) {
+        s += C::Scalar::from(*s_j)
+    }
+
+    // Spec 2.3
+    // Optionally, normalize s
+    s.conditional_assign(&(-s), s.is_high());
+    let sig = FullSignature {
+        // big_r: presignature.big_r,
+        big_r: presignature_big_r,        
         s,
     };
     if !sig.verify(&public_key, &msg_hash) {
