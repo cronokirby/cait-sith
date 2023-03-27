@@ -138,7 +138,7 @@ pub async fn combine_signature_shares<C: CSCurve>(
     s.conditional_assign(&(-s), s.is_high());
     let sig = FullSignature {
         // big_r: presignature.big_r,
-        big_r: presignature_big_r,        
+        big_r: presignature_big_r,
         s,
     };
     if !sig.verify(&public_key, &msg_hash) {

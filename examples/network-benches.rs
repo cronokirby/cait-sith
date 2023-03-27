@@ -11,9 +11,7 @@ use cait_sith::{
 use digest::{Digest, FixedOutput};
 use easy_parallel::Parallel;
 use ecdsa::hazmat::DigestPrimitive;
-use elliptic_curve::{
-    ops::Reduce, Curve
-};
+use elliptic_curve::{ops::Reduce, Curve};
 use haisou_chan::{channel, Bandwidth};
 
 use k256::{FieldBytes, Scalar, Secp256k1};

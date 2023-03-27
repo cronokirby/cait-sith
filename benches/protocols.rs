@@ -10,7 +10,7 @@ use cait_sith::{
     FullSignature, KeygenOutput, PresignArguments, PresignOutput,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use k256::{AffinePoint, Secp256k1, Scalar};
+use k256::{AffinePoint, Scalar, Secp256k1};
 use rand_core::OsRng;
 
 fn run_setup(participants: Vec<Participant>) -> Vec<(Participant, Setup)> {
@@ -52,8 +52,10 @@ fn run_keygen(
     participants: Vec<Participant>,
     threshold: usize,
 ) -> Vec<(Participant, KeygenOutput<Secp256k1>)> {
-    let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = KeygenOutput<Secp256k1>>>)> =
-        Vec::with_capacity(participants.len());
+    let mut protocols: Vec<(
+        Participant,
+        Box<dyn Protocol<Output = KeygenOutput<Secp256k1>>>,
+    )> = Vec::with_capacity(participants.len());
 
     for p in participants.iter() {
         let protocol = keygen(&participants, *p, threshold);
@@ -76,8 +78,10 @@ fn run_presign(
     assert!(participants.len() == shares0.len());
     assert!(participants.len() == shares1.len());
 
-    let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = PresignOutput<Secp256k1>>>)> =
-        Vec::with_capacity(participants.len());
+    let mut protocols: Vec<(
+        Participant,
+        Box<dyn Protocol<Output = PresignOutput<Secp256k1>>>,
+    )> = Vec::with_capacity(participants.len());
 
     let participant_list: Vec<Participant> = participants.iter().map(|(p, _)| *p).collect();
 
@@ -110,8 +114,10 @@ fn run_sign(
     public_key: AffinePoint,
     msg: Scalar,
 ) -> Vec<(Participant, FullSignature<Secp256k1>)> {
-    let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = FullSignature<Secp256k1>>>)> =
-        Vec::with_capacity(participants.len());
+    let mut protocols: Vec<(
+        Participant,
+        Box<dyn Protocol<Output = FullSignature<Secp256k1>>>,
+    )> = Vec::with_capacity(participants.len());
 
     let participant_list: Vec<Participant> = participants.iter().map(|(p, _)| *p).collect();
 

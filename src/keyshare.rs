@@ -1,6 +1,7 @@
 use elliptic_curve::{Field, Group, ScalarPrimitive};
 use magikitten::Transcript;
 use rand_core::OsRng;
+use serde::{Deserialize, Serialize};
 
 use crate::compat::CSCurve;
 use crate::crypto::{commit, hash, Digest};
@@ -179,7 +180,7 @@ async fn do_keyshare<C: CSCurve>(
 /// Represents the output of the key generation protocol.
 ///
 /// This contains our share of the private key, along with the public key.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeygenOutput<C: CSCurve> {
     pub private_share: C::Scalar,
     pub public_key: C::AffinePoint,
