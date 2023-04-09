@@ -14,6 +14,7 @@ ecdsa = { version = "0.16.1", features = ["digest", "hazmat"] }
 elliptic-curve = { version = "0.13.2", features = ["serde"] }
 event-listener = "2.5.3"
 k256 = { version = "0.13.0", features = ["sha256", "ecdsa", "serde"], optional = true }
+p256 = {  git = "https://github.com/LIT-Protocol/elliptic-curves" ,  features = ["sha256", "ecdsa", "serde"]}
 magikitten = "0.2.0"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 rmp-serde = "1.1.1"
@@ -27,16 +28,20 @@ easy-parallel = "3.2.0"
 haisou-chan = { git = "https://github.com/cronokirby/haisou-chan", rev = "d28c46e51acfcb818236caae293f6e56dff41ad2" }
 structopt = "0.3.26"
 k256 = { version = "0.13.0", features = ["sha256", "ecdsa", "serde"], optional = false }
+p256 = {  git = "https://github.com/LIT-Protocol/elliptic-curves",   features = ["sha256", "ecdsa", "serde"]}
+
+# p256 = {  git = "https://github.com/LIT-Protocol/elliptic-curves/", rev ="0392fcc08ffc3fd66b3d1b590736e1d1b7c09d74"  ,features = ["sha256", "ecdsa", "serde"]}
 
 [[bench]]
 name = "protocols"
 harness = false
-required-features = ["k256"]
+required-features = ["k256,p256"]
 
 [features]
 k256 = ["dep:k256"]
 
+
 [[example]]
 name = "network-benches"
 path = "examples/network-benches.rs"
-required-features = ["k256"]
+required-features = ["k256,p256"]

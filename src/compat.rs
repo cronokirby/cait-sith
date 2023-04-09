@@ -1,6 +1,8 @@
 use elliptic_curve::{ops::Reduce, point::AffineCoordinates, Curve, CurveArithmetic, PrimeCurve};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+
+
 /// Represents a curve suitable for use in cait-sith.
 ///
 /// This is the trait that any curve usable in this library must implement.
@@ -54,6 +56,33 @@ mod k256_impl {
         }
     }
 }
+
+#[cfg(any(feature = "p256", test))]
+mod p256_impl {
+    use super::*;
+
+    use elliptic_curve::bigint::Bounded;
+    use p256::NistP256;
+
+    impl CSCurve for NistP256 {
+        const NAME: &'static [u8] = b"Secp256r1";
+        const BITS: usize = <Self::Uint as Bounded>::BITS;
+
+        fn serialize_point<S: Serializer>(
+            point: &Self::AffinePoint,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error> {
+            point.serialize(serializer)
+        }
+
+        fn deserialize_point<'de, D: Deserializer<'de>>(
+            deserializer: D,
+        ) -> Result<Self::AffinePoint, D::Error> {
+            Self::AffinePoint::deserialize(deserializer)
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod test_scalar_hash {
