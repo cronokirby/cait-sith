@@ -197,7 +197,7 @@ mod test {
     };
     use rand_core::OsRng;
 
-    use crate::{compat::scalar_hash, math::Polynomial, protocol::run_protocol};
+    use crate::{compat::k256_impl::scalar_hash, math::Polynomial, protocol::run_protocol};
 
     use super::*;
 
