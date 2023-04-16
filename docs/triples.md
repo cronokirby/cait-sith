@@ -302,7 +302,7 @@ $\text{Confirm}_i$ as the session id, and using $e(0)$ and $f(0)$ as their perso
 $$
 \begin{aligned}
 \pi^0_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog0}, i), \text{Mau}(- \cdot G, E_i(0); e(0)))\cr
-\pi^1_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog0}, i), \text{Mau}(- \cdot G, F_i(0); f(0)))\cr
+\pi^1_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog1}, i), \text{Mau}(- \cdot G, F_i(0); f(0)))\cr
 \end{aligned}
 $$
 
@@ -322,7 +322,7 @@ $$
 &\forall j. L_j(0) = 0\cr
 &\text{CheckCommit}(\text{Com}_j, (E_j, F_j, L_j), r_j)\cr
 &\text{Verify}(T.\text{Cloned}(\texttt{dlog0}, j), \pi^0_j, \text{Mau}(- \cdot G, E_j(0)))\cr
-&\text{Verify}(T.\text{Cloned}(\texttt{dlog0}, j), \pi^1_j, \text{Mau}(- \cdot G, F_j(0)))\cr
+&\text{Verify}(T.\text{Cloned}(\texttt{dlog1}, j), \pi^1_j, \text{Mau}(- \cdot G, F_j(0)))\cr
 \end{aligned}
 $$
 
@@ -354,7 +354,7 @@ $$
 
 $$
 \begin{aligned}
-\pi_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog1}, i), \text{Mau}(- \cdot G, \hat{C}_i; l_0)))\cr
+\pi_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog2}, i), \text{Mau}(- \cdot G, \hat{C}_i; l_0)))\cr
 \end{aligned}
 $$
 
@@ -368,7 +368,7 @@ $$
 
 $$
 \begin{aligned}
-&\text{Verify}(T.\text{Cloned}(\texttt{dlog1}, j), \pi_j, \text{Mau}(- \cdot G, \hat{C}_j)\cr
+&\text{Verify}(T.\text{Cloned}(\texttt{dlog2}, j), \pi_j, \text{Mau}(- \cdot G, \hat{C}_j)\cr
 \end{aligned}
 $$
 

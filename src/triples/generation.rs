@@ -1,4 +1,4 @@
-use elliptic_curve::{Group, ScalarPrimitive};
+use elliptic_curve::{group::Curve, Field, Group, ScalarPrimitive};
 use magikitten::Transcript;
 use rand_core::OsRng;
 
@@ -7,7 +7,10 @@ use crate::{
     crypto::{commit, hash, Digest},
     math::{GroupPolynomial, Polynomial},
     participants::{ParticipantCounter, ParticipantList, ParticipantMap},
-    proofs::{dlog, dlogeq},
+    proofs::{
+        dlog::{self, Proof},
+        dlogeq,
+    },
     protocol::{
         internal::{make_protocol, Context},
         InitializationError, Participant, Protocol, ProtocolError,
@@ -45,15 +48,20 @@ async fn do_generation<C: CSCurve>(
     // Spec 1.2
     let e: Polynomial<C> = Polynomial::random(&mut rng, threshold);
     let f: Polynomial<C> = Polynomial::random(&mut rng, threshold);
+    let mut l: Polynomial<C> = Polynomial::random(&mut rng, threshold);
 
     // Spec 1.3
-    let big_e_i = e.commit();
-    let big_f_i = f.commit();
+    l.set_zero(C::Scalar::ZERO);
 
     // Spec 1.4
-    let (my_commitment, my_randomizer) = commit(&mut rng, &(&big_e_i, &big_f_i));
+    let big_e_i = e.commit();
+    let big_f_i = f.commit();
+    let big_l_i = l.commit();
 
     // Spec 1.5
+    let (my_commitment, my_randomizer) = commit(&mut rng, &(&big_e_i, &big_f_i, &big_l_i));
+
+    // Spec 1.6
     let wait0 = chan.next_waitpoint();
     chan.send_many(wait0, &my_commitment).await;
 
@@ -85,24 +93,46 @@ async fn do_generation<C: CSCurve>(
     chan.send_many(wait1, &my_confirmation).await;
 
     // Spec 2.6
-    let statement = dlog::Statement::<C> {
-        public: &big_f_i.evaluate_zero(),
+    let statement0 = dlog::Statement::<C> {
+        public: &big_e_i.evaluate_zero(),
     };
-    let witness = dlog::Witness::<C> {
-        x: &f.evaluate_zero(),
+    let witness0 = dlog::Witness::<C> {
+        x: &e.evaluate_zero(),
     };
-    let my_phi_proof = dlog::prove(
+    let my_phi_proof0 = dlog::prove(
         &mut rng,
         &mut transcript.forked(b"dlog0", &me.bytes()),
-        statement,
-        witness,
+        statement0,
+        witness0,
+    );
+    let statement1 = dlog::Statement::<C> {
+        public: &big_f_i.evaluate_zero(),
+    };
+    let witness1 = dlog::Witness::<C> {
+        x: &f.evaluate_zero(),
+    };
+    let my_phi_proof1 = dlog::prove(
+        &mut rng,
+        &mut transcript.forked(b"dlog1", &me.bytes()),
+        statement1,
+        witness1,
     );
 
     // Spec 2.7
     let wait2 = chan.next_waitpoint();
     {
-        chan.send_many(wait2, &(&big_e_i, &big_f_i, my_randomizer, my_phi_proof))
-            .await;
+        chan.send_many(
+            wait2,
+            &(
+                &big_e_i,
+                &big_f_i,
+                &big_l_i,
+                my_randomizer,
+                my_phi_proof0,
+                my_phi_proof1,
+            ),
+        )
+        .await;
     }
 
     // Spec 2.8
@@ -130,46 +160,93 @@ async fn do_generation<C: CSCurve>(
         }
     }
 
-    // Spec 3.3 + 3.4, and also part of 3.6, for summing up the Es and Fs.
+    // Spec 3.3 + 3.4, and also part of 3.6, 5.3, for summing up the Es, Fs, and Ls.
     let mut big_e = big_e_i.clone();
     let mut big_f = big_f_i;
+    let mut big_l = big_l_i;
     let mut big_e_j_zero = ParticipantMap::new(&participants);
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, (their_big_e, their_big_f, their_randomizer, their_phi_proof)): (
+        let (
+            from,
+            (
+                their_big_e,
+                their_big_f,
+                their_big_l,
+                their_randomizer,
+                their_phi_proof0,
+                their_phi_proof1,
+            ),
+        ): (
             _,
-            (GroupPolynomial<C>, GroupPolynomial<C>, _, _),
+            (
+                GroupPolynomial<C>,
+                GroupPolynomial<C>,
+                GroupPolynomial<C>,
+                _,
+                _,
+                _,
+            ),
         ) = chan.recv(wait2).await?;
         if !seen.put(from) {
             continue;
         }
 
-        if their_big_e.len() != threshold || their_big_f.len() != threshold {
+        if their_big_e.len() != threshold
+            || their_big_f.len() != threshold
+            || their_big_l.len() != threshold
+        {
             return Err(ProtocolError::AssertionFailed(format!(
                 "polynomial from {from:?} has the wrong length"
             )));
         }
-        if !all_commitments[from].check(&(&their_big_e, &their_big_f), &their_randomizer) {
+
+        if !bool::from(their_big_l.evaluate_zero().is_identity()) {
+            return Err(ProtocolError::AssertionFailed(format!(
+                "L(0) from {from:?} is not 0"
+            )));
+        }
+
+        if !all_commitments[from].check(
+            &(&their_big_e, &their_big_f, &their_big_l),
+            &their_randomizer,
+        ) {
             return Err(ProtocolError::AssertionFailed(format!(
                 "commitment from {from:?} did not match revealed F"
             )));
         }
-        let statement = dlog::Statement::<C> {
-            public: &their_big_f.evaluate_zero(),
+
+        let statement0 = dlog::Statement::<C> {
+            public: &their_big_e.evaluate_zero(),
         };
         if !dlog::verify(
             &mut transcript.forked(b"dlog0", &from.bytes()),
-            statement,
-            &their_phi_proof,
+            statement0,
+            &their_phi_proof0,
         ) {
             return Err(ProtocolError::AssertionFailed(format!(
                 "dlog proof from {from:?} failed to verify"
             )));
         }
+
+        let statement1 = dlog::Statement::<C> {
+            public: &their_big_f.evaluate_zero(),
+        };
+        if !dlog::verify(
+            &mut transcript.forked(b"dlog1", &from.bytes()),
+            statement1,
+            &their_phi_proof1,
+        ) {
+            return Err(ProtocolError::AssertionFailed(format!(
+                "dlog proof from {from:?} failed to verify"
+            )));
+        }
+
         big_e_j_zero.put(from, their_big_e.evaluate_zero());
         big_e += &their_big_e;
         big_f += &their_big_f;
+        big_l += &their_big_l;
     }
 
     // Spec 3.5 + 3.6
@@ -259,30 +336,33 @@ async fn do_generation<C: CSCurve>(
     let l0 = ctx.run(multiplication_task).await?;
 
     // Spec 4.5
-    let l: Polynomial<C> = Polynomial::extend_random(&mut rng, threshold, &l0);
+    let hat_big_c_i = C::ProjectivePoint::generator() * l0;
 
     // Spec 4.6
-    let mut big_l = l.commit();
-
-    // Spec 4.7
     let statement = dlog::Statement::<C> {
-        public: &big_l.evaluate_zero(),
+        public: &hat_big_c_i,
     };
-    let witness = dlog::Witness::<C> {
-        x: &l.evaluate_zero(),
-    };
+    let witness = dlog::Witness::<C> { x: &l0 };
     let my_phi_proof = dlog::prove(
         &mut rng,
-        &mut transcript.forked(b"dlog1", &me.bytes()),
+        &mut transcript.forked(b"dlog2", &me.bytes()),
         statement,
         witness,
     );
 
     // Spec 4.8
     let wait5 = chan.next_waitpoint();
-    chan.send_many(wait5, &(&big_l, my_phi_proof)).await;
+    chan.send_many(
+        wait5,
+        &(
+            SerializablePoint::<C>::from_projective(&hat_big_c_i),
+            my_phi_proof,
+        ),
+    )
+    .await;
 
     // Spec 4.9
+    l.set_zero(l0);
     let wait6 = chan.next_waitpoint();
     for p in participants.others(me) {
         let c_i_j: ScalarPrimitive<C> = l.evaluate(&p.scalar::<C>()).into();
@@ -293,23 +373,20 @@ async fn do_generation<C: CSCurve>(
     // Spec 5.1 + 5.2 + 5.3
     seen.clear();
     seen.put(me);
+    let mut hat_big_c = hat_big_c_i;
     while !seen.full() {
-        let (from, (their_big_l, their_phi_proof)): (_, (GroupPolynomial<C>, _)) =
+        let (from, (their_hat_big_c, their_phi_proof)): (_, (SerializablePoint<C>, _)) =
             chan.recv(wait5).await?;
         if !seen.put(from) {
             continue;
         }
 
-        if their_big_l.len() != threshold {
-            return Err(ProtocolError::AssertionFailed(format!(
-                "polynomial from {from:?} has the wrong length"
-            )));
-        }
+        let their_hat_big_c = their_hat_big_c.to_projective();
         let statement = dlog::Statement::<C> {
-            public: &their_big_l.evaluate_zero(),
+            public: &their_hat_big_c,
         };
         if !dlog::verify(
-            &mut transcript.forked(b"dlog1", &from.bytes()),
+            &mut transcript.forked(b"dlog2", &from.bytes()),
             statement,
             &their_phi_proof,
         ) {
@@ -317,8 +394,11 @@ async fn do_generation<C: CSCurve>(
                 "dlog proof from {from:?} failed to verify"
             )));
         }
-        big_l += &their_big_l;
+        hat_big_c += &their_hat_big_c;
     }
+
+    // Spec 5.3
+    big_l.set_zero(hat_big_c);
 
     // Spec 5.4
     if big_l.evaluate_zero() != big_c {
