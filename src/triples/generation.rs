@@ -20,7 +20,7 @@ use super::{multiplication::multiplication, Setup, TriplePub, TripleShare};
 /// The output of running the triple generation protocol.
 pub type TripleGenerationOutput<C> = (TripleShare<C>, TriplePub<C>);
 
-const LABEL: &[u8] = b"cait-sith v0.5.0 triple generation";
+const LABEL: &[u8] = b"cait-sith v0.6.0 triple generation";
 
 async fn do_generation<C: CSCurve>(
     ctx: Context<'_>,

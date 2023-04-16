@@ -11,7 +11,7 @@ use crate::protocol::internal::{make_protocol, Context, SharedChannel};
 use crate::protocol::{InitializationError, Participant, Protocol, ProtocolError};
 use crate::serde::encode;
 
-const LABEL: &[u8] = b"cait-sith v0.5.0 keygen";
+const LABEL: &[u8] = b"cait-sith v0.6.0 keygen";
 
 async fn do_keyshare<C: CSCurve>(
     mut chan: SharedChannel,
