@@ -1,4 +1,4 @@
-use elliptic_curve::{group::Curve, Field, Group, ScalarPrimitive};
+use elliptic_curve::{Field, Group, ScalarPrimitive};
 use magikitten::Transcript;
 use rand_core::OsRng;
 
@@ -7,10 +7,7 @@ use crate::{
     crypto::{commit, hash, Digest},
     math::{GroupPolynomial, Polynomial},
     participants::{ParticipantCounter, ParticipantList, ParticipantMap},
-    proofs::{
-        dlog::{self, Proof},
-        dlogeq,
-    },
+    proofs::{dlog, dlogeq},
     protocol::{
         internal::{make_protocol, Context},
         InitializationError, Participant, Protocol, ProtocolError,
