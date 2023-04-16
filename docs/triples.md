@@ -283,9 +283,10 @@ which want to generate a triple with threshold $t$.
 **Round 1:**
 
 1. $T.\text{Add}(\mathbb{G}, \mathcal{P}, t)$
-2. Each $P_ i$ samples $e, f \xleftarrow{R} \mathbb{F}_ q[X]_ {\leq (t - 1)}$.
-3. Each $P_i$ sets $E_i \gets e \cdot G$, and $F_i \gets f \cdot G$.
-4. Each $P_i$ sets $(\text{Com}_i, r_i) \gets \text{Commit}((E_i, F_i))$.
+2. Each $P_ i$ samples $e, f, l \xleftarrow{R} \mathbb{F}_ q[X]_ {\leq (t - 1)}$.
+3. Each $P_ i$ sets $l(0) = 0$.
+3. Each $P_i$ sets $E_i \gets e \cdot G, F_i \gets f \cdot G, L_i \gets l \cdot G$.
+4. Each $P_i$ sets $(\text{Com}_i, r_i) \gets \text{Commit}((E_i, F_i, L_i))$.
 5. $\star$ Each $P_i$ sends $\text{Com}_i$ to all other parties.
 
 **Round 2:**
@@ -300,25 +301,28 @@ $\text{Confirm}_i$ as the session id, and using $e(0)$ and $f(0)$ as their perso
 
 $$
 \begin{aligned}
-\pi_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog0}, i), \text{Mau}(- \cdot G, F_i(0); f(0)))\cr
+\pi^0_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog0}, i), \text{Mau}(- \cdot G, E_i(0); e(0)))\cr
+\pi^1_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog0}, i), \text{Mau}(- \cdot G, F_i(0); f(0)))\cr
 \end{aligned}
 $$
 
-7. $\star$ Each $P_i$ sends $(E_i, F_i, r_i, \pi_i)$ to every other party.
+7. $\star$ Each $P_i$ sends $(E_i, F_i, L_i, r_i, \pi^0_i, \pi^1_i)$ to every other party.
 7. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $a_i^j = e(j)$ and $b_i^j$ = $f(j)$ to every other party $P_j$.
 
 **Round 3:**
 
 1. $\bullet$ Each $P_i$ waits to receive $\text{Confirm}_j$ from each other $P_j$.
 2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j.\ \text{Confirm}_j = \text{Confirm}_i$.
-3. $\bullet$ Each $P_i$ waits to receive $(E_j, F_j, r_i, \pi_j)$ from each other $P_j$.
+3. $\bullet$ Each $P_i$ waits to receive $(E_j, F_j, L_j, r_i, \pi^0_j, \pi^1_j)$ from each other $P_j$.
 4. $\blacktriangle$ Each $P_i$ asserts that $\forall P_j$:
 
 $$
 \begin{aligned}
-&\text{deg}(E_j) = \text{deg}(F_j) = t - 1\cr
-&\text{CheckCommit}(\text{Com}_j, (E_j, F_j), r_j)\cr
-&\text{Verify}(T.\text{Cloned}(\texttt{dlog0}, j), \pi_j, \text{Mau}(- \cdot G, F_j(0)))\cr
+&\text{deg}(E_j) = \text{deg}(F_j) = \text{deg}(L_j) = t - 1\cr
+&\forall j. L_j(0) = 0\cr
+&\text{CheckCommit}(\text{Com}_j, (E_j, F_j, L_j), r_j)\cr
+&\text{Verify}(T.\text{Cloned}(\texttt{dlog0}, j), \pi^0_j, \text{Mau}(- \cdot G, E_j(0)))\cr
+&\text{Verify}(T.\text{Cloned}(\texttt{dlog0}, j), \pi^1_j, \text{Mau}(- \cdot G, F_j(0)))\cr
 \end{aligned}
 $$
 
@@ -345,33 +349,30 @@ $$
 
 3. Each $P_i$ sets $C \gets \sum_i C_i$.
 4. $\bullet$ Each $P_i$ waits to receive $l_0$ from the `Multiplication` protocol.
-5. Each $P_i$ samples $l_1, \ldots, l_{t - 1} \xleftarrow{R} \mathbb{F}_q$,
-extending $l_0$ into a polynomial $l$.
-6. Each $P_i$ sets $L_i \gets l \cdot G$.
+5. Each $P_i$ sets $\hat{C}_i = l_0 \cdot G$.
 7. Each $P_i$ generates the proof:
 
 $$
 \begin{aligned}
-\pi_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog1}, i), \text{Mau}(- \cdot G, L_i(0); l(0)))\cr
+\pi_i &\gets \text{Prove}(T.\text{Cloned}(\texttt{dlog1}, i), \text{Mau}(- \cdot G, \hat{C}_i; l_0)))\cr
 \end{aligned}
 $$
 
-8. $\star$ Each $P_i$ sends $(L_i, \pi_i)$ to every other party.
-9. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $c_i^j \gets l_i(j)$ to every other $P_j$.
+8. $\star$ Each $P_i$ sends $(\hat{C}_i, \pi_i)$ to every other party.
+9. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $c_i^j \gets l_0 + l_i(j)$ to every other $P_j$.
 
 **Round 5:**
 
-1. $\bullet$ Each $P_i$ waits to receive $(L_j, \pi_j)$ from every other party.
-2. $\blacktriangle$ Each $P_i$ *asserts* that:
+1. $\bullet$ Each $P_i$ waits to receive $(\hat{C}_j, \pi_j)$ from every other party.
+2. $\blacktriangle$ Each $P_i$ *asserts* that (for all $j$):
 
 $$
 \begin{aligned}
-&\text{deg}(L_j) = t - 1\cr
-&\text{Verify}(T.\text{Cloned}(\texttt{dlog1}, i), \text{Mau}(- \cdot G, L_i(0))\cr
+&\text{Verify}(T.\text{Cloned}(\texttt{dlog1}, j), \pi_j, \text{Mau}(- \cdot G, \hat{C}_j)\cr
 \end{aligned}
 $$
 
-3. Each $P_i$ sets $L \gets \sum_i L_i$.
+3. Each $P_i$ sets $L \gets \sum_i \hat{C}_i + L_i$.
 4. $\blacktriangle$ Each $P_i$ *asserts* that $C = L(0)$.
 5. $\bullet$ Each $P_i$ waits to receive $c_j^i$ from every other $P_j$.
 6. Each $P_i$ sets $c_i \gets \sum_j c_j^i$.

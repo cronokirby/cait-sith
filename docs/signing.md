@@ -65,16 +65,16 @@ of the private key $x$, with the share of $\mathcal{P}_i$ being $x_i$.
 The parties also hold the public key $X = x \cdot G$.
 
 In two prior phases $\sigma \in \\{0, 1\\}$, a set of parties $\mathcal{P}_0^\sigma$ of size $N_0^\sigma$
-came together to generate a $t_0 \geq t$ threshold sharing of triples $a^\sigma$, $b^\sigma$, $c^\sigma = a^\sigma b^\sigma$
+came together to generate a $t$ threshold sharing of triples $a^\sigma$, $b^\sigma$, $c^\sigma = a^\sigma b^\sigma$
 along with values $A^\sigma = a^\sigma \cdot G$, $B^\sigma = b^\sigma \cdot G$ and $C^\sigma = c^\sigma \cdot G$.
 
 In the current phase, a set of parties $\mathcal{P}_ 1 \subseteq \mathcal{P}_ 0^0 \cap \mathcal{P}^1_ 0$
-of size $N_1 \geq t_0$ wish to generate a threshold $t_0 \geq t$ sharing
+of size $N_1 \geq t$ wish to generate a threshold $t' = t$ sharing
 of a pre-signature.
 
 **Round 1:**
 
-1. Each $P_i$ checks that $\mathcal{P}_1 \subseteq \mathcal{P}_0^0 \cap \mathcal{P}_0^1$, and that $t_0 \geq t$.
+1. Each $P_i$ checks that $\mathcal{P}_1 \subseteq \mathcal{P}_0^0 \cap \mathcal{P}_0^1$, and that $t' = t$.
 2. Each $P_i$ renames:
 
 $$
@@ -96,13 +96,8 @@ x'_i &\gets \lambda(\mathcal{P}_1)_i \cdot x_i\cr
 \end{aligned}
 $$
 
-4. Each $P_i$ samples $f \xleftarrow{\\\$} \mathbb{F}_ q[X]_ {\leq t_0 - 1}$,
-subject to $f(0) = x'_i$
-5. Each $P_i$ sets $F_ i \gets f \cdot G$.
-6. $\star$ Each $P_i$ sends $F_i$ to every other party.
-7. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $x_i^j := f(j)$ to each other party $P_j$, and saves $x_i^i$ for itself.
-8. $\star$ Each $P_i$ sends $\text{kd}_i$ to every other party.
-9. Each $P_i$ sets:
+4. $\star$ Each $P_i$ sends $\text{kd}_i$ to every other party.
+5. Each $P_i$ sets:
 
 $$
 \begin{aligned}
@@ -111,26 +106,16 @@ $$
 \end{aligned}
 $$
 
-10. $\star$ Each $P_i$ sends $\text{ka}_i$ and $\text{xb}_i$ to every other party.
+6. $\star$ Each $P_i$ sends $\text{ka}_i$ and $\text{xb}_i$ to every other party.
 
 **Round 2:**
 
-1. $\bullet$ Each $P_i$ waits to receive $F_j$ from each other $P_j$.
-2. $\blacktriangle$ Each $P_i$ *asserts* that $\forall P_j \in \mathcal{P}_ 1$:
-
-$$
-\text{deg}(F_ j) = t_0 - 1
-$$
-
-3. $\bullet$ Each $P_i$ waits to receive $x_j^i$ from each other party $P_j$.
-4. Each $P_i$ sets $x_ i \gets \sum_{P_ j \in \mathcal{P}_ 1} x^i_ j$ and $F \gets \sum_ {P_ j \in \mathcal{P}_ 1} F_ j$.
-5. $\blacktriangle$ Each $P_i$ *asserts* that $x_i \cdot G = F(i)$ and $F(0) = X$.
-6. $\bullet$ Each $P_i$ waits to receive $\text{kd}_j$ from each other $P_j$.
-7. Each $P_i$ sets $\text{kd} \gets \sum_j \text{kd}_j$.
-8. $\blacktriangle$ Each $P_i$ *asserts* that $\text{kd} \cdot G = \text{KD}$.
-9. $\bullet$ Each $P_i$ waits to receive $\text{ka}_j$ and $\text{xb}_j$ from from every other party $P_j$.
-10. Each $P_i$ sets $\text{ka} \gets \sum_j \text{ka}_j$ and $\text{xb} \gets \sum_j \text{xb}_j$.
-11. $\blacktriangle$ Each $P_i$ asserts that:
+7. $\bullet$ Each $P_i$ waits to receive $\text{kd}_j$ from each other $P_j$.
+8. Each $P_i$ sets $\text{kd} \gets \sum_j \text{kd}_j$.
+9. $\blacktriangle$ Each $P_i$ *asserts* that $\text{kd} \cdot G = \text{KD}$.
+10. $\bullet$ Each $P_i$ waits to receive $\text{ka}_j$ and $\text{xb}_j$ from from every other party $P_j$.
+11. Each $P_i$ sets $\text{ka} \gets \sum_j \text{ka}_j$ and $\text{xb} \gets \sum_j \text{xb}_j$.
+12. $\blacktriangle$ Each $P_i$ asserts that:
 
 $$
 \begin{aligned}
@@ -139,8 +124,8 @@ $$
 \end{aligned}
 $$
 
-12. Each $P_i$ sets: $R \gets \frac{1}{\text{kd}} \cdot D$.
-13. Each $P_i$ sets $\sigma_i \gets \text{ka} \cdot x_i - \text{xb} \cdot a_i + c_i$, which is already threshold shared.
+13. Each $P_i$ sets: $R \gets \frac{1}{\text{kd}} \cdot D$.
+14. Each $P_i$ sets $\sigma_i \gets \text{ka} \cdot x_i - \text{xb} \cdot a_i + c_i$, which is already threshold shared.
 
 **Output:**
 The output is the presignature $(R, k, \sigma)$, with $k$ and $\sigma$
@@ -150,9 +135,9 @@ threshold shared as $k_1, \ldots$ and $\sigma_1, \ldots$.
 
 In the previous phase, a group of parties $\mathcal{P}_1$
 generate a presignature $(R, k, \sigma)$, with the values
-$k$, $\sigma$ being shared with a threshold of $t_0$.
+$k$, $\sigma$ being shared with a threshold of $t$.
 
-In the signing phase, a group of parties $\mathcal{P}_2 \subseteq \mathcal{P}_1$ of size $\geq t_0$ consumes this presignature
+In the signing phase, a group of parties $\mathcal{P}_2 \subseteq \mathcal{P}_1$ of size $\geq t$ consumes this presignature
 to sign a message $m$.
 
 **Round 1:**
