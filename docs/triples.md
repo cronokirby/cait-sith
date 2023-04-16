@@ -350,7 +350,7 @@ $$
 3. Each $P_i$ sets $C \gets \sum_i C_i$.
 4. $\bullet$ Each $P_i$ waits to receive $l_0$ from the `Multiplication` protocol.
 5. Each $P_i$ sets $\hat{C}_i = l_0 \cdot G$.
-7. Each $P_i$ generates the proof:
+6. Each $P_i$ generates the proof:
 
 $$
 \begin{aligned}
@@ -358,8 +358,8 @@ $$
 \end{aligned}
 $$
 
-8. $\star$ Each $P_i$ sends $(\hat{C}_i, \pi_i)$ to every other party.
-9. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $c_i^j \gets l_0 + l_i(j)$ to every other $P_j$.
+7. $\star$ Each $P_i$ sends $(\hat{C}_i, \pi_i)$ to every other party.
+8. $\textcolor{red}{\star}$ Each $P_i$ *privately* sends $c_i^j \gets l_0 + l_i(j)$ to every other $P_j$.
 
 **Round 5:**
 

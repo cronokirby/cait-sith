@@ -110,12 +110,12 @@ $$
 
 **Round 2:**
 
-7. $\bullet$ Each $P_i$ waits to receive $\text{kd}_j$ from each other $P_j$.
-8. Each $P_i$ sets $\text{kd} \gets \sum_j \text{kd}_j$.
-9. $\blacktriangle$ Each $P_i$ *asserts* that $\text{kd} \cdot G = \text{KD}$.
-10. $\bullet$ Each $P_i$ waits to receive $\text{ka}_j$ and $\text{xb}_j$ from from every other party $P_j$.
-11. Each $P_i$ sets $\text{ka} \gets \sum_j \text{ka}_j$ and $\text{xb} \gets \sum_j \text{xb}_j$.
-12. $\blacktriangle$ Each $P_i$ asserts that:
+1. $\bullet$ Each $P_i$ waits to receive $\text{kd}_j$ from each other $P_j$.
+2. Each $P_i$ sets $\text{kd} \gets \sum_j \text{kd}_j$.
+3. $\blacktriangle$ Each $P_i$ *asserts* that $\text{kd} \cdot G = \text{KD}$.
+4. $\bullet$ Each $P_i$ waits to receive $\text{ka}_j$ and $\text{xb}_j$ from from every other party $P_j$.
+5. Each $P_i$ sets $\text{ka} \gets \sum_j \text{ka}_j$ and $\text{xb} \gets \sum_j \text{xb}_j$.
+6. $\blacktriangle$ Each $P_i$ asserts that:
 
 $$
 \begin{aligned}
@@ -124,8 +124,8 @@ $$
 \end{aligned}
 $$
 
-13. Each $P_i$ sets: $R \gets \frac{1}{\text{kd}} \cdot D$.
-14. Each $P_i$ sets $\sigma_i \gets \text{ka} \cdot x_i - \text{xb} \cdot a_i + c_i$, which is already threshold shared.
+7. Each $P_i$ sets: $R \gets \frac{1}{\text{kd}} \cdot D$.
+8. Each $P_i$ sets $\sigma_i \gets \text{ka} \cdot x_i - \text{xb} \cdot a_i + c_i$, which is already threshold shared.
 
 **Output:**
 The output is the presignature $(R, k, \sigma)$, with $k$ and $\sigma$
