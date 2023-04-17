@@ -1,3 +1,10 @@
+# 0.6.0
+
+- Modify specification to use a single threshold (turns out the code accidentally enforced this already)
+- Modify code to match simplified presigning protocol because of this threshold.
+- Modify specification to pre-commit to C polynomial in triple generation.
+- Modify code accordingly.
+
 # 0.5.0
 
 - Modify specification & implementation to use perfectly hiding commitments.

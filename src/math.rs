@@ -72,6 +72,15 @@ impl<C: CSCurve> Polynomial<C> {
         self.coefficients.get(0).cloned().unwrap_or_default()
     }
 
+    /// Set the zero value of this polynomial to a new scalar
+    pub fn set_zero(&mut self, v: C::Scalar) {
+        if self.coefficients.is_empty() {
+            self.coefficients.push(v)
+        } else {
+            self.coefficients[0] = v
+        }
+    }
+
     /// Evaluate this polynomial at a specific point.
     pub fn evaluate(&self, x: &C::Scalar) -> C::Scalar {
         let mut out = C::Scalar::ZERO;
@@ -177,6 +186,15 @@ impl<C: CSCurve> GroupPolynomial<C> {
             out = out * x + c;
         }
         out
+    }
+
+    /// Set the zero value of this polynomial to a new group value.
+    pub fn set_zero(&mut self, v: C::ProjectivePoint) {
+        if self.coefficients.is_empty() {
+            self.coefficients.push(v)
+        } else {
+            self.coefficients[0] = v
+        }
     }
 
     /// Return the length of this polynomial.

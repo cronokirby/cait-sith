@@ -2,7 +2,7 @@
 name = "cait-sith"
 description = "Threshold ECDSA via Triples"
 repository = "https://github.com/cronokirby/cait-sith"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 license = "MIT"
 
