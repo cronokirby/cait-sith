@@ -82,6 +82,11 @@ pub async fn batch_random_ot_receiver<C: CSCurve>(
     let wait0 = chan.next_waitpoint();
     let big_y_affine: SerializablePoint<C> = chan.recv(wait0).await?;
     let big_y = big_y_affine.to_projective();
+    if bool::from(big_y.is_identity()) {
+        return Err(ProtocolError::AssertionFailed(
+            "Big y in batch random OT was zero.".into(),
+        ));
+    }
 
     let delta = BitVector::random(&mut OsRng);
 
