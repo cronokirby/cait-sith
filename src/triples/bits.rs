@@ -315,7 +315,7 @@ impl SquareBitMatrix {
             // Expand the row
             let mut expanded = vec![0u8; row8];
             // We need to clone to make each row use the same prefix.
-            let mut meow = Meow::new(PRG_CTX);
+            let mut meow = meow.clone();
             meow.meta_ad(b"row", false);
             meow.ad(b"", false);
             for u in row.0 {
