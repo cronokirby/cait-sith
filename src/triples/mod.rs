@@ -107,7 +107,5 @@ mod generation;
 mod mta;
 mod multiplication;
 mod random_ot_extension;
-mod triple_setup;
 
 pub use generation::{generate_triple, TripleGenerationOutput};
-pub use triple_setup::{setup, Setup, SingleSetup};
