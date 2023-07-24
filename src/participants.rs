@@ -15,7 +15,7 @@ use crate::{compat::CSCurve, protocol::Participant};
 ///
 /// The advantage of this data structure is that it can be hashed in the protocol transcript,
 /// since everybody will agree on its order.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ParticipantList {
     participants: Vec<Participant>,
     /// This maps each participant to their index in the vector above.
