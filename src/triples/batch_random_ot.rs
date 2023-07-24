@@ -16,7 +16,7 @@ use crate::{
 
 use super::bits::{BitMatrix, BitVector, SquareBitMatrix, SEC_PARAM_8};
 
-const BATCH_RANDOM_OT_HASH: &[u8] = b"cait-sith v0.6.0 batch ROT";
+const BATCH_RANDOM_OT_HASH: &[u8] = b"cait-sith v0.7.0 batch ROT";
 
 fn hash<C: CSCurve>(
     i: usize,
