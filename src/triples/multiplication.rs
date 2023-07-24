@@ -2,6 +2,7 @@ use crate::{
     compat::CSCurve,
     constants::SECURITY_PARAMETER,
     crypto::Digest,
+    participants::ParticipantList,
     protocol::{
         internal::{Context, PrivateChannel},
         Participant, ProtocolError,
@@ -9,40 +10,40 @@ use crate::{
 };
 
 use super::{
-    bits::{BitVector, SquareBitMatrix},
+    batch_random_ot::{batch_random_ot_receiver, batch_random_ot_sender},
     mta::{mta_receiver, mta_sender},
     random_ot_extension::{
         random_ot_extension_receiver, random_ot_extension_sender, RandomOtExtensionParams,
     },
-    Setup,
 };
 
 pub async fn multiplication_sender<'a, C: CSCurve>(
     ctx: Context<'a>,
     chan: PrivateChannel,
     sid: &[u8],
-    delta: &BitVector,
-    k: &SquareBitMatrix,
     a_i: &C::Scalar,
     b_i: &C::Scalar,
 ) -> Result<C::Scalar, ProtocolError> {
+    // First, run a fresh batch random OT ourselves
+    let (delta, k) = batch_random_ot_receiver::<C>(ctx.clone(), chan.child(0)).await?;
+
     let batch_size = C::BITS + SECURITY_PARAMETER;
     // Step 1
     let mut res0 = random_ot_extension_sender::<C>(
-        chan.child(0),
+        chan.child(1),
         RandomOtExtensionParams {
             sid,
             batch_size: 2 * batch_size,
         },
-        *delta,
-        k,
+        delta,
+        &k,
     )
     .await?;
     let res1 = res0.split_off(batch_size);
 
     // Step 2
-    let task0 = ctx.spawn(mta_sender::<C>(chan.child(1), res0, *a_i));
-    let task1 = ctx.spawn(mta_sender::<C>(chan.child(2), res1, *b_i));
+    let task0 = ctx.spawn(mta_sender::<C>(chan.child(2), res0, *a_i));
+    let task1 = ctx.spawn(mta_sender::<C>(chan.child(3), res1, *b_i));
 
     // Step 3
     let gamma0 = ctx.run(task0).await?;
@@ -55,28 +56,29 @@ pub async fn multiplication_receiver<'a, C: CSCurve>(
     ctx: Context<'a>,
     chan: PrivateChannel,
     sid: &[u8],
-    k0: &SquareBitMatrix,
-    k1: &SquareBitMatrix,
     a_i: &C::Scalar,
     b_i: &C::Scalar,
 ) -> Result<C::Scalar, ProtocolError> {
+    // First, run a fresh batch random OT ourselves
+    let (k0, k1) = batch_random_ot_sender::<C>(ctx.clone(), chan.child(0)).await?;
+
     let batch_size = C::BITS + SECURITY_PARAMETER;
     // Step 1
     let mut res0 = random_ot_extension_receiver::<C>(
-        chan.child(0),
+        chan.child(1),
         RandomOtExtensionParams {
             sid,
             batch_size: 2 * batch_size,
         },
-        k0,
-        k1,
+        &k0,
+        &k1,
     )
     .await?;
     let res1 = res0.split_off(batch_size);
 
     // Step 2
-    let task0 = ctx.spawn(mta_receiver::<C>(chan.child(1), res0, *b_i));
-    let task1 = ctx.spawn(mta_receiver::<C>(chan.child(2), res1, *a_i));
+    let task0 = ctx.spawn(mta_receiver::<C>(chan.child(2), res0, *b_i));
+    let task1 = ctx.spawn(mta_receiver::<C>(chan.child(3), res1, *a_i));
 
     // Step 3
     let gamma0 = ctx.run(task0).await?;
@@ -88,26 +90,21 @@ pub async fn multiplication_receiver<'a, C: CSCurve>(
 pub async fn multiplication<C: CSCurve>(
     ctx: Context<'_>,
     sid: Digest,
+    participants: ParticipantList,
     me: Participant,
-    setup: Setup,
     a_i: C::Scalar,
     b_i: C::Scalar,
 ) -> Result<C::Scalar, ProtocolError> {
-    let mut tasks = Vec::with_capacity(setup.setups.len());
-    for (p, single_setup) in setup.setups.into_iter() {
+    let mut tasks = Vec::with_capacity(participants.len() - 1);
+    for p in participants.others(me) {
         let fut = {
             let ctx = ctx.clone();
             let chan = ctx.private_channel(me, p);
             async move {
-                match single_setup {
-                    super::SingleSetup::Sender(delta, k) => {
-                        multiplication_sender::<C>(ctx, chan, sid.as_ref(), &delta, &k, &a_i, &b_i)
-                            .await
-                    }
-                    super::SingleSetup::Receiver(k0, k1) => {
-                        multiplication_receiver::<C>(ctx, chan, sid.as_ref(), &k0, &k1, &a_i, &b_i)
-                            .await
-                    }
+                if p < me {
+                    multiplication_sender::<C>(ctx, chan, sid.as_ref(), &a_i, &b_i).await
+                } else {
+                    multiplication_receiver::<C>(ctx, chan, sid.as_ref(), &a_i, &b_i).await
                 }
             }
         };
@@ -127,11 +124,11 @@ mod test {
 
     use crate::{
         crypto::hash,
+        participants::ParticipantList,
         protocol::{
             internal::{make_protocol, Context},
             run_protocol, Participant, Protocol, ProtocolError,
         },
-        triples::{setup, Setup},
     };
 
     use super::multiplication;
@@ -144,45 +141,40 @@ mod test {
             Participant::from(2u32),
         ];
 
-        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = Setup>>)> =
-            Vec::with_capacity(participants.len());
-
-        for p in participants.iter() {
-            let protocol = setup::<Secp256k1>(&participants, *p);
-            assert!(protocol.is_ok());
-            let protocol = protocol.unwrap();
-            protocols.push((*p, Box::new(protocol)));
-        }
-
-        let result = run_protocol(protocols)?;
-
-        let prep: Vec<_> = result
-            .into_iter()
-            .map(|(p, setup)| {
+        let prep: Vec<_> = participants
+            .iter()
+            .map(|p| {
                 let a_i = Scalar::generate_biased(&mut OsRng);
                 let b_i = Scalar::generate_biased(&mut OsRng);
-                (p, setup, a_i, b_i)
+                (p, a_i, b_i)
             })
             .collect();
         let a = prep
             .iter()
-            .fold(Scalar::ZERO, |acc, (_, _, a_i, _)| acc + a_i);
+            .fold(Scalar::ZERO, |acc, (_, a_i, _)| acc + a_i);
         let b = prep
             .iter()
-            .fold(Scalar::ZERO, |acc, (_, _, _, b_i)| acc + b_i);
+            .fold(Scalar::ZERO, |acc, (_, _, b_i)| acc + b_i);
 
         let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = Scalar>>)> =
             Vec::with_capacity(prep.len());
 
         let sid = hash(b"sid");
 
-        for (p, setup, a_i, b_i) in prep {
+        for (p, a_i, b_i) in prep {
             let ctx = Context::new();
             let prot = make_protocol(
                 ctx.clone(),
-                multiplication::<Secp256k1>(ctx, sid, p, setup, a_i, b_i),
+                multiplication::<Secp256k1>(
+                    ctx,
+                    sid,
+                    ParticipantList::new(&participants).unwrap(),
+                    *p,
+                    a_i,
+                    b_i,
+                ),
             );
-            protocols.push((p, Box::new(prot)))
+            protocols.push((*p, Box::new(prot)))
         }
 
         let result = run_protocol(protocols)?;
