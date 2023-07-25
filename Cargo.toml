@@ -2,25 +2,25 @@
 name = "cait-sith"
 description = "Threshold ECDSA via Triples"
 repository = "https://github.com/cronokirby/cait-sith"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 license = "MIT"
 
 [dependencies]
 auto_ops = "0.3.0"
 ck-meow = "0.1.0"
-digest = "0.10.6"
-ecdsa = { version = "0.16.1", features = ["digest", "hazmat"] }
-elliptic-curve = { version = "0.13.2", features = ["serde"] }
+digest = "0.10.7"
+ecdsa = { version = "0.16.8", features = ["digest", "hazmat"] }
+elliptic-curve = { version = "0.13.5", features = ["serde"] }
 event-listener = "2.5.3"
 k256 = { version = "0.13.1", features = ["sha256", "ecdsa", "serde"], optional = true }
 p256 = { version = "0.13.1", features = ["sha256", "ecdsa", "serde"], optional = true }
 magikitten = "0.2.0"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
-rmp-serde = "1.1.1"
-serde = { version = "1.0", features = ["derive"] }
+rmp-serde = "1.1.2"
+serde = { version = "1.0.175", features = ["derive"] }
 smol = "1.3.0"
-subtle = "2.4.1"
+subtle = "2.5.0"
 
 [dev-dependencies]
 criterion = "0.4"

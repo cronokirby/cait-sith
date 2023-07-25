@@ -16,7 +16,7 @@ use crate::{
 
 use super::bits::{BitMatrix, BitVector, SquareBitMatrix, SEC_PARAM_8};
 
-const BATCH_RANDOM_OT_HASH: &[u8] = b"cait-sith v0.6.0 batch ROT";
+const BATCH_RANDOM_OT_HASH: &[u8] = b"cait-sith v0.7.0 batch ROT";
 
 fn hash<C: CSCurve>(
     i: usize,
@@ -82,6 +82,11 @@ pub async fn batch_random_ot_receiver<C: CSCurve>(
     let wait0 = chan.next_waitpoint();
     let big_y_affine: SerializablePoint<C> = chan.recv(wait0).await?;
     let big_y = big_y_affine.to_projective();
+    if bool::from(big_y.is_identity()) {
+        return Err(ProtocolError::AssertionFailed(
+            "Big y in batch random OT was zero.".into(),
+        ));
+    }
 
     let delta = BitVector::random(&mut OsRng);
 

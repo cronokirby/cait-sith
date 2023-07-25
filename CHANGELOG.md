@@ -1,3 +1,9 @@
+# 0.7.0
+
+- Remove triple setup interface, always doing a fresh setup, for security reasons.
+- Fix various security bugs.
+- Update dependencies.
+
 # 0.6.0
 
 - Modify specification to use a single threshold (turns out the code accidentally enforced this already)

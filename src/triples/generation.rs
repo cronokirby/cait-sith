@@ -15,16 +15,15 @@ use crate::{
     serde::encode,
 };
 
-use super::{multiplication::multiplication, Setup, TriplePub, TripleShare};
+use super::{multiplication::multiplication, TriplePub, TripleShare};
 
 /// The output of running the triple generation protocol.
 pub type TripleGenerationOutput<C> = (TripleShare<C>, TriplePub<C>);
 
-const LABEL: &[u8] = b"cait-sith v0.6.0 triple generation";
+const LABEL: &[u8] = b"cait-sith v0.7.0 triple generation";
 
 async fn do_generation<C: CSCurve>(
     ctx: Context<'_>,
-    setup: Setup,
     participants: ParticipantList,
     me: Participant,
     threshold: usize,
@@ -81,7 +80,7 @@ async fn do_generation<C: CSCurve>(
         let ctx = ctx.clone();
         let e0 = e.evaluate_zero();
         let f0 = f.evaluate_zero();
-        multiplication::<C>(ctx, my_confirmation, me, setup, e0, f0)
+        multiplication::<C>(ctx, my_confirmation, participants.clone(), me, e0, f0)
     };
     let multiplication_task = ctx.spawn(fut);
 
@@ -452,7 +451,6 @@ async fn do_generation<C: CSCurve>(
 pub fn generate_triple<C: CSCurve>(
     participants: &[Participant],
     me: Participant,
-    setup: Setup,
     threshold: usize,
 ) -> Result<impl Protocol<Output = TripleGenerationOutput<C>>, InitializationError> {
     if participants.len() < 2 {
@@ -472,14 +470,8 @@ pub fn generate_triple<C: CSCurve>(
         InitializationError::BadParameters("participant list cannot contain duplicates".to_string())
     })?;
 
-    if !setup.can_be_used_for(me, &participants) {
-        return Err(InitializationError::BadParameters(
-            "the triple setup cannot be used with these participants".to_owned(),
-        ));
-    }
-
     let ctx = Context::new();
-    let fut = do_generation(ctx.clone(), setup, participants, me, threshold);
+    let fut = do_generation(ctx.clone(), participants, me, threshold);
     Ok(make_protocol(ctx, fut))
 }
 
@@ -490,7 +482,7 @@ mod test {
     use crate::{
         participants::ParticipantList,
         protocol::{run_protocol, Participant, Protocol, ProtocolError},
-        triples::{generate_triple, setup, Setup},
+        triples::generate_triple,
     };
 
     use super::TripleGenerationOutput;
@@ -504,26 +496,14 @@ mod test {
         ];
         let threshold = 3;
 
-        let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = Setup>>)> =
-            Vec::with_capacity(participants.len());
-
-        for p in participants.iter() {
-            let protocol = setup::<Secp256k1>(&participants, *p);
-            assert!(protocol.is_ok());
-            let protocol = protocol.unwrap();
-            protocols.push((*p, Box::new(protocol)));
-        }
-
-        let result = run_protocol(protocols)?;
-
         #[allow(clippy::type_complexity)]
         let mut protocols: Vec<(
             Participant,
             Box<dyn Protocol<Output = TripleGenerationOutput<Secp256k1>>>,
-        )> = Vec::with_capacity(result.len());
+        )> = Vec::with_capacity(participants.len());
 
-        for (p, setup) in result {
-            let protocol = generate_triple(&participants, p, setup, threshold);
+        for &p in &participants {
+            let protocol = generate_triple(&participants, p, threshold);
             assert!(protocol.is_ok());
             let protocol = protocol.unwrap();
             protocols.push((p, Box::new(protocol)));

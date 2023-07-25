@@ -197,7 +197,7 @@ impl_op_ex!(^ |u: &DoubleBitVector, v: &DoubleBitVector| -> DoubleBitVector { u.
 impl_op_ex!(^= |u: &mut DoubleBitVector, v: &DoubleBitVector| { u.xor_mut(v) });
 
 /// The context string for our PRG.
-const PRG_CTX: &[u8] = b"cait-sith v0.6.0 correlated OT PRG";
+const PRG_CTX: &[u8] = b"cait-sith v0.7.0 correlated OT PRG";
 
 /// Represents a matrix of bits.
 ///
@@ -315,7 +315,7 @@ impl SquareBitMatrix {
             // Expand the row
             let mut expanded = vec![0u8; row8];
             // We need to clone to make each row use the same prefix.
-            let mut meow = Meow::new(PRG_CTX);
+            let mut meow = meow.clone();
             meow.meta_ad(b"row", false);
             meow.ad(b"", false);
             for u in row.0 {
