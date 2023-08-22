@@ -8,7 +8,7 @@
 use core::fmt;
 use std::{collections::HashMap, error};
 
-use ::serde::Serialize;
+use ::serde::{Serialize, Deserialize};
 
 use crate::compat::CSCurve;
 
@@ -64,7 +64,7 @@ impl error::Error for InitializationError {}
 /// struct holds. In our case, we use a `u32`, which is enough for billions of
 /// participants. That said, you won't actually be able to make the protocols
 /// work with billions of users.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
 pub struct Participant(u32);
 
 impl Participant {
