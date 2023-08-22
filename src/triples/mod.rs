@@ -36,7 +36,7 @@ use crate::{compat::CSCurve, math::Polynomial, protocol::Participant};
 /// This contains commitments to each part of the triple.
 ///
 /// We also record who participated in the protocol,
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TriplePub<C: CSCurve> {
     pub big_a: C::AffinePoint,
     pub big_b: C::AffinePoint,
