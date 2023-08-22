@@ -27,7 +27,7 @@
 //! be generated.
 use elliptic_curve::{Field, Group};
 use rand_core::CryptoRngCore;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 use crate::{compat::CSCurve, math::Polynomial, protocol::Participant};
 
@@ -52,7 +52,7 @@ pub struct TriplePub<C: CSCurve> {
 /// This consists of shares of each individual part.
 ///
 /// i.e. we have a share of a, b, and c such that a * b = c.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TripleShare<C: CSCurve> {
     pub a: C::Scalar,
     pub b: C::Scalar,
