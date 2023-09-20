@@ -6,10 +6,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::serde::encode_writer;
 
-const COMMIT_LABEL: &[u8] = b"cait-sith v0.7.0 commitment";
+const COMMIT_LABEL: &[u8] = b"cait-sith v0.8.0 commitment";
 const COMMIT_LEN: usize = 32;
 const RANDOMIZER_LEN: usize = 32;
-const HASH_LABEL: &[u8] = b"cait-sith v0.7.0 generic hash";
+const HASH_LABEL: &[u8] = b"cait-sith v0.8.0 generic hash";
 const HASH_LEN: usize = 32;
 
 struct MeowWriter<'a>(&'a mut Meow);
