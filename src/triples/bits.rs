@@ -197,7 +197,7 @@ impl_op_ex!(^ |u: &DoubleBitVector, v: &DoubleBitVector| -> DoubleBitVector { u.
 impl_op_ex!(^= |u: &mut DoubleBitVector, v: &DoubleBitVector| { u.xor_mut(v) });
 
 /// The context string for our PRG.
-const PRG_CTX: &[u8] = b"cait-sith v0.7.0 correlated OT PRG";
+const PRG_CTX: &[u8] = b"cait-sith v0.8.0 correlated OT PRG";
 
 /// Represents a matrix of bits.
 ///

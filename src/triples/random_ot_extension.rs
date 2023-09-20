@@ -1,5 +1,5 @@
 use ck_meow::Meow;
-use elliptic_curve::{CurveArithmetic, FieldBytes, PrimeField};
+use elliptic_curve::{CurveArithmetic};
 use magikitten::MeowRng;
 use rand_core::{OsRng, RngCore};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
@@ -25,21 +25,11 @@ fn hash_to_scalar<C: CSCurve>(i: usize, v: &BitVector) -> C::Scalar {
     let i64 = u64::try_from(i).expect("failed to convert usize to u64");
     meow.meta_ad(&i64.to_le_bytes(), false);
     meow.ad(&v.bytes(), false);
-    // We use rejection sampling, because there's no good generic way
-    // to do a wide reduction, it would seem.
-    // Setup PRFing arbitrary bytes.
-    meow.prf(&mut [], false);
-    loop {
-        let mut field_bytes = FieldBytes::<C>::default();
-        meow.prf(&mut field_bytes, true);
-        // This will return None if the bytes we generated were not <
-        // the modulus of the field.
-        let maybe_scalar: Option<C::Scalar> =
-            <C::Scalar as PrimeField>::from_repr(field_bytes).into();
-        if let Some(done) = maybe_scalar {
-            return done;
-        }
-    }
+    let mut seed = [0u8; 32];
+    meow.prf(&mut seed, false);
+    // Could in theory avoid one PRF call by using a more direct RNG wrapper
+    // over the prf function, but oh well.
+    C::sample_scalar_constant_time(&mut MeowRng::new(&seed))
 }
 
 fn adjust_size(size: usize) -> usize {

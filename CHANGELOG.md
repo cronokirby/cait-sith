@@ -1,3 +1,7 @@
+# 0.8.0
+
+- Added an extra requirement to Curve API for constant-time scalar sampling
+
 # 0.7.0
 
 - Remove triple setup interface, always doing a fresh setup, for security reasons.
