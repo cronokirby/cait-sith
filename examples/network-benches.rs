@@ -199,35 +199,12 @@ fn main() {
         .collect();
 
     println!(
-        "Triple Setup {} [{} ms, {} B/S]",
-        args.parties, args.latency_ms, args.bandwidth
-    );
-    let start = Instant::now();
-    let results = run_protocol(latency, bandwidth, &participants, |p| {
-        triples::setup::<Secp256k1>(&participants, p).unwrap()
-    });
-    let stop = Instant::now();
-    println!("time:\t{:#?}", stop.duration_since(start));
-    report_stats(results.iter().map(|(_, stats, _)| *stats));
-
-    let setups: HashMap<_, _> = results
-        .into_iter()
-        .map(|(p, _, setup)| (p, setup))
-        .collect();
-
-    println!(
         "\nTriple Gen {} [{} ms, {} B/S]",
         args.parties, args.latency_ms, args.bandwidth
     );
     let start = Instant::now();
     let results = run_protocol(latency, bandwidth, &participants, |p| {
-        triples::generate_triple::<Secp256k1>(
-            &participants,
-            p,
-            setups.get(&p).unwrap().clone(),
-            args.parties as usize,
-        )
-        .unwrap()
+        triples::generate_triple::<Secp256k1>(&participants, p, args.parties as usize).unwrap()
     });
     let stop = Instant::now();
     println!("time:\t{:#?}", stop.duration_since(start));
@@ -267,7 +244,6 @@ fn main() {
             &participants,
             p,
             PresignArguments {
-                original_threshold: args.parties as usize,
                 triple0: triples[&p].clone(),
                 triple1: other_triples[&p].clone(),
                 keygen_out: shares[&p].clone(),
