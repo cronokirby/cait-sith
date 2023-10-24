@@ -2,9 +2,6 @@ use elliptic_curve::{ops::Reduce, point::AffineCoordinates, Curve, CurveArithmet
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-pub mod k256_impl;
-pub mod p256_impl;
-
 /// Represents a curve suitable for use in cait-sith.
 ///
 /// This is the trait that any curve usable in this library must implement.

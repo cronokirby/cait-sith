@@ -2,7 +2,7 @@ use k256::{AffinePoint, Secp256k1};
 use rand_core::OsRng;
 
 use crate::{
-    compat::k256_impl::scalar_hash,
+    compat::scalar_hash,
     keygen, presign,
     protocol::{run_protocol, Participant, Protocol},
     sign,
