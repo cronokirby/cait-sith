@@ -14,7 +14,6 @@ ecdsa = { version = "0.16.8", features = ["digest", "hazmat"] }
 elliptic-curve = { version = "0.13.5", features = ["serde"] }
 event-listener = "2.5.3"
 k256 = { version = "0.13.1", features = ["sha256", "ecdsa", "serde"], optional = true }
-p256 = { version = "0.13.1", features = ["sha256", "ecdsa", "serde"], optional = true }
 magikitten = "0.2.0"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 rmp-serde = "1.1.2"
@@ -28,18 +27,16 @@ easy-parallel = "3.2.0"
 haisou-chan = { git = "https://github.com/cronokirby/haisou-chan", rev = "d28c46e51acfcb818236caae293f6e56dff41ad2" }
 structopt = "0.3.26"
 k256 = { version = "0.13.1", features = ["sha256", "ecdsa", "serde"], optional = false }
-p256 = { version = "0.13.1", features = ["sha256", "ecdsa", "serde"], optional = false }
 
 [[bench]]
 name = "protocols"
 harness = false
-required-features = ["k256,p256"]
+required-features = ["k256"]
 
 [features]
 k256 = ["dep:k256"]
-p256 = ["dep:p256"]
 
 [[example]]
 name = "network-benches"
 path = "examples/network-benches.rs"
-required-features = ["k256,p256"]
+required-features = ["k256"]
