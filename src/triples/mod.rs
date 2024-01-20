@@ -153,4 +153,4 @@ mod mta;
 mod multiplication;
 mod random_ot_extension;
 
-pub use generation::{generate_triple, TripleGenerationOutput};
+pub use generation::{generate_triple, generate_triple_many, TripleGenerationOutput};

@@ -14,13 +14,15 @@ use crate::{
     },
     serde::encode,
 };
-use crate::crypto::Randomizer;
+use crate::crypto::{Commitment, Randomizer};
 use crate::triples::multiplication::multiplication_many;
 
 use super::{multiplication::multiplication, TriplePub, TripleShare};
 
 /// The output of running the triple generation protocol.
 pub type TripleGenerationOutput<C> = (TripleShare<C>, TriplePub<C>);
+
+pub type TripleGenerationOutputMany<C> = Vec<(TripleShare<C>, TriplePub<C>)>;
 
 const LABEL: &[u8] = b"cait-sith v0.8.0 triple generation";
 
@@ -448,7 +450,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     participants: ParticipantList,
     me: Participant,
     threshold: usize,
-) -> Result<Vec<TripleGenerationOutput<C>>, ProtocolError> {
+) -> Result<TripleGenerationOutputMany<C>, ProtocolError> {
     assert!(N > 0);
     
     let mut rng = OsRng;
@@ -504,22 +506,29 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     let wait0 = chan.next_waitpoint();
     chan.send_many(wait0, &my_commitments).await;
 
-    let mut all_commitments_vec = vec![];
+    // Spec 2.1
+    let mut all_commitments_vec: Vec<ParticipantMap<Commitment>> = vec![];
+    for i in 0..N {
+        let mut m = ParticipantMap::new(&participants);
+        m.put(me, my_commitments[i]);
+        all_commitments_vec.push(m);
+    }
+    
+    while all_commitments_vec.iter().any(|all_commitments| !all_commitments.full()) {
+        let (from, commitments): (_, Vec<_>) = chan.recv(wait0).await?;
+        for i in 0..N {
+            all_commitments_vec[i].put(from, commitments[i]);
+        }
+    }
+    
+    // Spec 2.2
     let mut my_confirmations = vec![];
     for i in 0..N {
-        // Spec 2.1
-        let mut all_commitments = ParticipantMap::new(&participants);
-        all_commitments.put(me, my_commitments[i]);
-        while !all_commitments.full() {
-            let (from, commitments) = chan.recv(wait0).await?;
-            all_commitments.put(from, commitments);
-        }
-        // Spec 2.2
-        let my_confirmation = hash(&all_commitments);
-        all_commitments_vec.push(all_commitments);
+        let all_commitments = &all_commitments_vec[i];
+        let my_confirmation = hash(all_commitments);
         my_confirmations.push(my_confirmation);
     }
-
+    
     // Spec 2.3
     transcript.message(b"confirmation", &encode(&my_confirmations));
 
@@ -636,6 +645,12 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     let mut big_fv = vec![];
     let mut big_lv = vec![];
     let mut big_e_j_zerov = vec![];
+    for i in 0..N {
+        big_ev.push(big_e_iv[i].clone());
+        big_fv.push(big_f_iv[i].clone());
+        big_lv.push(big_l_iv[i].clone());
+        big_e_j_zerov.push(ParticipantMap::new(&participants));
+    }
     seen.clear();
     seen.put(me);
     while !seen.full() {
@@ -718,20 +733,12 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
                     "dlog proof from {from:?} failed to verify"
                 )));
             }
-            let mut big_e = big_e_iv[i].clone();
-            let mut big_f = big_f_iv[i].clone();
-            let mut big_l = big_l_iv[i].clone();
-            let mut big_e_j_zero = ParticipantMap::new(&participants);
     
-            big_e_j_zero.put(from, their_big_e.evaluate_zero());
-            big_e += &their_big_e;
-            big_f += &their_big_f;
-            big_l += &their_big_l;
+            big_e_j_zerov[i].put(from, their_big_e.evaluate_zero());
             
-            big_ev.push(big_e);
-            big_fv.push(big_f);
-            big_lv.push(big_l);
-            big_e_j_zerov.push(big_e_j_zero);
+            big_ev[i] += &their_big_e;
+            big_fv[i] += &their_big_f;
+            big_lv[i] += &their_big_l;
         }
     }
 
@@ -762,9 +769,9 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         let b_i = &b_iv[i];
         let e = &ev[i];
         // Spec 3.7
-        if big_e.evaluate(&me.scalar::<C>()) != C::ProjectivePoint::generator() * a_i
-            || big_f.evaluate(&me.scalar::<C>()) != C::ProjectivePoint::generator() * b_i
-        {
+        let check1 = big_e.evaluate(&me.scalar::<C>()) != C::ProjectivePoint::generator() * a_i;
+        let check2 = big_f.evaluate(&me.scalar::<C>()) != C::ProjectivePoint::generator() * b_i;
+        if check1 || check2 {
             return Err(ProtocolError::AssertionFailed(
                 "received bad private share".to_string(),
             ));
@@ -804,9 +811,12 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     .await;
 
     // Spec 4.1 + 4.2 + 4.3
-    let mut big_cv = vec![];
     seen.clear();
     seen.put(me);
+    let mut big_cv = vec![];
+    for i in 0..N {
+        big_cv.push(big_c_iv[i]);
+    }
     while !seen.full() {
         let (from, (big_c_j_v, their_phi_proofs)): (_, (Vec<SerializablePoint<C>>, Vec<dlogeq::Proof<C>>)) =
             chan.recv(wait4).await?;
@@ -814,11 +824,8 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
             continue;
         }
         for i in 0..N {
-            let big_c_i = &big_c_iv[i];
             let big_e_j_zero = &big_e_j_zerov[i];
             let big_f = &big_fv[i];
-        
-            let mut big_c = *big_c_i;
 
             let big_c_j = big_c_j_v[i].to_projective();
             let their_phi_proof = &their_phi_proofs[i];
@@ -838,9 +845,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
                     "dlogeq proof from {from:?} failed to verify"
                 )));
             }
-    
-            big_c += big_c_j;
-            big_cv.push(big_c);
+            big_cv[i] += big_c_j;
         }
     }
 
@@ -890,20 +895,28 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     }
     let wait6 = chan.next_waitpoint();
     let mut c_iv = vec![];
+    for p in participants.others(me) {
+        let mut c_i_j_v = Vec::new();
+        for i in 0..N {
+            let l = &mut lv[i];
+            let c_i_j: ScalarPrimitive<C> = l.evaluate(&p.scalar::<C>()).into();
+            c_i_j_v.push(c_i_j);
+        }
+        chan.send_private(wait6, p, &c_i_j_v).await;
+    }
     for i in 0..N {
         let l = &mut lv[i];
-        for p in participants.others(me) {
-            let c_i_j: ScalarPrimitive<C> = l.evaluate(&p.scalar::<C>()).into();
-            chan.send_private(wait6, p, &c_i_j).await;
-        }
         let c_i = l.evaluate(&me.scalar::<C>());
         c_iv.push(c_i);
     }
-
+    
     // Spec 5.1 + 5.2 + 5.3
     seen.clear();
     seen.put(me);
     let mut hat_big_cv = vec![];
+    for i in 0..N {
+        hat_big_cv.push(hat_big_c_iv[i]);
+    }
     
     while !seen.full() {
         let (from, (their_hat_big_c_i_points, their_phi_proofs)): (_, (Vec<SerializablePoint<C>>, Vec<dlog::Proof<C>>)) =
@@ -930,8 +943,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
                     "dlog proof from {from:?} failed to verify"
                 )));
             }
-            hat_big_c += &their_hat_big_c;
-            hat_big_cv.push(hat_big_c);
+            hat_big_cv[i] += &their_hat_big_c;
         }
     }
 
@@ -956,12 +968,12 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, c_j_iv): (_, Vec<ScalarPrimitive<C>>) = chan.recv(wait6).await?;
+        let (from, c_j_i_v): (_, Vec<ScalarPrimitive<C>>) = chan.recv(wait6).await?;
         if !seen.put(from) {
             continue;
         }
         for i in 0..N {
-            let c_j_i = c_j_iv[i];
+            let c_j_i = c_j_i_v[i];
             c_iv[i] += C::Scalar::from(c_j_i);
         }
     }
@@ -1039,18 +1051,12 @@ pub fn generate_triple<C: CSCurve>(
     Ok(make_protocol(ctx, fut))
 }
 
-/// Generate a batch of triples through a multi-party protocol.
-///
-/// This requires a setup phase to have been conducted with these parties
-/// previously.
-///
-/// The resulting triples will be threshold shared, according to the threshold
-/// provided to this function.
+/// As [`generate_triple`] but for many triples at once
 pub fn generate_triple_many<C: CSCurve, const N: usize>(
     participants: &[Participant],
     me: Participant,
     threshold: usize,
-) -> Result<impl Protocol<Output = Vec<TripleGenerationOutput<C>>>, InitializationError> {
+) -> Result<impl Protocol<Output = TripleGenerationOutputMany<C>>, InitializationError> {
     if participants.len() < 2 {
         return Err(InitializationError::BadParameters(format!(
             "participant count cannot be < 2, found: {}",
@@ -1083,7 +1089,7 @@ mod test {
         triples::generate_triple,
     };
 
-    use super::TripleGenerationOutput;
+    use super::{generate_triple_many, TripleGenerationOutput, TripleGenerationOutputMany};
 
     #[test]
     fn test_triple_generation() -> Result<(), ProtocolError> {
@@ -1120,6 +1126,64 @@ mod test {
             result[0].1 .0.clone(),
             result[1].1 .0.clone(),
             result[2].1 .0.clone(),
+        ];
+        let p_list = ParticipantList::new(&participants).unwrap();
+
+        let a = p_list.lagrange::<Secp256k1>(participants[0]) * triple_shares[0].a
+            + p_list.lagrange::<Secp256k1>(participants[1]) * triple_shares[1].a
+            + p_list.lagrange::<Secp256k1>(participants[2]) * triple_shares[2].a;
+        assert_eq!(ProjectivePoint::GENERATOR * a, triple_pub.big_a);
+
+        let b = p_list.lagrange::<Secp256k1>(participants[0]) * triple_shares[0].b
+            + p_list.lagrange::<Secp256k1>(participants[1]) * triple_shares[1].b
+            + p_list.lagrange::<Secp256k1>(participants[2]) * triple_shares[2].b;
+        assert_eq!(ProjectivePoint::GENERATOR * b, triple_pub.big_b);
+
+        let c = p_list.lagrange::<Secp256k1>(participants[0]) * triple_shares[0].c
+            + p_list.lagrange::<Secp256k1>(participants[1]) * triple_shares[1].c
+            + p_list.lagrange::<Secp256k1>(participants[2]) * triple_shares[2].c;
+        assert_eq!(ProjectivePoint::GENERATOR * c, triple_pub.big_c);
+
+        assert_eq!(a * b, c);
+
+        Ok(())
+    }
+    
+    #[test]
+    fn test_triple_generation_many() -> Result<(), ProtocolError> {
+        let participants = vec![
+            Participant::from(0u32),
+            Participant::from(1u32),
+            Participant::from(2u32),
+        ];
+        let threshold = 3;
+
+        #[allow(clippy::type_complexity)]
+        let mut protocols: Vec<(
+            Participant,
+            Box<dyn Protocol<Output = TripleGenerationOutputMany<Secp256k1>>>,
+        )> = Vec::with_capacity(participants.len());
+
+        for &p in &participants {
+            let protocol = generate_triple_many::<Secp256k1, 1>(&participants, p, threshold);
+            assert!(protocol.is_ok());
+            let protocol = protocol.unwrap();
+            protocols.push((p, Box::new(protocol)));
+        }
+
+        let result = run_protocol(protocols)?;
+
+        assert!(result.len() == participants.len());
+        assert_eq!(result[0].1[0].1, result[1].1[0].1);
+        assert_eq!(result[1].1[0].1, result[2].1[0].1);
+
+        let triple_pub = result[2].1[0].1.clone();
+
+        let participants = vec![result[0].0, result[1].0, result[2].0];
+        let triple_shares = vec![
+            result[0].1[0].0.clone(),
+            result[1].1[0].0.clone(),
+            result[2].1[0].0.clone(),
         ];
         let p_list = ParticipantList::new(&participants).unwrap();
 
