@@ -468,12 +468,12 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     
     let mut my_commitments = vec![];
     let mut my_randomizers = vec![];
-    let mut ev = vec![];
-    let mut fv = vec![];
-    let mut lv = vec![];
-    let mut big_e_iv = vec![];
-    let mut big_f_iv = vec![];
-    let mut big_l_iv = vec![];
+    let mut e_v = vec![];
+    let mut f_v = vec![];
+    let mut l_v = vec![];
+    let mut big_e_i_v = vec![];
+    let mut big_f_i_v = vec![];
+    let mut big_l_i_v = vec![];
 
     for _ in 0..N {
         // Spec 1.2
@@ -494,12 +494,12 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         
         my_commitments.push(my_commitment);
         my_randomizers.push(my_randomizer);
-        ev.push(e);
-        fv.push(f);
-        lv.push(l);
-        big_e_iv.push(big_e_i);
-        big_f_iv.push(big_f_i);
-        big_l_iv.push(big_l_i);
+        e_v.push(e);
+        f_v.push(f);
+        l_v.push(l);
+        big_e_i_v.push(big_e_i);
+        big_f_i_v.push(big_f_i);
+        big_l_i_v.push(big_l_i);
     }
 
     // Spec 1.6
@@ -535,9 +535,9 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     // Spec 2.4
     let fut = {
         let ctx = ctx.clone();
-        let ev0: Vec<_> = ev.iter().map(|e| e.evaluate_zero()).collect();
-        let fv0: Vec<_> = fv.iter().map(|f| f.evaluate_zero()).collect();
-        multiplication_many::<C, N>(ctx, my_confirmations.clone(), participants.clone(), me, ev0, fv0)
+        let e0_v: Vec<_> = e_v.iter().map(|e| e.evaluate_zero()).collect();
+        let f0_v: Vec<_> = f_v.iter().map(|f| f.evaluate_zero()).collect();
+        multiplication_many::<C, N>(ctx, my_confirmations.clone(), participants.clone(), me, e0_v, f0_v)
     };
     let multiplication_task = ctx.spawn(fut);
 
@@ -549,10 +549,10 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     let mut my_phi_proof1v = vec![];
 
     for i in 0..N {
-        let big_e_i = &big_e_iv[i];
-        let big_f_i = &big_f_iv[i];
-        let e = &ev[i];
-        let f = &fv[i];
+        let big_e_i = &big_e_i_v[i];
+        let big_f_i = &big_f_i_v[i];
+        let e = &e_v[i];
+        let f = &f_v[i];
         // Spec 2.6
         let statement0 = dlog::Statement::<C> {
             public: &big_e_i.evaluate_zero(),
@@ -588,9 +588,9 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         chan.send_many(
             wait2,
             &(
-                &big_e_iv,
-                &big_f_iv,
-                &big_l_iv,
+                &big_e_i_v,
+                &big_f_i_v,
+                &big_l_i_v,
                 &my_randomizers,
                 &my_phi_proof0v,
                 &my_phi_proof1v
@@ -602,27 +602,27 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     // Spec 2.8
     let wait3 = chan.next_waitpoint();
     for p in participants.others(me) {
-        let mut a_i_jv = vec![];
-        let mut b_i_jv = vec![];
+        let mut a_i_j_v = vec![];
+        let mut b_i_j_v = vec![];
         for i in 0..N {
-            let e = &ev[i];
-            let f = &fv[i];
+            let e = &e_v[i];
+            let f = &f_v[i];
             let a_i_j: ScalarPrimitive<C> = e.evaluate(&p.scalar::<C>()).into();
             let b_i_j: ScalarPrimitive<C> = f.evaluate(&p.scalar::<C>()).into();
-            a_i_jv.push(a_i_j);
-            b_i_jv.push(b_i_j);
+            a_i_j_v.push(a_i_j);
+            b_i_j_v.push(b_i_j);
         }
-        chan.send_private(wait3, p, &(a_i_jv, b_i_jv)).await;
+        chan.send_private(wait3, p, &(a_i_j_v, b_i_j_v)).await;
     }
-    let mut a_iv = vec![];
-    let mut b_iv = vec![];
+    let mut a_i_v = vec![];
+    let mut b_i_v = vec![];
     for i in 0..N {
-        let e = &ev[i];
-        let f = &fv[i];
+        let e = &e_v[i];
+        let f = &f_v[i];
         let a_i = e.evaluate(&me.scalar::<C>());
         let b_i = f.evaluate(&me.scalar::<C>());
-        a_iv.push(a_i);
-        b_iv.push(b_i);
+        a_i_v.push(a_i);
+        b_i_v.push(b_i);
     }
 
     // Spec 3.1 + 3.2
@@ -641,15 +641,15 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     }
     
     // Spec 3.3 + 3.4, and also part of 3.6, 5.3, for summing up the Es, Fs, and Ls.
-    let mut big_ev = vec![];
-    let mut big_fv = vec![];
-    let mut big_lv = vec![];
-    let mut big_e_j_zerov = vec![];
+    let mut big_e_v = vec![];
+    let mut big_f_v = vec![];
+    let mut big_l_v = vec![];
+    let mut big_e_j_zero_v = vec![];
     for i in 0..N {
-        big_ev.push(big_e_iv[i].clone());
-        big_fv.push(big_f_iv[i].clone());
-        big_lv.push(big_l_iv[i].clone());
-        big_e_j_zerov.push(ParticipantMap::new(&participants));
+        big_e_v.push(big_e_i_v[i].clone());
+        big_f_v.push(big_f_i_v[i].clone());
+        big_l_v.push(big_l_i_v[i].clone());
+        big_e_j_zero_v.push(ParticipantMap::new(&participants));
     }
     seen.clear();
     seen.put(me);
@@ -657,12 +657,12 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         let (
             from,
             (
-                their_big_ev,
-                their_big_fv,
-                their_big_lv,
+                their_big_e_v,
+                their_big_f_v,
+                their_big_l_v,
                 their_randomizers,
-                their_phi_proof0v,
-                their_phi_proof1v,
+                their_phi_proof0_v,
+                their_phi_proof1_v,
             ),
         ): (
             _,
@@ -681,12 +681,12 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         
         for i in 0..N {
             let all_commitments = &all_commitments_vec[i];
-            let their_big_e = &their_big_ev[i];
-            let their_big_f = &their_big_fv[i];
-            let their_big_l = &their_big_lv[i];
+            let their_big_e = &their_big_e_v[i];
+            let their_big_f = &their_big_f_v[i];
+            let their_big_l = &their_big_l_v[i];
             let their_randomizer = &their_randomizers[i];
-            let their_phi_proof0 = &their_phi_proof0v[i];
-            let their_phi_proof1 = &their_phi_proof1v[i];
+            let their_phi_proof0 = &their_phi_proof0_v[i];
+            let their_phi_proof1 = &their_phi_proof1_v[i];
             if their_big_e.len() != threshold
                 || their_big_f.len() != threshold
                 || their_big_l.len() != threshold
@@ -734,11 +734,11 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
                 )));
             }
     
-            big_e_j_zerov[i].put(from, their_big_e.evaluate_zero());
+            big_e_j_zero_v[i].put(from, their_big_e.evaluate_zero());
             
-            big_ev[i] += &their_big_e;
-            big_fv[i] += &their_big_f;
-            big_lv[i] += &their_big_l;
+            big_e_v[i] += &their_big_e;
+            big_f_v[i] += &their_big_f;
+            big_l_v[i] += &their_big_l;
         }
     }
 
@@ -746,28 +746,28 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     seen.clear();
     seen.put(me);
     while !seen.full() {
-        let (from, (a_j_iv, b_j_iv)): (_, (Vec<ScalarPrimitive<C>>, Vec<ScalarPrimitive<C>>)) =
+        let (from, (a_j_i_v, b_j_i_v)): (_, (Vec<ScalarPrimitive<C>>, Vec<ScalarPrimitive<C>>)) =
             chan.recv(wait3).await?;
         if !seen.put(from) {
             continue;
         }
         for i in 0..N {
-            let a_j_i = &a_j_iv[i];
-            let b_j_i = &b_j_iv[i];
-            a_iv[i] += &(*a_j_i).into();
-            b_iv[i] += &(*b_j_i).into();
+            let a_j_i = &a_j_i_v[i];
+            let b_j_i = &b_j_i_v[i];
+            a_i_v[i] += &(*a_j_i).into();
+            b_i_v[i] += &(*b_j_i).into();
         }
     }
 
     let mut big_c_i_points = vec![];
-    let mut big_c_iv = vec![];
+    let mut big_c_i_v = vec![];
     let mut my_phi_proofs = vec![];
     for i in 0..N {
-        let big_e = &big_ev[i];
-        let big_f = &big_fv[i];
-        let a_i = &a_iv[i];
-        let b_i = &b_iv[i];
-        let e = &ev[i];
+        let big_e = &big_e_v[i];
+        let big_f = &big_f_v[i];
+        let a_i = &a_i_v[i];
+        let b_i = &b_i_v[i];
+        let e = &e_v[i];
         // Spec 3.7
         let check1 = big_e.evaluate(&me.scalar::<C>()) != C::ProjectivePoint::generator() * a_i;
         let check2 = big_f.evaluate(&me.scalar::<C>()) != C::ProjectivePoint::generator() * b_i;
@@ -778,7 +778,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         }
         // Spec 3.8
         let big_c_i = big_f.evaluate_zero() * e.evaluate_zero();
-        let big_e_i = &big_e_iv[i];
+        let big_e_i = &big_e_i_v[i];
         // Spec 3.9
         let statement = dlogeq::Statement::<C> {
             public0: &big_e_i.evaluate_zero(),
@@ -795,7 +795,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
             witness,
         );
         big_c_i_points.push(SerializablePoint::<C>::from_projective(&big_c_i));
-        big_c_iv.push(big_c_i);
+        big_c_i_v.push(big_c_i);
         my_phi_proofs.push(my_phi_proof);
     }
 
@@ -813,9 +813,9 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     // Spec 4.1 + 4.2 + 4.3
     seen.clear();
     seen.put(me);
-    let mut big_cv = vec![];
+    let mut big_c_v = vec![];
     for i in 0..N {
-        big_cv.push(big_c_iv[i]);
+        big_c_v.push(big_c_i_v[i]);
     }
     while !seen.full() {
         let (from, (big_c_j_v, their_phi_proofs)): (_, (Vec<SerializablePoint<C>>, Vec<dlogeq::Proof<C>>)) =
@@ -824,8 +824,8 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
             continue;
         }
         for i in 0..N {
-            let big_e_j_zero = &big_e_j_zerov[i];
-            let big_f = &big_fv[i];
+            let big_e_j_zero = &big_e_j_zero_v[i];
+            let big_f = &big_f_v[i];
 
             let big_c_j = big_c_j_v[i].to_projective();
             let their_phi_proof = &their_phi_proofs[i];
@@ -845,19 +845,19 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
                     "dlogeq proof from {from:?} failed to verify"
                 )));
             }
-            big_cv[i] += big_c_j;
+            big_c_v[i] += big_c_j;
         }
     }
 
     // Spec 4.4
-    let l0v = ctx.run(multiplication_task).await?;
+    let l0_v = ctx.run(multiplication_task).await?;
 
     let mut hat_big_c_i_points = vec![];
-    let mut hat_big_c_iv = vec![];
+    let mut hat_big_c_i_v = vec![];
     let mut my_phi_proofs = vec![];
     for i in 0..N {
         // Spec 4.5
-        let l0 = l0v[i];
+        let l0 = l0_v[i];
         let hat_big_c_i = C::ProjectivePoint::generator() * l0;
         
         // Spec 4.6
@@ -872,7 +872,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
             witness,
         );
         hat_big_c_i_points.push(SerializablePoint::<C>::from_projective(&hat_big_c_i));
-        hat_big_c_iv.push(hat_big_c_i);
+        hat_big_c_i_v.push(hat_big_c_i);
         my_phi_proofs.push(my_phi_proof);
     }
     
@@ -889,33 +889,33 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     
     // Spec 4.9
     for i in 0..N {
-        let l = &mut lv[i];
-        let l0 = &l0v[i];
+        let l = &mut l_v[i];
+        let l0 = &l0_v[i];
         l.set_zero(*l0);
     }
     let wait6 = chan.next_waitpoint();
-    let mut c_iv = vec![];
+    let mut c_i_v = vec![];
     for p in participants.others(me) {
         let mut c_i_j_v = Vec::new();
         for i in 0..N {
-            let l = &mut lv[i];
+            let l = &mut l_v[i];
             let c_i_j: ScalarPrimitive<C> = l.evaluate(&p.scalar::<C>()).into();
             c_i_j_v.push(c_i_j);
         }
         chan.send_private(wait6, p, &c_i_j_v).await;
     }
     for i in 0..N {
-        let l = &mut lv[i];
+        let l = &mut l_v[i];
         let c_i = l.evaluate(&me.scalar::<C>());
-        c_iv.push(c_i);
+        c_i_v.push(c_i);
     }
     
     // Spec 5.1 + 5.2 + 5.3
     seen.clear();
     seen.put(me);
-    let mut hat_big_cv = vec![];
+    let mut hat_big_c_v = vec![];
     for i in 0..N {
-        hat_big_cv.push(hat_big_c_iv[i]);
+        hat_big_c_v.push(hat_big_c_i_v[i]);
     }
     
     while !seen.full() {
@@ -925,9 +925,6 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
             continue;
         }
         for i in 0..N {
-            let hat_big_c_i = &hat_big_c_iv[i];
-            let mut hat_big_c = *hat_big_c_i;
-
             let their_hat_big_c = their_hat_big_c_i_points[i].to_projective();
             let their_phi_proof = &their_phi_proofs[i];
             
@@ -943,15 +940,15 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
                     "dlog proof from {from:?} failed to verify"
                 )));
             }
-            hat_big_cv[i] += &their_hat_big_c;
+            hat_big_c_v[i] += &their_hat_big_c;
         }
     }
 
     
     for i in 0..N {
-        let big_l = &mut big_lv[i];
-        let hat_big_c = &hat_big_cv[i];
-        let big_c = &big_cv[i];
+        let big_l = &mut big_l_v[i];
+        let hat_big_c = &hat_big_c_v[i];
+        let big_c = &big_c_v[i];
         
         // Spec 5.3
         big_l.set_zero(*hat_big_c);
@@ -974,20 +971,20 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         }
         for i in 0..N {
             let c_j_i = c_j_i_v[i];
-            c_iv[i] += C::Scalar::from(c_j_i);
+            c_i_v[i] += C::Scalar::from(c_j_i);
         }
     }
 
     let mut ret = vec![];
     // Spec 5.7
     for i in 0..N {
-        let big_l = &big_lv[i];
-        let c_i = &c_iv[i];
-        let a_i = &a_iv[i];
-        let b_i = &b_iv[i];
-        let big_e = &big_ev[i];
-        let big_f = &big_fv[i];
-        let big_c = &big_cv[i];
+        let big_l = &big_l_v[i];
+        let c_i = &c_i_v[i];
+        let a_i = &a_i_v[i];
+        let b_i = &b_i_v[i];
+        let big_e = &big_e_v[i];
+        let big_f = &big_f_v[i];
+        let big_c = &big_c_v[i];
         
         if big_l.evaluate(&me.scalar::<C>()) != C::ProjectivePoint::generator() * c_i {
             return Err(ProtocolError::AssertionFailed(
