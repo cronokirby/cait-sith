@@ -100,6 +100,51 @@ pub fn deal<C: CSCurve>(
     (triple_pub, shares)
 }
 
+/// Create a new batch of triples from scratch.
+///
+/// This can be used to generate a triple if you then trust the person running
+/// this code to forget about the values they generated.
+pub fn deal_many<C: CSCurve, const N: usize>(
+    rng: &mut impl CryptoRngCore,
+    participants: &[Participant],
+    threshold: usize,
+) -> Vec<(TriplePub<C>, Vec<TripleShare<C>>)> {
+    let mut batch = Vec::with_capacity(1);
+    for _ in 0..N {
+        let a = C::Scalar::random(&mut *rng);
+        let b = C::Scalar::random(&mut *rng);
+        let c = a * b;
+    
+        let f_a = Polynomial::<C>::extend_random(rng, threshold, &a);
+        let f_b = Polynomial::<C>::extend_random(rng, threshold, &b);
+        let f_c = Polynomial::<C>::extend_random(rng, threshold, &c);
+    
+        let mut shares = Vec::with_capacity(participants.len());
+        let mut participants_owned = Vec::with_capacity(participants.len());
+    
+        for p in participants {
+            participants_owned.push(*p);
+            let p_scalar = p.scalar::<C>();
+            shares.push(TripleShare {
+                a: f_a.evaluate(&p_scalar),
+                b: f_b.evaluate(&p_scalar),
+                c: f_c.evaluate(&p_scalar),
+            });
+        }
+    
+        let triple_pub = TriplePub {
+            big_a: (C::ProjectivePoint::generator() * a).into(),
+            big_b: (C::ProjectivePoint::generator() * b).into(),
+            big_c: (C::ProjectivePoint::generator() * c).into(),
+            participants: participants_owned,
+            threshold,
+        };
+    
+        batch.push((triple_pub, shares))
+    }
+    batch
+}
+
 mod batch_random_ot;
 mod bits;
 mod correlated_ot_extension;
@@ -108,4 +153,4 @@ mod mta;
 mod multiplication;
 mod random_ot_extension;
 
-pub use generation::{generate_triple, TripleGenerationOutput};
+pub use generation::{generate_triple, generate_triple_many, TripleGenerationOutput};
