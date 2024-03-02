@@ -198,6 +198,7 @@ fn main() {
         .map(|p| Participant::from(p as u32))
         .collect();
 
+    // Batch size is hard coded.
     const BATCH_SIZE: usize = 100;
     println!(
         "\nBatch (N={}) Triple Gen {} [{} ms, {} B/S]",
