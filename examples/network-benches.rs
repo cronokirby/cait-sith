@@ -26,7 +26,7 @@ fn scalar_hash(msg: &[u8]) -> Scalar {
 
 #[derive(Debug)]
 enum BatchSize {
-    S = 10,  
+    S = 10,
     M = 100,
     L = 1000,
 }
@@ -219,7 +219,6 @@ fn main() {
         .map(|p| Participant::from(p as u32))
         .collect();
 
-    
     println!(
         "\nBatch (N={:?}) Triple Gen {} [{} ms, {} B/S]",
         batch_size, args.parties, args.latency_ms, args.bandwidth
@@ -235,8 +234,12 @@ fn main() {
                 .unwrap()
         }),
         BatchSize::L => run_protocol(latency, bandwidth, &participants, |p| {
-            triples::generate_triple_many::<Secp256k1, 1000>(&participants, p, args.parties as usize)
-                .unwrap()
+            triples::generate_triple_many::<Secp256k1, 1000>(
+                &participants,
+                p,
+                args.parties as usize,
+            )
+            .unwrap()
         }),
     };
     let stop = Instant::now();
