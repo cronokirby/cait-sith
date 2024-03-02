@@ -27,7 +27,7 @@
 //! be generated.
 use elliptic_curve::{Field, Group};
 use rand_core::CryptoRngCore;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::{compat::CSCurve, math::Polynomial, protocol::Participant};
 
@@ -114,14 +114,14 @@ pub fn deal_many<C: CSCurve, const N: usize>(
         let a = C::Scalar::random(&mut *rng);
         let b = C::Scalar::random(&mut *rng);
         let c = a * b;
-    
+
         let f_a = Polynomial::<C>::extend_random(rng, threshold, &a);
         let f_b = Polynomial::<C>::extend_random(rng, threshold, &b);
         let f_c = Polynomial::<C>::extend_random(rng, threshold, &c);
-    
+
         let mut shares = Vec::with_capacity(participants.len());
         let mut participants_owned = Vec::with_capacity(participants.len());
-    
+
         for p in participants {
             participants_owned.push(*p);
             let p_scalar = p.scalar::<C>();
@@ -131,7 +131,7 @@ pub fn deal_many<C: CSCurve, const N: usize>(
                 c: f_c.evaluate(&p_scalar),
             });
         }
-    
+
         let triple_pub = TriplePub {
             big_a: (C::ProjectivePoint::generator() * a).into(),
             big_b: (C::ProjectivePoint::generator() * b).into(),
@@ -139,7 +139,7 @@ pub fn deal_many<C: CSCurve, const N: usize>(
             participants: participants_owned,
             threshold,
         };
-    
+
         batch.push((triple_pub, shares))
     }
     batch

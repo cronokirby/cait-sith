@@ -1,5 +1,5 @@
 use ck_meow::Meow;
-use elliptic_curve::{CurveArithmetic};
+use elliptic_curve::CurveArithmetic;
 use magikitten::MeowRng;
 use rand_core::{OsRng, RngCore};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
