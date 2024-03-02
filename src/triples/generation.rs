@@ -2,6 +2,8 @@ use elliptic_curve::{Field, Group, ScalarPrimitive};
 use magikitten::Transcript;
 use rand_core::OsRng;
 
+use crate::crypto::{Commitment, Randomizer};
+use crate::triples::multiplication::multiplication_many;
 use crate::{
     compat::{CSCurve, SerializablePoint},
     crypto::{commit, hash, Digest},
@@ -14,8 +16,6 @@ use crate::{
     },
     serde::encode,
 };
-use crate::crypto::{Commitment, Randomizer};
-use crate::triples::multiplication::multiplication_many;
 
 use super::{multiplication::multiplication, TriplePub, TripleShare};
 
@@ -452,7 +452,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     threshold: usize,
 ) -> Result<TripleGenerationOutputMany<C>, ProtocolError> {
     assert!(N > 0);
-    
+
     let mut rng = OsRng;
     let mut chan = ctx.shared_channel();
     let mut transcript = Transcript::new(LABEL);
@@ -465,7 +465,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         b"threshold",
         &u64::try_from(threshold).unwrap().to_be_bytes(),
     );
-    
+
     let mut my_commitments = vec![];
     let mut my_randomizers = vec![];
     let mut e_v = vec![];
@@ -480,18 +480,18 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         let e: Polynomial<C> = Polynomial::random(&mut rng, threshold);
         let f: Polynomial<C> = Polynomial::random(&mut rng, threshold);
         let mut l: Polynomial<C> = Polynomial::random(&mut rng, threshold);
-    
+
         // Spec 1.3
         l.set_zero(C::Scalar::ZERO);
-    
+
         // Spec 1.4
         let big_e_i = e.commit();
         let big_f_i = f.commit();
         let big_l_i = l.commit();
-    
+
         // Spec 1.5
         let (my_commitment, my_randomizer) = commit(&mut rng, &(&big_e_i, &big_f_i, &big_l_i));
-        
+
         my_commitments.push(my_commitment);
         my_randomizers.push(my_randomizer);
         e_v.push(e);
@@ -513,14 +513,17 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         m.put(me, my_commitments[i]);
         all_commitments_vec.push(m);
     }
-    
-    while all_commitments_vec.iter().any(|all_commitments| !all_commitments.full()) {
+
+    while all_commitments_vec
+        .iter()
+        .any(|all_commitments| !all_commitments.full())
+    {
         let (from, commitments): (_, Vec<_>) = chan.recv(wait0).await?;
         for i in 0..N {
             all_commitments_vec[i].put(from, commitments[i]);
         }
     }
-    
+
     // Spec 2.2
     let mut my_confirmations = vec![];
     for i in 0..N {
@@ -528,7 +531,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         let my_confirmation = hash(all_commitments);
         my_confirmations.push(my_confirmation);
     }
-    
+
     // Spec 2.3
     transcript.message(b"confirmation", &encode(&my_confirmations));
 
@@ -537,7 +540,14 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         let ctx = ctx.clone();
         let e0_v: Vec<_> = e_v.iter().map(|e| e.evaluate_zero()).collect();
         let f0_v: Vec<_> = f_v.iter().map(|f| f.evaluate_zero()).collect();
-        multiplication_many::<C, N>(ctx, my_confirmations.clone(), participants.clone(), me, e0_v, f0_v)
+        multiplication_many::<C, N>(
+            ctx,
+            my_confirmations.clone(),
+            participants.clone(),
+            me,
+            e0_v,
+            f0_v,
+        )
     };
     let multiplication_task = ctx.spawn(fut);
 
@@ -581,7 +591,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         my_phi_proof0v.push(my_phi_proof0);
         my_phi_proof1v.push(my_phi_proof1);
     }
-    
+
     // Spec 2.7
     let wait2 = chan.next_waitpoint();
     {
@@ -593,7 +603,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
                 &big_l_i_v,
                 &my_randomizers,
                 &my_phi_proof0v,
-                &my_phi_proof1v
+                &my_phi_proof1v,
             ),
         )
         .await;
@@ -639,7 +649,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
             )));
         }
     }
-    
+
     // Spec 3.3 + 3.4, and also part of 3.6, 5.3, for summing up the Es, Fs, and Ls.
     let mut big_e_v = vec![];
     let mut big_f_v = vec![];
@@ -678,7 +688,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         if !seen.put(from) {
             continue;
         }
-        
+
         for i in 0..N {
             let all_commitments = &all_commitments_vec[i];
             let their_big_e = &their_big_e_v[i];
@@ -720,7 +730,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
                     "dlog proof from {from:?} failed to verify"
                 )));
             }
-    
+
             let statement1 = dlog::Statement::<C> {
                 public: &their_big_f.evaluate_zero(),
             };
@@ -733,9 +743,9 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
                     "dlog proof from {from:?} failed to verify"
                 )));
             }
-    
+
             big_e_j_zero_v[i].put(from, their_big_e.evaluate_zero());
-            
+
             big_e_v[i] += &their_big_e;
             big_f_v[i] += &their_big_f;
             big_l_v[i] += &their_big_l;
@@ -801,14 +811,8 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
 
     // Spec 3.10
     let wait4 = chan.next_waitpoint();
-    chan.send_many(
-        wait4,
-        &(
-            &big_c_i_points,
-            &my_phi_proofs,
-        ),
-    )
-    .await;
+    chan.send_many(wait4, &(&big_c_i_points, &my_phi_proofs))
+        .await;
 
     // Spec 4.1 + 4.2 + 4.3
     seen.clear();
@@ -818,8 +822,10 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         big_c_v.push(big_c_i_v[i]);
     }
     while !seen.full() {
-        let (from, (big_c_j_v, their_phi_proofs)): (_, (Vec<SerializablePoint<C>>, Vec<dlogeq::Proof<C>>)) =
-            chan.recv(wait4).await?;
+        let (from, (big_c_j_v, their_phi_proofs)): (
+            _,
+            (Vec<SerializablePoint<C>>, Vec<dlogeq::Proof<C>>),
+        ) = chan.recv(wait4).await?;
         if !seen.put(from) {
             continue;
         }
@@ -829,13 +835,13 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
 
             let big_c_j = big_c_j_v[i].to_projective();
             let their_phi_proof = &their_phi_proofs[i];
-    
+
             let statement = dlogeq::Statement::<C> {
                 public0: &big_e_j_zero[from],
                 generator1: &big_f.evaluate_zero(),
                 public1: &big_c_j,
             };
-    
+
             if !dlogeq::verify(
                 &mut transcript.forked(b"dlogeq0", &from.bytes()),
                 statement,
@@ -859,7 +865,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         // Spec 4.5
         let l0 = l0_v[i];
         let hat_big_c_i = C::ProjectivePoint::generator() * l0;
-        
+
         // Spec 4.6
         let statement = dlog::Statement::<C> {
             public: &hat_big_c_i,
@@ -875,18 +881,12 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         hat_big_c_i_v.push(hat_big_c_i);
         my_phi_proofs.push(my_phi_proof);
     }
-    
+
     // Spec 4.8
     let wait5 = chan.next_waitpoint();
-    chan.send_many(
-        wait5,
-        &(
-            &hat_big_c_i_points,
-            &my_phi_proofs,
-        ),
-    )
-    .await;
-    
+    chan.send_many(wait5, &(&hat_big_c_i_points, &my_phi_proofs))
+        .await;
+
     // Spec 4.9
     for i in 0..N {
         let l = &mut l_v[i];
@@ -909,7 +909,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         let c_i = l.evaluate(&me.scalar::<C>());
         c_i_v.push(c_i);
     }
-    
+
     // Spec 5.1 + 5.2 + 5.3
     seen.clear();
     seen.put(me);
@@ -917,17 +917,19 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
     for i in 0..N {
         hat_big_c_v.push(hat_big_c_i_v[i]);
     }
-    
+
     while !seen.full() {
-        let (from, (their_hat_big_c_i_points, their_phi_proofs)): (_, (Vec<SerializablePoint<C>>, Vec<dlog::Proof<C>>)) =
-            chan.recv(wait5).await?;
+        let (from, (their_hat_big_c_i_points, their_phi_proofs)): (
+            _,
+            (Vec<SerializablePoint<C>>, Vec<dlog::Proof<C>>),
+        ) = chan.recv(wait5).await?;
         if !seen.put(from) {
             continue;
         }
         for i in 0..N {
             let their_hat_big_c = their_hat_big_c_i_points[i].to_projective();
             let their_phi_proof = &their_phi_proofs[i];
-            
+
             let statement = dlog::Statement::<C> {
                 public: &their_hat_big_c,
             };
@@ -944,15 +946,14 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         }
     }
 
-    
     for i in 0..N {
         let big_l = &mut big_l_v[i];
         let hat_big_c = &hat_big_c_v[i];
         let big_c = &big_c_v[i];
-        
+
         // Spec 5.3
         big_l.set_zero(*hat_big_c);
-        
+
         // Spec 5.4
         if big_l.evaluate_zero() != *big_c {
             return Err(ProtocolError::AssertionFailed(
@@ -960,7 +961,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
             ));
         }
     }
-    
+
     // Spec 5.5 + 5.6
     seen.clear();
     seen.put(me);
@@ -985,7 +986,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
         let big_e = &big_e_v[i];
         let big_f = &big_f_v[i];
         let big_c = &big_c_v[i];
-        
+
         if big_l.evaluate(&me.scalar::<C>()) != C::ProjectivePoint::generator() * c_i {
             return Err(ProtocolError::AssertionFailed(
                 "received bad private share of c".to_string(),
@@ -1145,7 +1146,7 @@ mod test {
 
         Ok(())
     }
-    
+
     #[test]
     fn test_triple_generation_many() -> Result<(), ProtocolError> {
         let participants = vec![

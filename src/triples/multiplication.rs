@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use crate::triples::batch_random_ot::{batch_random_ot_receiver_many, batch_random_ot_sender_many};
 use crate::{
     compat::CSCurve,
     constants::SECURITY_PARAMETER,
@@ -9,7 +9,7 @@ use crate::{
         Participant, ProtocolError,
     },
 };
-use crate::triples::batch_random_ot::{batch_random_ot_receiver_many, batch_random_ot_sender_many};
+use std::sync::Arc;
 
 use super::{
     batch_random_ot::{batch_random_ot_receiver, batch_random_ot_sender},
@@ -69,7 +69,7 @@ pub async fn multiplication_sender_many<'a, C: CSCurve, const N: usize>(
         let (delta, k) = &dkv[i];
         let a_i = &a_iv[i];
         let b_i = &b_iv[i];
-    
+
         let batch_size = C::BITS + SECURITY_PARAMETER;
         // Step 1
         let mut res0 = random_ot_extension_sender::<C>(
@@ -83,15 +83,15 @@ pub async fn multiplication_sender_many<'a, C: CSCurve, const N: usize>(
         )
         .await?;
         let res1 = res0.split_off(batch_size);
-    
+
         // Step 2
         let task0 = ctx.spawn(mta_sender::<C>(chan.child(2), res0, *a_i));
         let task1 = ctx.spawn(mta_sender::<C>(chan.child(3), res1, *b_i));
-    
+
         // Step 3
         let gamma0 = ctx.run(task0).await?;
         let gamma1 = ctx.run(task1).await?;
-    
+
         ret.push(gamma0 + gamma1);
     }
     Ok(ret)
@@ -147,7 +147,7 @@ pub async fn multiplication_receiver_many<'a, C: CSCurve, const N: usize>(
         let (k0, k1) = &dkv[i];
         let a_i = &a_iv[i];
         let b_i = &b_iv[i];
-    
+
         let batch_size = C::BITS + SECURITY_PARAMETER;
         // Step 1
         let mut res0 = random_ot_extension_receiver::<C>(
@@ -161,15 +161,15 @@ pub async fn multiplication_receiver_many<'a, C: CSCurve, const N: usize>(
         )
         .await?;
         let res1 = res0.split_off(batch_size);
-    
+
         // Step 2
         let task0 = ctx.spawn(mta_receiver::<C>(chan.child(2), res0, *b_i));
         let task1 = ctx.spawn(mta_receiver::<C>(chan.child(3), res1, *a_i));
-    
+
         // Step 3
         let gamma0 = ctx.run(task0).await?;
         let gamma1 = ctx.run(task1).await?;
-    
+
         ret.push(gamma0 + gamma1);
     }
     Ok(ret)
@@ -227,9 +227,23 @@ pub async fn multiplication_many<C: CSCurve, const N: usize>(
             let chan = ctx.private_channel(me, p);
             async move {
                 if p < me {
-                    multiplication_sender_many::<C, N>(ctx, chan, sid_arc.as_slice(), av_iv_arc.as_slice(), bv_iv_arc.as_slice()).await
+                    multiplication_sender_many::<C, N>(
+                        ctx,
+                        chan,
+                        sid_arc.as_slice(),
+                        av_iv_arc.as_slice(),
+                        bv_iv_arc.as_slice(),
+                    )
+                    .await
                 } else {
-                    multiplication_receiver_many::<C, N>(ctx, chan, sid_arc.as_slice(), av_iv_arc.as_slice(), bv_iv_arc.as_slice()).await
+                    multiplication_receiver_many::<C, N>(
+                        ctx,
+                        chan,
+                        sid_arc.as_slice(),
+                        av_iv_arc.as_slice(),
+                        bv_iv_arc.as_slice(),
+                    )
+                    .await
                 }
             }
         };
@@ -283,12 +297,8 @@ mod test {
                 (p, a_i, b_i)
             })
             .collect();
-        let a = prep
-            .iter()
-            .fold(Scalar::ZERO, |acc, (_, a_i, _)| acc + a_i);
-        let b = prep
-            .iter()
-            .fold(Scalar::ZERO, |acc, (_, _, b_i)| acc + b_i);
+        let a = prep.iter().fold(Scalar::ZERO, |acc, (_, a_i, _)| acc + a_i);
+        let b = prep.iter().fold(Scalar::ZERO, |acc, (_, _, b_i)| acc + b_i);
 
         let mut protocols: Vec<(Participant, Box<dyn Protocol<Output = Scalar>>)> =
             Vec::with_capacity(prep.len());

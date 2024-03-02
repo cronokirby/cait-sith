@@ -8,7 +8,7 @@
 use core::fmt;
 use std::{collections::HashMap, error};
 
-use ::serde::{Serialize, Deserialize};
+use ::serde::{Deserialize, Serialize};
 
 use crate::compat::CSCurve;
 

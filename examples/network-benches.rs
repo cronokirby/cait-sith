@@ -198,6 +198,24 @@ fn main() {
         .map(|p| Participant::from(p as u32))
         .collect();
 
+    const BATCH_SIZE: usize = 100;
+    println!(
+        "\nBatch (N={}) Triple Gen {} [{} ms, {} B/S]",
+        BATCH_SIZE, args.parties, args.latency_ms, args.bandwidth
+    );
+    let start = Instant::now();
+    let results = run_protocol(latency, bandwidth, &participants, |p| {
+        triples::generate_triple_many::<Secp256k1, BATCH_SIZE>(
+            &participants,
+            p,
+            args.parties as usize,
+        )
+        .unwrap()
+    });
+    let stop = Instant::now();
+    println!("time:\t{:#?}", stop.duration_since(start));
+    report_stats(results.iter().map(|(_, stats, _)| *stats));
+
     println!(
         "\nTriple Gen {} [{} ms, {} B/S]",
         args.parties, args.latency_ms, args.bandwidth
