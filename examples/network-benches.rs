@@ -24,6 +24,24 @@ fn scalar_hash(msg: &[u8]) -> Scalar {
     <Scalar as Reduce<<Secp256k1 as Curve>::Uint>>::reduce_bytes(&m_bytes)
 }
 
+#[derive(Debug)]
+enum BatchSize {
+    S = 10,  
+    M = 100,
+    L = 1000,
+}
+
+impl BatchSize {
+    fn from_value(value: u32) -> Self {
+        match value {
+            10 => BatchSize::S,
+            100 => BatchSize::M,
+            1000 => BatchSize::L,
+            _ => BatchSize::S,
+        }
+    }
+}
+
 #[derive(Debug, StructOpt)]
 struct Args {
     /// The number of parties to run the benchmarks with.
@@ -32,6 +50,8 @@ struct Args {
     latency_ms: u32,
     /// The bandwidth, in bytes per second.
     bandwidth: u32,
+    /// The batch size.
+    batch_size: u32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -194,25 +214,31 @@ fn main() {
     let args = Args::from_args();
     let latency = Duration::from_millis(args.latency_ms as u64);
     let bandwidth = args.bandwidth;
+    let batch_size = BatchSize::from_value(args.batch_size);
     let participants: Vec<_> = (0..args.parties)
         .map(|p| Participant::from(p as u32))
         .collect();
 
-    // Batch size is hard coded.
-    const BATCH_SIZE: usize = 100;
+    
     println!(
-        "\nBatch (N={}) Triple Gen {} [{} ms, {} B/S]",
-        BATCH_SIZE, args.parties, args.latency_ms, args.bandwidth
+        "\nBatch (N={:?}) Triple Gen {} [{} ms, {} B/S]",
+        batch_size, args.parties, args.latency_ms, args.bandwidth
     );
     let start = Instant::now();
-    let results = run_protocol(latency, bandwidth, &participants, |p| {
-        triples::generate_triple_many::<Secp256k1, BATCH_SIZE>(
-            &participants,
-            p,
-            args.parties as usize,
-        )
-        .unwrap()
-    });
+    let results = match batch_size {
+        BatchSize::S => run_protocol(latency, bandwidth, &participants, |p| {
+            triples::generate_triple_many::<Secp256k1, 10>(&participants, p, args.parties as usize)
+                .unwrap()
+        }),
+        BatchSize::M => run_protocol(latency, bandwidth, &participants, |p| {
+            triples::generate_triple_many::<Secp256k1, 100>(&participants, p, args.parties as usize)
+                .unwrap()
+        }),
+        BatchSize::L => run_protocol(latency, bandwidth, &participants, |p| {
+            triples::generate_triple_many::<Secp256k1, 1000>(&participants, p, args.parties as usize)
+                .unwrap()
+        }),
+    };
     let stop = Instant::now();
     println!("time:\t{:#?}", stop.duration_since(start));
     report_stats(results.iter().map(|(_, stats, _)| *stats));
