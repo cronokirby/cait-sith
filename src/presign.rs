@@ -141,7 +141,7 @@ async fn do_presign<C: CSCurve>(
 
     // Spec 2.8
     let lambda_diff = bt_lambda * sk_lambda.invert().expect("to invert sk_lambda");
-    let sigma_i = ka * args.keygen_out.private_share - (xb * a_i + c_i) * lambda_diff;
+    let sigma_i = ka * args.keygen_out.private_share - (xb * a_i - c_i) * lambda_diff;
 
     Ok(PresignOutput {
         big_r,

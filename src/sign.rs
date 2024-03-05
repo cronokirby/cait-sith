@@ -48,19 +48,16 @@ async fn do_sign<C: CSCurve>(
     mut chan: SharedChannel,
     participants: ParticipantList,
     me: Participant,
-    bt_participants: ParticipantList,
-    bt_id: Participant,
     public_key: C::AffinePoint,
     presignature: PresignOutput<C>,
     msg_hash: C::Scalar,
 ) -> Result<FullSignature<C>, ProtocolError> {
     // Spec 1.1
-    let bt_lambda = bt_participants.lagrange::<C>(bt_id);
-    let sk_lambda = participants.lagrange::<C>(me);
-    let k_i = bt_lambda * presignature.k;
+    let lambda = participants.lagrange::<C>(me);
+    let k_i = lambda * presignature.k;
 
     // Spec 1.2
-    let sigma_i = sk_lambda * presignature.sigma;
+    let sigma_i = lambda * presignature.sigma;
 
     // Spec 1.3
     let r = compat::x_coordinate::<C>(&presignature.big_r);
@@ -162,8 +159,6 @@ pub async fn combine_signature_shares<C: CSCurve>(
 pub fn sign<C: CSCurve>(
     participants: &[Participant],
     me: Participant,
-    bt_participants: &[Participant],
-    bt_id: Participant,
     public_key: C::AffinePoint,
     presignature: PresignOutput<C>,
     msg_hash: C::Scalar,
@@ -178,17 +173,12 @@ pub fn sign<C: CSCurve>(
     let participants = ParticipantList::new(participants).ok_or_else(|| {
         InitializationError::BadParameters("participant list cannot contain duplicates".to_string())
     })?;
-    let bt_participants = ParticipantList::new(bt_participants).ok_or_else(|| {
-        InitializationError::BadParameters("bt_participants list cannot contain duplicates".to_string())
-    })?;
 
     let ctx = Context::new();
     let fut = do_sign(
         ctx.shared_channel(),
         participants,
         me,
-        bt_participants,
-        bt_id,
         public_key,
         presignature,
         msg_hash,
@@ -245,8 +235,6 @@ mod test {
                     sigma: h.evaluate(&p_scalar),
                 };
                 let protocol = sign(
-                    &participants,
-                    *p,
                     &participants,
                     *p,
                     public_key,

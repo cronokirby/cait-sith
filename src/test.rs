@@ -91,8 +91,6 @@ fn run_sign(
         let protocol = sign(
             &participant_list,
             p,
-            &participant_list,
-            p,
             public_key,
             presign_out,
             scalar_hash(msg),
