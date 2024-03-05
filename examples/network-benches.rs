@@ -291,6 +291,8 @@ fn main() {
         presign(
             &participants,
             p,
+            &participants,
+            p,
             PresignArguments {
                 triple0: triples[&p].clone(),
                 triple1: other_triples[&p].clone(),
