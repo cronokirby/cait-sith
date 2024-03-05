@@ -56,6 +56,7 @@ async fn do_presign<C: CSCurve>(
     let big_a: C::ProjectivePoint = args.triple1.1.big_a.into();
     let big_b: C::ProjectivePoint = args.triple1.1.big_b.into();
 
+    let sk_lambda = participants.lagrange::<C>(me);
     let bt_lambda = bt_participants.lagrange::<C>(bt_id);
 
     let k_i = args.triple0.0.a;
@@ -68,7 +69,7 @@ async fn do_presign<C: CSCurve>(
     let a_prime_i = bt_lambda * a_i;
     let b_prime_i = bt_lambda * b_i;
 
-    let x_prime_i = bt_lambda * args.keygen_out.private_share;
+    let x_prime_i = sk_lambda * args.keygen_out.private_share;
 
     // Spec 1.4
     let wait0 = chan.next_waitpoint();
@@ -139,11 +140,12 @@ async fn do_presign<C: CSCurve>(
     let big_r = (C::ProjectivePoint::from(big_d) * kd_inv).into();
 
     // Spec 2.8
-    let sigma_i = ka * args.keygen_out.private_share - xb * a_i + c_i;
+    let lambda_diff = bt_lambda * sk_lambda.invert().expect("to invert sk_lambda");
+    let sigma_i = ka * args.keygen_out.private_share - (xb * a_i + c_i) * lambda_diff;
 
     Ok(PresignOutput {
         big_r,
-        k: k_i,
+        k: k_i * lambda_diff,
         sigma: sigma_i,
     })
 }
