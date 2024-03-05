@@ -57,6 +57,8 @@ fn run_presign(
         let protocol = presign(
             &participant_list,
             p,
+            &participant_list,
+            p,
             PresignArguments {
                 triple0: (share0, pub0.clone()),
                 triple1: (share1, pub1.clone()),

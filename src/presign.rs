@@ -42,6 +42,8 @@ async fn do_presign<C: CSCurve>(
     mut chan: SharedChannel,
     participants: ParticipantList,
     me: Participant,
+    bt_participants: ParticipantList,
+    bt_id: Participant,
     args: PresignArguments<C>,
 ) -> Result<PresignOutput<C>, ProtocolError> {
     // Spec 1.2 + 1.3
@@ -54,19 +56,19 @@ async fn do_presign<C: CSCurve>(
     let big_a: C::ProjectivePoint = args.triple1.1.big_a.into();
     let big_b: C::ProjectivePoint = args.triple1.1.big_b.into();
 
-    let lambda = participants.lagrange::<C>(me);
+    let bt_lambda = bt_participants.lagrange::<C>(bt_id);
 
     let k_i = args.triple0.0.a;
-    let k_prime_i = lambda * k_i;
-    let kd_i: C::Scalar = lambda * args.triple0.0.c;
+    let k_prime_i = bt_lambda * k_i;
+    let kd_i: C::Scalar = bt_lambda * args.triple0.0.c;
 
     let a_i = args.triple1.0.a;
     let b_i = args.triple1.0.b;
     let c_i = args.triple1.0.c;
-    let a_prime_i = lambda * a_i;
-    let b_prime_i = lambda * b_i;
+    let a_prime_i = bt_lambda * a_i;
+    let b_prime_i = bt_lambda * b_i;
 
-    let x_prime_i = lambda * args.keygen_out.private_share;
+    let x_prime_i = bt_lambda * args.keygen_out.private_share;
 
     // Spec 1.4
     let wait0 = chan.next_waitpoint();
@@ -156,6 +158,8 @@ async fn do_presign<C: CSCurve>(
 pub fn presign<C: CSCurve>(
     participants: &[Participant],
     me: Participant,
+    bt_participants: &[Participant],
+    bt_id: Participant,
     args: PresignArguments<C>,
 ) -> Result<impl Protocol<Output = PresignOutput<C>>, InitializationError> {
     if participants.len() < 2 {
@@ -185,8 +189,12 @@ pub fn presign<C: CSCurve>(
         InitializationError::BadParameters("participant list cannot contain duplicates".to_string())
     })?;
 
+    let all_bt_ids = ParticipantList::new(bt_participants).ok_or_else(|| {
+        InitializationError::BadParameters("bt_participants list cannot contain duplicates".to_string())
+    })?;
+
     let ctx = Context::new();
-    let fut = do_presign(ctx.shared_channel(), participants, me, args);
+    let fut = do_presign(ctx.shared_channel(), participants, me, all_bt_ids, bt_id, args);
     Ok(make_protocol(ctx, fut))
 }
 
@@ -230,6 +238,8 @@ mod test {
             .zip(triple1_shares.into_iter())
         {
             let protocol = presign(
+                &participants[..3],
+                *p,
                 &participants[..3],
                 *p,
                 PresignArguments {
