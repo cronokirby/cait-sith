@@ -79,7 +79,7 @@ pub async fn multiplication_sender_many<'a, C: CSCurve, const N: usize>(
                 batch_size: 2 * batch_size,
             },
             *delta,
-            &k,
+            k,
         )
         .await?;
         let res1 = res0.split_off(batch_size);
@@ -156,8 +156,8 @@ pub async fn multiplication_receiver_many<'a, C: CSCurve, const N: usize>(
                 sid: sid[i].as_ref(),
                 batch_size: 2 * batch_size,
             },
-            &k0,
-            &k1,
+            k0,
+            k1,
         )
         .await?;
         let res1 = res0.split_off(batch_size);

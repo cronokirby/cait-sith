@@ -1,6 +1,8 @@
 use elliptic_curve::{Field, ScalarPrimitive};
 use magikitten::MeowRng;
 use rand_core::{OsRng, RngCore};
+use serde::{Deserialize, Serialize};
+use std::slice::Iter;
 use subtle::{Choice, ConditionallySelectable};
 
 use crate::{
@@ -10,6 +12,49 @@ use crate::{
         run_two_party_protocol, Participant, ProtocolError,
     },
 };
+
+struct MTAScalars<C: CSCurve>(Vec<(ScalarPrimitive<C>, ScalarPrimitive<C>)>);
+
+impl<C: CSCurve> MTAScalars<C> {
+    const SCALAR_LEN: usize = (C::BITS + 7) >> 3;
+
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn iter(&self) -> Iter<'_, (ScalarPrimitive<C>, ScalarPrimitive<C>)> {
+        self.0.iter()
+    }
+}
+
+impl<C: CSCurve> Serialize for MTAScalars<C> {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let mut out = Vec::with_capacity(self.len() * Self::SCALAR_LEN * 2);
+        for (s0, s1) in self.iter() {
+            out.extend_from_slice(s0.to_bytes().as_ref());
+            out.extend_from_slice(s1.to_bytes().as_ref());
+        }
+        out.serialize(s)
+    }
+}
+
+impl<'de, C: CSCurve> Deserialize<'de> for MTAScalars<C> {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let bytes = Vec::<u8>::deserialize(d)?;
+        if bytes.len() % (Self::SCALAR_LEN * 2) != 0 {
+            return Err(serde::de::Error::custom("invalid length"));
+        }
+        let mut out = Vec::with_capacity(bytes.len() / (Self::SCALAR_LEN * 2));
+        for chunk in bytes.chunks_exact(Self::SCALAR_LEN * 2) {
+            let s0 = ScalarPrimitive::from_slice(&chunk[..Self::SCALAR_LEN])
+                .map_err(serde::de::Error::custom)?;
+            let s1 = ScalarPrimitive::from_slice(&chunk[Self::SCALAR_LEN..])
+                .map_err(serde::de::Error::custom)?;
+            out.push((s0, s1));
+        }
+        Ok(Self(out))
+    }
+}
 
 /// The sender for multiplicative to additive conversion.
 pub async fn mta_sender<C: CSCurve>(
@@ -23,11 +68,15 @@ pub async fn mta_sender<C: CSCurve>(
     let delta: Vec<_> = (0..size).map(|_| C::Scalar::random(&mut OsRng)).collect();
 
     // Step 2
-    let c: Vec<(ScalarPrimitive<C>, ScalarPrimitive<C>)> = delta
-        .iter()
-        .zip(v.iter())
-        .map(|(delta_i, (v0_i, v1_i))| ((*v0_i + delta_i + a).into(), (*v1_i + delta_i - a).into()))
-        .collect();
+    let c: MTAScalars<C> = MTAScalars(
+        delta
+            .iter()
+            .zip(v.iter())
+            .map(|(delta_i, (v0_i, v1_i))| {
+                ((*v0_i + delta_i + a).into(), (*v1_i + delta_i - a).into())
+            })
+            .collect(),
+    );
     let wait0 = chan.next_waitpoint();
     chan.send(wait0, &c).await;
 
@@ -56,7 +105,7 @@ pub async fn mta_receiver<C: CSCurve>(
 
     // Step 3
     let wait0 = chan.next_waitpoint();
-    let c: Vec<(ScalarPrimitive<C>, ScalarPrimitive<C>)> = chan.recv(wait0).await?;
+    let c: MTAScalars<C> = chan.recv(wait0).await?;
     if c.len() != tv.len() {
         return Err(ProtocolError::AssertionFailed(
             "length of c was incorrect".to_owned(),

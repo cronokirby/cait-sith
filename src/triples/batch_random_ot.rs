@@ -118,8 +118,8 @@ pub async fn batch_random_ot_sender_many<C: CSCurve, const N: usize>(
                 let big_y_affine = &big_y_affine_v_arc.as_slice()[j];
                 let big_z = &big_z_v_arc.as_slice()[j];
                 let y_big_x_i = big_x_i_affine_v[j].to_projective() * *y;
-                let big_k0 = hash(i, &big_x_i_affine_v[j], &big_y_affine, &y_big_x_i);
-                let big_k1 = hash(i, &big_x_i_affine_v[j], &big_y_affine, &(y_big_x_i - big_z));
+                let big_k0 = hash(i, &big_x_i_affine_v[j], big_y_affine, &y_big_x_i);
+                let big_k1 = hash(i, &big_x_i_affine_v[j], big_y_affine, &(y_big_x_i - big_z));
                 ret.push((big_k0, big_k1));
             }
 
@@ -202,7 +202,7 @@ pub async fn batch_random_ot_receiver_many<C: CSCurve, const N: usize>(
     let mut big_y_v = vec![];
     let mut deltav = vec![];
     for i in 0..N {
-        let big_y_affine = big_y_affine_v[i].clone();
+        let big_y_affine = big_y_affine_v[i];
         let big_y = big_y_affine.to_projective();
         if bool::from(big_y.is_identity()) {
             return Err(ProtocolError::AssertionFailed(
@@ -229,7 +229,7 @@ pub async fn batch_random_ot_receiver_many<C: CSCurve, const N: usize>(
         }
     }
     // wrap in arc
-    let choices: Vec<_> = choices.into_iter().map(|c| Arc::new(c)).collect();
+    let choices: Vec<_> = choices.into_iter().map(Arc::new).collect();
 
     let mut tasks = Vec::new();
     for i in 0..choices.len() {
@@ -290,7 +290,7 @@ pub async fn batch_random_ot_receiver_many<C: CSCurve, const N: usize>(
     for j in 0..N {
         let delta = deltav[j];
         let out = &outs[j];
-        let big_k: BitMatrix = out.into_iter().cloned().collect();
+        let big_k: BitMatrix = out.iter().cloned().collect();
         let h = SquareBitMatrix::try_from(big_k);
         ret.push((delta, h.unwrap()))
     }

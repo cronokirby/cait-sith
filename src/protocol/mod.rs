@@ -5,8 +5,7 @@
 //! to deliver messages to and from that protocol, and eventually it will produce
 //! a result, without you having to worry about how many rounds it has, or how
 //! to serialize the emssages it produces.
-use core::fmt;
-use std::{collections::HashMap, error};
+use std::{collections::HashMap, error, fmt};
 
 use ::serde::{Deserialize, Serialize};
 
@@ -49,7 +48,7 @@ pub enum InitializationError {
 }
 
 impl fmt::Display for InitializationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             InitializationError::BadParameters(s) => write!(f, "bad parameters: {}", s),
         }
@@ -195,7 +194,7 @@ pub fn run_protocol<T>(
 ///
 /// This is more useful for testing two party protocols with assymetric results,
 /// since the return types for the two protocols can be different.
-pub(crate) fn run_two_party_protocol<T0: std::fmt::Debug, T1: std::fmt::Debug>(
+pub(crate) fn run_two_party_protocol<T0: fmt::Debug, T1: fmt::Debug>(
     p0: Participant,
     p1: Participant,
     prot0: &mut dyn Protocol<Output = T0>,

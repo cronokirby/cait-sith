@@ -192,11 +192,20 @@ pub fn presign<C: CSCurve>(
     })?;
 
     let all_bt_ids = ParticipantList::new(bt_participants).ok_or_else(|| {
-        InitializationError::BadParameters("bt_participants list cannot contain duplicates".to_string())
+        InitializationError::BadParameters(
+            "bt_participants list cannot contain duplicates".to_string(),
+        )
     })?;
 
     let ctx = Context::new();
-    let fut = do_presign(ctx.shared_channel(), participants, me, all_bt_ids, bt_id, args);
+    let fut = do_presign(
+        ctx.shared_channel(),
+        participants,
+        me,
+        all_bt_ids,
+        bt_id,
+        args,
+    );
     Ok(make_protocol(ctx, fut))
 }
 

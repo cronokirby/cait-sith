@@ -712,7 +712,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
             }
             if !all_commitments[from].check(
                 &(&their_big_e, &their_big_f, &their_big_l),
-                &their_randomizer,
+                their_randomizer,
             ) {
                 return Err(ProtocolError::AssertionFailed(format!(
                     "commitment from {from:?} did not match revealed F"
@@ -724,7 +724,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
             if !dlog::verify(
                 &mut transcript.forked(b"dlog0", &from.bytes()),
                 statement0,
-                &their_phi_proof0,
+                their_phi_proof0,
             ) {
                 return Err(ProtocolError::AssertionFailed(format!(
                     "dlog proof from {from:?} failed to verify"
@@ -737,7 +737,7 @@ async fn do_generation_many<C: CSCurve, const N: usize>(
             if !dlog::verify(
                 &mut transcript.forked(b"dlog1", &from.bytes()),
                 statement1,
-                &their_phi_proof1,
+                their_phi_proof1,
             ) {
                 return Err(ProtocolError::AssertionFailed(format!(
                     "dlog proof from {from:?} failed to verify"
